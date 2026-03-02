@@ -1,0 +1,102 @@
+# settings.py
+import pygame
+
+# --- COLORS ---
+COLOR_BG = (15, 12, 10)            
+COLOR_SAND_A = (180, 170, 140); COLOR_SAND_B = (160, 150, 120)     
+COLOR_OBS_1_A = (50, 55, 65); COLOR_OBS_1_B = (70, 75, 85)
+COLOR_OBS_2_A = (120, 80, 50); COLOR_OBS_2_B = (140, 100, 70)
+COLOR_OBS_3_A = (20, 20, 25); COLOR_OBS_3_B = (60, 60, 80)
+COLOR_DUST_1 = (100, 90, 70); COLOR_DUST_2 = (160, 140, 100); COLOR_DUST_3 = (200, 180, 150)
+PARTICLE_COUNT = 400               
+
+COLOR_SHIP = (200, 200, 210); COLOR_SHIP_OUTLINE = (50, 50, 70); COLOR_THRUSTER = (0, 255, 255)     
+COLOR_TARGET_MARKER = (255, 0, 100); COLOR_TARGET_POINTER = (255, 100, 0)
+
+# HUD
+COLOR_UI_BG = (5, 8, 15); COLOR_UI_BORDER = (0, 120, 200); COLOR_UI_TEXT = (100, 200, 255)    
+COLOR_UI_HEADER = (255, 255, 255); COLOR_TEXT_ALERT = (255, 50, 50); COLOR_TEXT_SUCCESS = (50, 255, 50) 
+COLOR_HP_BAR = (0, 200, 50); COLOR_HP_LOW = (200, 0, 0)
+
+COLOR_PHASE_NAV = (0, 150, 255)
+COLOR_PHASE_COM = (255, 50, 50)
+COLOR_PHASE_ENG = (255, 150, 0)
+
+# Radar
+COLOR_TAC_EASY = (0, 200, 200); COLOR_TAC_MED = (0, 100, 255); COLOR_TAC_HARD = (150, 0, 255)     
+COLOR_TAC_IMP = (20, 25, 30); COLOR_TAC_BG = (2, 5, 8) 
+COLOR_TAC_COM_BG = (20, 5, 5); COLOR_TAC_COM_LINES = (150, 50, 50); COLOR_TAC_COM_FILL = (80, 20, 20)
+COLOR_ENEMY = (255, 50, 50); COLOR_LOCK_MARKER = (0, 255, 50); COLOR_HIT_FLASH = (255, 255, 255)
+
+# --- VALUES ---
+WIDTH, HEIGHT = 1100, 850  # <-- RESTORED
+HEX_SIZE_MAIN = 35; HEX_SIZE_HUD = 18 
+VIEW_RADIUS = 10; MOVE_RADIUS = 3   
+SPEED = 0.08
+WORLD_THRESHOLD = 0.72; WORLD_SCALE = 5.0 
+
+ENG_DIST_BONUS = 2; ENG_DC_MULT = 0.5       
+DC_BASE = 8; DC_PER_DIST = 1; DC_MOD_EASY = 1; DC_MOD_HARD = 2
+MAX_HP = 26
+HP_THRESHOLD_WARN = 0.60
+HP_THRESHOLD_CRIT = 0.40
+HP_THRESHOLD_FAIL = 0.20
+
+# Difficulty Class (DC) Base Values
+#DC_BASE = 8                 # The starting difficulty number for Nav checks
+#DC_PER_DIST = 1             # Added to DC for every tile of distance traveled
+#DC_MOD_EASY = 2             # Added if angle is slightly sharp
+#DC_MOD_HARD = 4             # Added if angle is very sharp
+
+START_ENERGY = 3
+START_SPARE_PARTS = 2
+START_AMMO = 1
+
+ENEMY_BASE_AC = 12; ENEMY_MAX_HP = 26; PLAYER_DMG_BONUS = 4; AC_DIST_BONUS = [0, 2, 4]
+TARGETING_DC = 8 
+
+## Combat Settings
+#ENEMY_BASE_AC = 14          # Base difficulty to hit an enemy (Armor Class)
+#ENEMY_MAX_HP = 32           # How much health the target dummy has
+#PLAYER_DMG_BONUS = 3        # Standard Damage Bonus (e.g., 1d6 + THIS NUMBER)
+#AC_DIST_BONUS = [0, 2, 4]   # Difficulty added by distance [Range 1, Range 2, Range 3]
+#TARGETING_DC = 14           # Difficulty to Lock On (Drift/Skill check)
+
+# --- PHASES ---
+PHASE_START = 0
+PHASE_CMD   = 1
+PHASE_NAV   = 2
+PHASE_COM   = 3
+PHASE_ENG   = 4
+
+CMD_STR_NAV = "NAV"
+CMD_STR_COM = "ATK"
+CMD_STR_ENG = "ENG"
+
+PHASE_MAP = {CMD_STR_NAV: PHASE_NAV, CMD_STR_COM: PHASE_COM, CMD_STR_ENG: PHASE_ENG}
+PHASE_NAMES = {PHASE_CMD: "CMD", PHASE_NAV: "NAV", PHASE_COM: "COM", PHASE_ENG: "ENG"}
+
+# --- STATES ---
+STATE_MENU = -1      
+STATE_IDLE = 0          
+STATE_CMD_INPUT = 5
+
+STATE_GAME_OVER = 99
+
+STATE_NAV_SPEED = 10     
+STATE_NAV_SIDE = 11
+STATE_INPUT_BOOST = 12    
+STATE_INPUT_DRIFT = 13    
+STATE_MOVING = 14
+STATE_CONFIRM_MOVE = 15 
+STATE_SELECT_ROT = 16
+
+STATE_COM_SELECT_DIST = 18
+STATE_COM_SELECT_SIDE = 19
+STATE_COM_MENU = 20
+STATE_COM_DIST = 21 
+STATE_COM_FIRE = 22
+STATE_COM_DMG = 23
+STATE_COM_TARGET_DEBUFF = 24
+
+STATE_ENG_ACTION = 30
