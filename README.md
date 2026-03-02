@@ -51,4 +51,20 @@ At the start of your turn, you must program a sequence of three phases in the Co
 
 ---
 
-Would you like me to also write a quick `requirements.txt` file that you can add to the repository alongside this README?
+Since Pygame is the only external dependency used in your code (libraries like `math`, `random`, and `traceback` are built directly into Python), the file is very straightforward.
+
+Create a new file named `requirements.txt` in your `TETHYS.1.1` folder and add the following line:
+
+```text
+pygame>=2.0.0
+
+```
+
+Once this file is in your repository, players and contributors can install the exact dependencies needed by running a single command in their terminal:
+
+```bash
+pip install -r requirements.txt
+
+```
+
+Let me know if you need help setting up anything else for the repository, such as a `.gitignore` file to keep unnecessary files out of your version control.
