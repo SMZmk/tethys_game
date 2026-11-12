@@ -1,0 +1,923 @@
+<title>Tethys: Desert Drifter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap">
+<style>
+/* Layout: arcade cabinet — battlefield screen left, two ship dossiers right, command console under the screen. Single dark look on purpose. */
+:root{
+  --void:#0d0b14; --panel:#17141f; --panel2:#211c2d; --line:#3b3350; --line-hi:#5d5280;
+  --ink:#efe6cf; --dim:#9a90b0; --sand:#d8b878;
+  --nav:#3fa9f5; --atk:#f0503c; --eng:#f5a623; --any:#e8d04a;
+  --good:#5be37a; --bad:#ff4d5e; --p1:#ffcf4a; --p2:#5fd0ff;
+  --f-pix:"Press Start 2P", ui-monospace, monospace;
+  --f-txt:"VT323", ui-monospace, "Courier New", monospace;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{margin:0;background:var(--void);color:var(--ink);font-family:var(--f-txt);font-size:20px;line-height:1.15;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+*{box-sizing:border-box}
+button{font-family:var(--f-pix);font-size:10px;line-height:1.3;color:var(--ink);background:var(--panel2);
+  border:2px solid var(--line-hi);padding:8px 10px;cursor:pointer;box-shadow:inset -2px -2px 0 #0006, inset 2px 2px 0 #fff1;
+  text-transform:uppercase;letter-spacing:.04em}
+button:hover:not(:disabled){border-color:var(--ink)}
+button:focus-visible{outline:2px solid var(--any);outline-offset:2px}
+button:active:not(:disabled){box-shadow:inset 2px 2px 0 #0006}
+button:disabled{opacity:.35;cursor:not-allowed}
+button.sel{background:var(--ink);color:var(--void);border-color:var(--ink)}
+button.go{background:#2a4a2f;border-color:var(--good)}
+button.warn{background:#4a2224;border-color:var(--bad)}
+button.nav{border-color:var(--nav)} button.atk{border-color:var(--atk)} button.eng{border-color:var(--eng)}
+.pix{font-family:var(--f-pix)}
+.app{max-width:1200px;margin:0 auto;padding-block:14px 28px;display:flex;flex-direction:column;gap:12px}
+
+/* header */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px}
+.logo{font-family:var(--f-pix);font-size:16px;letter-spacing:.08em;color:var(--sand);text-shadow:2px 2px 0 #7a3b12}
+.logo small{display:block;font-size:8px;color:var(--dim);letter-spacing:.2em;margin-top:6px;text-shadow:none}
+.track{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.slot{font-family:var(--f-pix);font-size:9px;padding:6px 8px;border:2px solid var(--line);color:var(--dim);min-width:46px;text-align:center}
+.slot.on{color:var(--void)}
+.turnchip{font-family:var(--f-pix);font-size:10px;padding:7px 10px;border:2px solid currentColor}
+
+/* main grid */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.screen{position:relative;border:3px solid var(--line-hi);background:#000;box-shadow:0 0 0 3px #000, 6px 6px 0 3px #0008;line-height:0}
+.screen canvas{width:100%;height:auto;image-rendering:pixelated;image-rendering:crisp-edges;display:block;cursor:crosshair;touch-action:manipulation}
+.hud{position:absolute;left:8px;bottom:8px;font-family:var(--f-pix);font-size:8px;line-height:1.4;color:var(--ink);background:#0d0b14cc;padding:6px 8px;pointer-events:none;max-width:70%}
+.hud:empty{display:none}
+
+.console{background:var(--panel);border:2px solid var(--line);padding:12px;display:flex;flex-direction:column;gap:10px}
+.prompt{font-family:var(--f-pix);font-size:10px;line-height:1.6;color:var(--sand)}
+.prompt .sub{display:block;font-family:var(--f-txt);font-size:20px;color:var(--dim);line-height:1.1;margin-top:2px}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btnrow .lab{font-family:var(--f-pix);font-size:8px;color:var(--dim);min-width:52px}
+.split{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
+.split>*{min-width:0}
+.dice{display:flex;gap:10px;align-items:center;background:var(--panel2);border:2px solid var(--line);padding:8px 10px;flex:1 1 260px}
+.die{width:44px;height:44px;flex:none;display:grid;place-items:center;font-family:var(--f-pix);font-size:14px;color:var(--void);background:var(--ink);
+  clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.die.d6{clip-path:none;border-radius:0;box-shadow:inset -3px -3px 0 #0004}
+.die.rolling{animation:shake .12s steps(2) infinite}
+@keyframes shake{0%{transform:translate(-1px,1px) rotate(-6deg)}100%{transform:translate(1px,-1px) rotate(6deg)}}
+.formula{font-size:20px;line-height:1.1;min-width:0;overflow-wrap:anywhere}
+.formula b{font-weight:normal;font-family:var(--f-pix);font-size:9px}
+.ok{color:var(--good)} .bad{color:var(--bad)} .dim{color:var(--dim)}
+.log{background:#09080e;border:2px solid var(--line);padding:8px 10px;font-size:19px;line-height:1.1;height:150px;overflow-y:auto;display:flex;flex-direction:column-reverse}
+.log div{white-space:pre-wrap;overflow-wrap:anywhere}
+.eng-grid{display:grid;grid-template-columns:auto auto 1fr auto;gap:6px 10px;align-items:center}
+.eng-grid .sys{font-family:var(--f-pix);font-size:9px}
+
+/* ship dossiers */
+.ship{background:var(--panel);border:2px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:8px;position:relative}
+.ship.active{border-color:var(--c);box-shadow:4px 4px 0 0 var(--c)}
+.ship.dead{opacity:.45}
+.ship h3{margin:0;font-family:var(--f-pix);font-size:11px;color:var(--c);display:flex;justify-content:space-between;gap:8px}
+.bar{height:12px;background:#2a0f14;border:2px solid #000;position:relative}
+.bar i{position:absolute;inset:0 auto 0 0;background:var(--good)}
+.bar i.lo{background:var(--bad)}
+.bar::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 calc(100%/13 - 2px),#0008 calc(100%/13 - 2px) calc(100%/13))}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;font-variant-numeric:tabular-nums}
+.stat{background:var(--panel2);padding:3px 5px;font-size:18px;line-height:1}
+.stat span{display:block;font-family:var(--f-pix);font-size:7px;color:var(--dim);margin-bottom:3px}
+.stat .hurt{color:var(--bad)}
+.flags{display:flex;flex-wrap:wrap;gap:4px}
+.flag{font-family:var(--f-pix);font-size:7px;padding:3px 5px;background:#3a2f10;color:var(--any)}
+.flag.red{background:#3d1418;color:var(--bad)}
+.crew{display:flex;flex-direction:column;gap:6px}
+.cm{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:4px 8px;align-items:start;background:var(--panel2);padding:6px;border-left:4px solid var(--st)}
+.cm canvas,.card canvas{width:40px;height:40px;image-rendering:pixelated;background:#100e18;border:2px solid #000}
+.cm .nm{font-family:var(--f-pix);font-size:8px;line-height:1.5}
+.cm .nm em{font-style:normal;color:var(--st)}
+.cm .tx{font-size:17px;line-height:1.05;color:var(--dim)}
+.cm .tx b{font-weight:normal;color:var(--ink)}
+.cm .stt{font-family:var(--f-pix);font-size:7px;text-align:right}
+.cm button{padding:5px 6px;font-size:8px;margin-top:4px}
+.cm.stun canvas{filter:grayscale(1) brightness(.6)}
+
+/* full screens */
+.full{background:var(--panel);border:3px solid var(--line-hi);padding:20px;display:flex;flex-direction:column;gap:16px}
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:20px;align-items:center}
+@media (max-width:800px){.hero{grid-template-columns:minmax(0,1fr)}}
+.hero h1{font-family:var(--f-pix);font-size:clamp(22px,5vw,40px);margin:0;color:var(--sand);text-shadow:4px 4px 0 #7a3b12;letter-spacing:.06em;line-height:1.2}
+.hero h1 small{display:block;font-size:11px;color:var(--atk);text-shadow:none;letter-spacing:.3em;margin-top:12px}
+.hero p{max-width:60ch;margin:0}
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.rule{background:var(--panel2);padding:10px;border-top:4px solid var(--c)}
+.rule h4{margin:0 0 6px;font-family:var(--f-pix);font-size:9px;color:var(--c)}
+.rule p{margin:0;font-size:18px;color:var(--dim)}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:820px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:520px){.cards{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--panel2);border:2px solid var(--st);padding:10px;display:grid;grid-template-columns:48px minmax(0,1fr);gap:6px 10px;text-align:left;font-family:var(--f-txt);font-size:18px;text-transform:none;letter-spacing:0;line-height:1.05}
+.card canvas{width:48px;height:48px}
+.card .nm{font-family:var(--f-pix);font-size:10px;line-height:1.5}
+.card .nm em{display:block;font-style:normal;font-size:8px;color:var(--st)}
+.card .full2{grid-column:1/-1;display:flex;flex-direction:column;gap:3px}
+.card .k{font-family:var(--f-pix);font-size:7px;color:var(--dim)}
+.card.taken{opacity:.25;filter:grayscale(1)}
+.picks{display:flex;flex-wrap:wrap;gap:16px}
+.picks div{font-family:var(--f-pix);font-size:9px;line-height:1.8}
+
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#0d0b14d0;line-height:1.2;padding:12px}
+.overlay .box{background:var(--panel);border:3px solid var(--c);padding:18px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;max-width:420px}
+.overlay h2{font-family:var(--f-pix);font-size:clamp(12px,2.6vw,18px);color:var(--c);margin:0;line-height:1.4}
+details.help{background:var(--panel);border:2px solid var(--line);padding:8px 10px}
+details.help summary{font-family:var(--f-pix);font-size:9px;cursor:pointer;color:var(--sand)}
+details.help ul{margin:8px 0 0;padding-left:20px;font-size:18px;color:var(--dim)}
+@media (prefers-reduced-motion:reduce){.die.rolling{animation:none}}
+</style>
+
+<div class="app" id="app"></div>
+
+<script>
+"use strict";
+// ======================================================================
+// RULES (port of settings.py / mechanics.py / crew.py)
+// ======================================================================
+const R = {
+  MAX_HP:26, START_ENERGY:3, START_PARTS:2, START_AMMO:1,
+  DC_BASE:8, DC_MOD_EASY:1, DC_MOD_HARD:2, ENG_DIST_BONUS:2, ENG_DC_MULT:0.5,
+  BASE_AC:12, AC_DIST:[0,2,4], DMG_BONUS:4, LOCK_DC:8, LOCK_BONUS:4,
+  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:5, REST:2,
+};
+const DIRS = [[0,-1],[1,-1],[1,0],[0,1],[-1,1],[-1,0]];
+const DIR_NAMES = ["N","NE","SE","S","SW","NW"];
+const SYS = [["eng","ENGINE","SPEED"],["bst","BOOST","BOOST"],["dft","DRIFT","DRIFT"],["wpn","WEAPONS","WEAPONS"]];
+const DEBUFFS = [["SPEED","SPD"],["BOOST","BST"],["DRIFT","DFT"],["WEAPONS","WPN"],["CREW","CREW"]];
+const mod = (a,n)=>((a%n)+n)%n;
+
+const hexDist = (q,r)=>(Math.abs(q)+Math.abs(q+r)+Math.abs(r))/2;
+function hexRound(q,r){
+  const x=q,z=r,y=-x-z; let rx=Math.round(x),ry=Math.round(y),rz=Math.round(z);
+  const dx=Math.abs(rx-x),dy=Math.abs(ry-y),dz=Math.abs(rz-z);
+  if(dx>dy&&dx>dz) rx=-ry-rz; else if(dy>dz) ry=-rx-rz; else rz=-rx-ry;
+  return [rx,rz];
+}
+function ring(radius){
+  if(radius===0) return [[0,0]];
+  let q=DIRS[4][0]*radius, r=DIRS[4][1]*radius; const out=[];
+  for(let i=0;i<6;i++) for(let j=0;j<radius;j++){ out.push([q,r]); q+=DIRS[i][0]; r+=DIRS[i][1]; }
+  return out;
+}
+const idxOf=(rg,q,r)=>rg.findIndex(c=>c[0]===q&&c[1]===r);
+function navToCoords(dir,side,speed){
+  const d=speed+1, rg=ring(d), s=idxOf(rg,DIRS[dir][0]*d,DIRS[dir][1]*d);
+  return s<0?[0,0]:rg[mod(s+side,rg.length)];
+}
+function relInfo(q,r,dir){
+  const d=Math.trunc(hexDist(q,r)); if(d===0) return [0,-1];
+  const rg=ring(d), s=idxOf(rg,DIRS[dir][0]*d,DIRS[dir][1]*d), t=idxOf(rg,q,r);
+  if(s<0||t<0) return [null,null];
+  let diff=t-s; const n=rg.length;
+  if(diff>n/2) diff-=n; else if(diff<-n/2) diff+=n;
+  return [diff,d-1];
+}
+function noise(q,r,scale,seed){ const v=Math.sin((q/scale)*12.9898+(r/scale)*78.233+seed)*43758.5453; return Math.abs(v-Math.trunc(v)); }
+const obsCache=new Map();
+function obstacleType(q,r){
+  const k=(q+4096)*8192+(r+4096); let v=obsCache.get(k); if(v!==undefined) return v;
+  v=0;
+  if(!(q===0&&r===0)){
+    const c=noise(q,r,5,0.123)*0.7+noise(q,r,1.5,9.876)*0.3;
+    if(c>0.72){ const b=noise(q,r,15,42.1337); v=b<0.33?1:b<0.66?2:3; }
+  }
+  obsCache.set(k,v); return v;
+}
+const isObstacle=(q,r)=>obstacleType(q,r)>0;
+function angleDifficulty(dir,tq,tr,sq,sr){
+  if(isObstacle(sq+tq,sr+tr)) return [0,false];
+  const [side,speed]=relInfo(tq,tr,dir);
+  if(side===null) return [0,true];
+  const d=speed+1; if(d===0) return [0,true];
+  const dev=Math.abs(side)/d;
+  if(dev<0.5) return [0,true]; if(dev<=1) return [R.DC_MOD_EASY,true]; if(dev<=1.5) return [R.DC_MOD_HARD,true];
+  return [0,false];
+}
+
+// ---------------- CREW ----------------
+const CREW = [
+  {key:"CAPTAIN",name:"RHO",role:"Captain",st:"ANY",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e8f0","#283878","#f8c828"]},
+  {key:"ACE",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
+  {key:"DRIFTER",name:"ORO",role:"Navigator",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#181820","#208878","#a0f8c8"]},
+  {key:"GUNNER",name:"KAEL",role:"Gunner",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#583820","#902828","#f87828"]},
+  {key:"SPOTTER",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
+  {key:"JAMMER",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Comms",text:"Target plans only 2 phases next turn",pal:["#986848","#28c848","#202830","#40f860"]},
+  {key:"MECHANIC",name:"BRAKK",role:"Mechanic",st:"ENG",passive:"Repair heals +2",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
+  {key:"TECH",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#28a0e8","#384048","#78e8f8"]},
+  {key:"QM",name:"SAL",role:"Quartermaster",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
+];
+const CREW_BY = Object.fromEntries(CREW.map(c=>[c.key,c]));
+const ST_COLOR = {NAV:"var(--nav)",ATK:"var(--atk)",ENG:"var(--eng)",ANY:"var(--any)"};
+const PORTRAIT = ["...hhhhhh...","..hhhhhhhh..",".hhhsssshhh.",".hhssssssh..","..sesssesa..","..ssssssss..",
+  "...ssaass...","....ssss....","..uuuaauuu..",".uuuuaauuuu.","uuuauuuuauuu","uuuuuuuuuuuu"];
+
+// ======================================================================
+// STATE
+// ======================================================================
+let G;
+function newShip(pid,q,r,o){
+  return {pid,q,r,o,hp:R.MAX_HP,maxHp:R.MAX_HP,baseEnergy:R.START_ENERGY,parts:R.START_PARTS,ammo:R.START_AMMO,
+    sys:{eng:0,bst:0,dft:0,wpn:0},dmg:{SPEED:0,BOOST:0,DRIFT:0,WEAPONS:0},
+    f:{targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null},
+    crew:[],evasive:false,jammed:false,surge:0,autoBoost:false};
+}
+function newGame(){
+  G={screen:"draft",ships:[newShip(1,0,5,0),newShip(2,0,-5,3)],active:0,
+    draft:{pool:CREW.map(c=>c.key),order:[0,1,1,0,0,1],idx:0},
+    phase:"CMD",queue:[],qi:0,repeated:false,st:"cmd",
+    nav:{speed:1,side:0},target:null,dc:0,dest:null,
+    log:[],handoff:false,roll:null,winner:null};
+  log("Crew draft. Player 1 picks first.");
+}
+const S = ()=>G.ships[G.active];
+const other = s=>G.ships.find(x=>x!==s);
+function log(t,c=""){ G.log.unshift({t,c}); if(G.log.length>60) G.log.pop(); }
+const shipName = s=>"P"+s.pid;
+
+// ---- derived values ----
+const has=(s,key)=>s.crew.some(c=>c.key===key&&!c.stun);
+function energyCap(s){ const p=s.hp/s.maxHp; if(p<R.HP_FAIL) return 0; if(p<R.HP_CRIT) return 1; return s.baseEnergy+(has(s,"TECH")?1:0); }
+const energyUsed=s=>s.sys.eng+s.sys.bst+s.sys.dft+s.sys.wpn;
+const hullPen=s=>(s.hp/s.maxHp<R.HP_FAIL?-1:0);
+const effEngine=s=>Math.max(0,s.sys.eng-s.dmg.SPEED);
+function integrity(s){
+  const cap=energyCap(s);
+  if(energyUsed(s)>cap){
+    log(`${shipName(s)} power failure! Cap dropped to ${cap}.`,"bad");
+    s.sys={eng:0,bst:0,dft:0,wpn:0};
+    if(cap===1){ s.sys.eng=1; log("Emergency power to engines."); }
+  }
+}
+function crewMods(s,kind,target,consume){
+  const m=[];
+  if(has(s,"CAPTAIN")) m.push([1,"RHO"]);
+  if(kind==="BOOST"&&has(s,"ACE")) m.push([2,"VEX"]);
+  if(kind==="DRIFT"&&has(s,"DRIFTER")) m.push([2,"ORO"]);
+  if(kind==="ATK"&&has(s,"GUNNER")) m.push([2,"KAEL"]);
+  if(kind==="LOCK"&&has(s,"SPOTTER")) m.push([3,"NYX"]);
+  if(s.surge>0){ m.push([s.surge,"surge"]); if(consume) s.surge=0; }
+  if(target){
+    if(kind==="LOCK"&&has(target,"JAMMER")) m.push([-2,"jammer"]);
+    if(kind==="ATK"&&target.evasive) m.push([-3,"evasive"]);
+  }
+  return m;
+}
+
+// ======================================================================
+// TURN FLOW
+// ======================================================================
+function startTurn(idx){
+  G.active=idx; const s=S();
+  s.f={targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null};
+  s.evasive=false; s.crew.forEach(c=>{ if(c.rest>0) c.rest--; });
+  G.repeated=false; G.phase="CMD"; G.queue=[]; G.qi=0; G.st="cmd"; G.target=null; G.roll=null;
+  log(`— Turn: Player ${s.pid} —`,"p"+s.pid);
+  if(s.jammed) log(`${shipName(s)} comms jammed: only 2 phases.`,"bad");
+  integrity(s);
+  G.handoff=true;
+}
+function endTurn(){
+  const s=S();
+  s.jammed=false; s.surge=0; s.autoBoost=false; s.crew.forEach(c=>c.stun=false);
+  startTurn(G.ships.indexOf(other(s)));
+}
+const slotsAllowed=()=>S().jammed?2:3;
+function pickPhase(p){
+  if(G.queue.includes(p)) return;
+  G.queue.push(p);
+  if(G.queue.length===slotsAllowed()){ log("Sequence locked: "+G.queue.join(" → ")); beginPhase(0); }
+}
+function beginPhase(i){
+  G.qi=i; G.phase=G.queue[i]; G.target=null; const s=S();
+  if(G.phase==="NAV"){ G.st="nav_pick"; G.nav={speed:1,side:0}; fixNavSide(); }
+  if(G.phase==="ATK"){ Object.assign(s.f,{targeted:false,reloaded:false,fired:false,locked:false,debuff:null}); G.st="atk_acquire"; }
+  if(G.phase==="ENG"){ G.st="eng"; }
+}
+function endPhase(){
+  if(G.qi+1<G.queue.length) beginPhase(G.qi+1); else endTurn();
+}
+
+// ---------------- NAV ----------------
+function navOption(s,speed,side){
+  const ee=effEngine(s), total=speed+ee*R.ENG_DIST_BONUS;
+  const [rq,rr]=navToCoords(s.o,side,total-1);
+  const [m,ok]=angleDifficulty(s.o,rq,rr,s.q,s.r);
+  if(!ok) return null;
+  return {speed,side,q:s.q+rq,r:s.r+rr,dc:Math.trunc((R.DC_BASE+total+m)*(1+ee*R.ENG_DC_MULT))};
+}
+function allNavOptions(s){ const o=[]; for(let sp=1;sp<=3;sp++) for(let sd=-3;sd<=3;sd++){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
+function fixNavSide(){
+  const s=S(); if(navOption(s,G.nav.speed,G.nav.side)) return;
+  for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,G.nav.speed,d)){ G.nav.side=d; return; }
+}
+function doBoost(){
+  const s=S(), opt=navOption(s,G.nav.speed,G.nav.side); if(!opt) return;
+  G.dc=opt.dc; G.aim={q:opt.q,r:opt.r};
+  const finish=ok=>{
+    if(ok){ log("Boost success. Maneuvering.","ok"); G.dest={q:opt.q,r:opt.r}; }
+    else {
+      log("Boost failed! Overshooting +50%.","bad");
+      const [q,r]=hexRound(s.q+(opt.q-s.q)*1.5, s.r+(opt.r-s.r)*1.5); G.dest={q,r};
+    }
+    startMove();
+  };
+  if(s.autoBoost){ s.autoBoost=false; G.roll={label:"BOOST",sides:20,auto:true,ok:true,vs:"DC "+opt.dc}; log("Afterburn! Boost auto-succeeds.","ok"); finish(true); render(); return; }
+  rollCheck("BOOST",20,[[s.sys.bst,"BST"],[hullPen(s),"hull"],[-s.dmg.BOOST,"dmg"],...crewMods(s,"BOOST",null,true)],opt.dc,"DC",finish);
+}
+let anim=null;
+function startMove(){
+  const s=S(); G.st="moving";
+  anim={from:{q:s.q,r:s.r},to:G.dest,t0:performance.now(),dur:650+180*hexDist(G.dest.q-s.q,G.dest.r-s.r)};
+  render();
+}
+function arrive(){
+  const s=S(); s.q=G.dest.q; s.r=G.dest.r; anim=null;
+  if(isObstacle(s.q,s.r)){ log(`${shipName(s)} crashed into rock!`,"bad"); damage(s,R.CRASH_DMG); }
+  const o=other(s);
+  if(o.hp>0&&o.q===s.q&&o.r===s.r){ log("Collision! Both ships rammed.","bad"); damage(s,R.CRASH_DMG); damage(o,R.CRASH_DMG); }
+  if(checkWin()) return;
+  G.st="nav_drift"; render();
+}
+function doDrift(){
+  const s=S();
+  rollCheck("DRIFT",20,[[s.sys.dft,"DFT"],[hullPen(s),"hull"],[-s.dmg.DRIFT,"dmg"],...crewMods(s,"DRIFT",null,true)],G.dc,"DC",ok=>{
+    s.f.drift=ok;
+    if(ok){ log("Drift stable. Set your heading.","ok"); G.st="nav_heading"; }
+    else { s.o=mod(s.o+(Math.random()<.5?-1:1),6); log(`Drift failed — spun out to ${DIR_NAMES[s.o]}.`,"bad"); G.st="done"; }
+  });
+}
+
+// ---------------- ATK ----------------
+function arcInfo(s,t){
+  if(!t||t.hp<=0) return null;
+  const [side,sp]=relInfo(Math.round(t.q)-Math.round(s.q),Math.round(t.r)-Math.round(s.r),s.o);
+  if(side===null||sp<0||sp>2||Math.abs(side)>3) return null;
+  return {range:sp+1,side};
+}
+function arcHexes(s){ const h=[]; for(let d=1;d<=3;d++) for(let sd=-3;sd<=3;sd++){ const [q,r]=navToCoords(s.o,sd,d-1); h.push([s.q+q,s.r+r]); } return h; }
+function acquire(){ const s=S(), t=other(s); if(!arcInfo(s,t)) return; G.target=t.pid; G.st="atk_menu"; log(`Target acquired: ${shipName(t)}.`,"ok"); }
+const tgt=()=>G.ships.find(x=>x.pid===G.target)||null;
+function doReload(){ const s=S(); s.ammo=Math.max(s.ammo,has(s,"QM")?2:1); s.f.reloaded=true; log(`Reloaded. Ammo ${s.ammo}.`); }
+function doLock(){
+  const s=S(), t=tgt();
+  rollCheck("LOCK",20,[[s.sys.wpn,"WPN"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"LOCK",t,true)],R.LOCK_DC,"DC",ok=>{
+    if(ok){ s.f.locked=true; log("Lock confirmed. Pick a system to cripple.","ok"); G.st="atk_debuff"; }
+    else { s.f.targeted=true; log("Lock failed.","bad"); G.st="atk_menu"; }
+  });
+}
+function chooseDebuff(k){ const s=S(); s.f.debuff=k; s.f.targeted=true; log(`Aiming at enemy ${k.toLowerCase()}.`); G.st="atk_menu"; }
+function doFire(){
+  const s=S(), t=tgt(), ai=arcInfo(s,t); if(!ai) return;
+  const ac=R.BASE_AC+R.AC_DIST[ai.range-1];
+  s.ammo--; s.f.fired=true;
+  fx.shot(s,t);
+  rollCheck("ATTACK",20,[[s.f.locked?R.LOCK_BONUS:0,"lock"],[s.sys.wpn,"WPN"],[hullPen(s),"hull"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"ATK",t,true)],ac,"AC",ok=>{
+    if(ok){ log("Hit! Roll damage.","ok"); G.st="atk_dmg"; }
+    else { log("Shot missed.","bad"); fx.miss(t); s.f.locked=false; s.f.debuff=null; G.st="atk_menu"; }
+  });
+}
+function doDamage(){
+  const s=S(), t=tgt();
+  rollDie(6,v=>{
+    const n=Math.max(1,v+R.DMG_BONUS+s.sys.wpn-s.dmg.WEAPONS);
+    G.roll={label:"DAMAGE",sides:6,die:v,mods:[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[-s.dmg.WEAPONS,"dmg"]],total:n,dmg:true};
+    damage(t,n);
+    if(t.hp>0&&s.f.debuff){
+      if(s.f.debuff==="CREW") stunCrew(t);
+      else { t.dmg[s.f.debuff]++; log(`Critical: ${shipName(t)} ${s.f.debuff.toLowerCase()} −1.`,"bad"); }
+    }
+    s.f.debuff=null; s.f.locked=false;
+    if(checkWin()) return;
+    G.st="atk_menu";
+  });
+}
+function stunCrew(t){
+  const pool=t.crew.filter(c=>!c.stun);
+  if(!pool.length){ log("No crew left to stun."); return; }
+  const c=pool[Math.floor(Math.random()*pool.length)]; c.stun=true;
+  log(`Crew hit: ${shipName(t)} ${CREW_BY[c.key].name} stunned!`,"bad");
+}
+function damage(s,n){
+  s.hp=Math.max(0,s.hp-n); fx.hit(s,n);
+  if(s.hp===0) log(`${shipName(s)} hull breached — ship lost!`,"bad");
+  else { log(`${shipName(s)} takes ${n} damage (${s.hp} left).`,"bad"); integrity(s); }
+}
+function checkWin(){
+  const alive=G.ships.filter(s=>s.hp>0);
+  if(alive.length<=1){ G.winner=alive[0]||null; G.st="over"; render(); return true; }
+  return false;
+}
+
+// ---------------- ENG ----------------
+function sysAdd(k,dir){
+  const s=S();
+  if(dir>0){ if(energyUsed(s)>=energyCap(s)) return; if(k==="eng"&&s.sys.eng>=2) return; s.sys[k]++; }
+  else if(s.sys[k]>0) s.sys[k]--;
+}
+function doRepair(){
+  const s=S(); if(s.parts<=0) return;
+  const v=1+Math.floor(Math.random()*4), heal=v+1+(has(s,"MECHANIC")?2:0);
+  s.parts--; s.hp=Math.min(s.maxHp,s.hp+heal);
+  G.roll={label:"REPAIR",sides:4,die:v,mods:[[1,"base"],...(has(s,"MECHANIC")?[[2,"BRAKK"]]:[])],total:heal,heal:true};
+  log(`Repaired ${heal} hull. Parts left: ${s.parts}.`,"ok"); integrity(s);
+}
+
+// ---------------- CREW ORDERS ----------------
+function orderBlock(s,c){
+  const d=CREW_BY[c.key];
+  if(G.st==="over"||s!==S()||G.handoff) return "Not your turn";
+  if(c.stun) return "Stunned";
+  if(c.rest>0) return `Resting ${c.rest}`;
+  if(G.phase==="CMD") return "Plan phases first";
+  if(d.st!=="ANY"&&d.st!==G.phase) return `${d.st} phase only`;
+  if(G.st==="moving"||G.roll&&G.roll.rolling) return "Wait";
+  const t=tgt();
+  switch(c.key){
+    case "CAPTAIN": return G.repeated?"Already repeated":null;
+    case "ACE": return G.st!=="nav_pick"?"Use before boost":s.autoBoost?"Primed":null;
+    case "DRIFTER": return s.evasive?"Active":null;
+    case "GUNNER": return null;
+    case "SPOTTER": return G.st!=="atk_menu"?"Acquire target":s.f.targeted?"Lock spent":null;
+    case "JAMMER": return !t?"Acquire target":t.jammed?"Already jammed":null;
+    case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No damage";
+    case "TECH": return s.surge?"Primed":null;
+    case "QM": return null;
+  }
+  return null;
+}
+function useOrder(i){
+  const s=S(), c=s.crew[i]; if(!c||orderBlock(s,c)) return;
+  const d=CREW_BY[c.key];
+  switch(c.key){
+    case "CAPTAIN": G.queue.splice(G.qi+1,0,G.phase); G.repeated=true; log(`${G.phase} phase will repeat.`); break;
+    case "ACE": s.autoBoost=true; break;
+    case "DRIFTER": s.evasive=true; break;
+    case "GUNNER": s.ammo++; s.f.fired=false; break;
+    case "SPOTTER": s.f.locked=true; G.st="atk_debuff"; break;
+    case "JAMMER": tgt().jammed=true; break;
+    case "MECHANIC": for(const k in s.dmg) s.dmg[k]=Math.max(0,s.dmg[k]-1); break;
+    case "TECH": s.surge=5; break;
+    case "QM": s.parts+=2; break;
+  }
+  c.rest=R.REST;
+  log(`Order: ${d.name} — ${d.order}. ${d.text}.`,"crew");
+  fx.order(s,d);
+  render();
+}
+
+// ---------------- DICE ----------------
+function rollDie(sides,cb){
+  G.roll={sides,rolling:true,shown:1};
+  const t0=performance.now(), reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const tick=()=>{
+    if(!G.roll||!G.roll.rolling) return;
+    G.roll.shown=1+Math.floor(Math.random()*sides); paintDie();
+    if(performance.now()-t0<(reduce?50:520)) setTimeout(tick,60);
+    else { const v=1+Math.floor(Math.random()*sides); G.roll.rolling=false; cb(v); render(); }
+  };
+  render(); tick();
+}
+function rollCheck(label,sides,mods,vs,vsLabel,cb){
+  rollDie(sides,v=>{
+    const m=mods.filter(x=>x[0]!==0), total=v+m.reduce((a,x)=>a+x[0],0), ok=total>=vs;
+    G.roll={label,sides,die:v,mods:m,total,vs:`${vsLabel} ${vs}`,ok};
+    log(`${label}: d${sides} ${v}${m.map(x=>` ${x[0]>0?"+":""}${x[0]} ${x[1]}`).join("")} = ${total} vs ${vsLabel} ${vs}`,ok?"ok":"bad");
+    cb(ok);
+  });
+}
+
+// ======================================================================
+// MAP RENDERER (low-res pixel canvas)
+// ======================================================================
+const W=384,H=264,HS=11,SQ3=Math.sqrt(3);
+const hexPx=(q,r)=>[HS*1.5*q, HS*(SQ3/2*q+SQ3*r)];
+let cv,ctx,img,qBuf,rBuf,cam={x:0,y:0},hover=null,dust=[],parts=[],floats=[],shake=0,shots=[];
+const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>v/16);
+function hash2(x,y){ let h=(x*374761393+y*668265263)|0; h=(h^(h>>>13))*1274126177|0; return ((h^(h>>>16))>>>0)/4294967295; }
+const PAL={
+  sandA:[196,170,118],sandB:[180,154,104],
+  o1:[[62,68,84],[92,100,118],[40,44,56]],
+  o2:[[132,76,44],[170,106,64],[92,50,30]],
+  o3:[[26,24,34],[52,48,72],[12,10,16]],
+  fog:[13,11,20],
+};
+function initCanvas(el){
+  cv=el; ctx=cv.getContext("2d"); terrainKey=""; ctx.imageSmoothingEnabled=false;
+  img=ctx.createImageData(W,H); qBuf=new Int32Array(W*H); rBuf=new Int32Array(W*H);
+  if(!dust.length) for(let i=0;i<70;i++) dust.push({x:Math.random()*W,y:Math.random()*H,s:.2+Math.random()*.5,c:Math.random()});
+  cv.addEventListener("pointermove",e=>{ hover=screenToHex(e); });
+  cv.addEventListener("pointerleave",()=>{ hover=null; });
+  cv.addEventListener("click",e=>{ const h=screenToHex(e); if(h) onHexClick(h[0],h[1]); });
+}
+function screenToHex(e){
+  const b=cv.getBoundingClientRect(); const sx=(e.clientX-b.left)/b.width*W, sy=(e.clientY-b.top)/b.height*H;
+  const wx=sx-W/2+cam.x, wy=sy-H/2+cam.y;
+  return hexRound((2/3*wx)/HS,(-wx/3+SQ3/3*wy)/HS);
+}
+function shipPos(s){
+  if(anim&&s===S()){
+    const t=Math.min(1,(performance.now()-anim.t0)/anim.dur), e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    return {q:anim.from.q+(anim.to.q-anim.from.q)*e, r:anim.from.r+(anim.to.r-anim.from.r)*e};
+  }
+  return {q:s.q,r:s.r};
+}
+function highlights(){
+  const hl=new Map(), s=S(); if(!s||G.handoff) return hl;
+  const key=(q,r)=>q*10007+r;
+  if(G.st==="nav_pick"){
+    for(const o of allNavOptions(s)){
+      const sel=o.speed===G.nav.speed&&o.side===G.nav.side;
+      const c=o.dc<=12?[64,220,220]:o.dc<=15?[48,120,255]:[170,60,255];
+      hl.set(key(o.q,o.r),{c,a:sel?.75:.38,sel});
+    }
+  } else if(G.st==="atk_acquire"||G.st==="atk_menu"||G.st==="atk_debuff"){
+    for(const [q,r] of arcHexes(s)) hl.set(key(q,r),{c:[240,60,50],a:.28});
+  }
+  return hl;
+}
+let terrainKey="";
+function drawTerrain(cs){
+  const s0=S(), key=[cam.x.toFixed(2),cam.y.toFixed(2),hover&&hover.join(","),G.st,G.nav&&G.nav.speed,G.nav&&G.nav.side,G.active,G.handoff,s0.o,s0.q,s0.r,s0.sys.eng,s0.dmg.SPEED,cs.q.toFixed(2),cs.r.toFixed(2)].join("|");
+  if(key===terrainKey){ ctx.putImageData(img,0,0); return; }
+  terrainKey=key;
+  const d=img.data, hl=highlights(), hv=hover?hover[0]*10007+hover[1]:null;
+  const ox=cam.x-W/2, oy=cam.y-H/2;
+  const ar=Math.round(cs.q), arr=Math.round(cs.r);
+  for(let y=0;y<H;y++){
+    const wy=y+oy;
+    for(let x=0;x<W;x++){
+      const wx=x+ox, i=y*W+x;
+      const fq=(2/3*wx)/HS, fr=(-wx/3+SQ3/3*wy)/HS, fy=-fq-fr;
+      let rx=Math.round(fq), ry=Math.round(fy), rz=Math.round(fr);
+      const ex=Math.abs(rx-fq), ey=Math.abs(ry-fy), ez=Math.abs(rz-fr);
+      if(ex>ey&&ex>ez) rx=-ry-rz; else if(ey>ez) ry=-rx-rz; else rz=-rx-ry;
+      qBuf[i]=rx; rBuf[i]=rz;
+    }
+  }
+  for(let y=0;y<H;y++){
+    const wy=Math.floor(y+oy);
+    for(let x=0;x<W;x++){
+      const i=y*W+x, q=qBuf[i], r=rBuf[i], wx=Math.floor(x+ox);
+      const t=obstacleType(q,r), b=BAYER[(wy&3)*4+(wx&3)], n=hash2(wx,wy);
+      let c;
+      if(t>0){
+        const p=t===1?PAL.o1:t===2?PAL.o2:PAL.o3;
+        const [hx,hy]=hexPx(q,r), dy=wy-hy, dx=wx-hx;
+        c = dy<-HS*0.45 ? p[1] : (dy>HS*0.55 || dx>HS*0.75) ? p[2] : p[0];
+        if(n>0.86) c=c===p[1]?p[0]:p[1];
+      } else {
+        c=((q+r)&1)===0?PAL.sandA:PAL.sandB;
+        const rip=Math.sin(wx*0.35+wy*0.9+((q*7+r*13)%5))*0.5+0.5;
+        if(rip>0.82&&b<0.5) c=[c[0]+12,c[1]+10,c[2]+8];
+        else if(n>0.93) c=[c[0]-22,c[1]-22,c[2]-20];
+      }
+      let R0=c[0],G0=c[1],B0=c[2];
+      const h=hl.get(q*10007+r);
+      if(h){ const a=h.a; R0=R0*(1-a)+h.c[0]*a; G0=G0*(1-a)+h.c[1]*a; B0=B0*(1-a)+h.c[2]*a; }
+      if(hv!==null&&q*10007+r===hv&&!G.handoff){ R0+=26; G0+=26; B0+=26; }
+      // hex border
+      const edge=(x>0&&(qBuf[i-1]!==q||rBuf[i-1]!==r))||(y>0&&(qBuf[i-W]!==q||rBuf[i-W]!==r));
+      if(edge){ const sel=h&&h.sel; if(sel){R0=255;G0=255;B0=255;} else {R0*=.62;G0*=.62;B0*=.66;} }
+      // dithered distance fog
+      const dist=hexDist(q-ar,r-arr);
+      if(dist>5){
+        const f=Math.min(1,(dist-5)/4.5), lv=Math.floor(f*4+b)/4;
+        R0=R0*(1-lv)+PAL.fog[0]*lv; G0=G0*(1-lv)+PAL.fog[1]*lv; B0=B0*(1-lv)+PAL.fog[2]*lv;
+      }
+      const k=i*4; d[k]=R0; d[k+1]=G0; d[k+2]=B0; d[k+3]=255;
+    }
+  }
+  ctx.putImageData(img,0,0);
+}
+const SHIP_ART=["......oo......",".....oAAo.....",".....oAAo.....","....oAccAo....","....oAccAo....","...oAAAAAAo...",
+  "..oAAsAAsAAo..",".oAAssAAssAAo.","oAAso.AA.osAAo","oAso..oo..osAo","oso...ff...oso","oo....ff....oo"];
+const shipSprites={};
+function shipSprite(color,frame){
+  const k=color+frame; if(shipSprites[k]) return shipSprites[k];
+  const c=document.createElement("canvas"); c.width=14; c.height=12; const x=c.getContext("2d");
+  const dark=shade(color,-0.45), map={o:"#120e18",A:color,s:dark,c:"#7fe8ff",f:frame?"#ffffff":"#3fd8ff"};
+  SHIP_ART.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(map[ch]){ x.fillStyle=map[ch]; x.fillRect(xx,yy,1,1);} }));
+  return shipSprites[k]=c;
+}
+function shade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=n>>16,g=n>>8&255,b=n&255; const f=v=>Math.max(0,Math.min(255,Math.round(v*(1+amt)))); return `rgb(${f(r)},${f(g)},${f(b)})`; }
+const P_COLORS=["#ffcf4a","#5fd0ff"];
+function toScreen(q,r){ const [x,y]=hexPx(q,r); return [Math.round(x-cam.x+W/2),Math.round(y-cam.y+H/2)]; }
+
+const fx={
+  shot(a,b){ const pa=shipPos(a),pb=shipPos(b); shots.push({a:hexPx(pa.q,pa.r),b:hexPx(pb.q,pb.r),t0:performance.now(),col:P_COLORS[a.pid-1]}); },
+  hit(s,n){ const [x,y]=hexPx(s.q,s.r); for(let i=0;i<26;i++){ const a=Math.random()*6.28,v=.4+Math.random()*1.6; parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:30+Math.random()*30,c:["#fff3b0","#ffb030","#ff5a2a","#5a5060"][i%4]}); }
+    floats.push({x,y:y-8,t:`-${n}`,c:"#ff5a5a",l:60}); shake=8; },
+  miss(s){ const [x,y]=hexPx(s.q,s.r); floats.push({x,y:y-8,t:"MISS",c:"#d8d0f0",l:50}); },
+  order(s,d){ const [x,y]=hexPx(s.q,s.r); floats.push({x,y:y-10,t:d.order.toUpperCase(),c:"#ffe066",l:70}); },
+};
+function frame(now){
+  requestAnimationFrame(frame);
+  if(!cv||!document.body.contains(cv)||G.screen!=="game") return;
+  const s=S(); const sp=shipPos(s);
+  const [tx,ty]=hexPx(sp.q,sp.r);
+  cam.x+=(tx-cam.x)*.18; cam.y+=(ty-cam.y)*.18;
+  if(Math.abs(tx-cam.x)<.3) cam.x=tx; if(Math.abs(ty-cam.y)<.3) cam.y=ty;
+  if(anim&&now-anim.t0>=anim.dur) arrive();
+  const sx=shake>0?Math.round((Math.random()-.5)*shake):0, sy=shake>0?Math.round((Math.random()-.5)*shake):0;
+  shake=Math.max(0,shake-.6);
+  const saved={...cam}; cam.x-=sx; cam.y-=sy;
+  drawTerrain(sp);
+  // aim marker
+  if(G.st==="nav_pick"&&!G.handoff){ const o=navOption(s,G.nav.speed,G.nav.side); if(o) drawX(...toScreen(o.q,o.r),"#ff2a6a"); }
+  if((G.st==="moving"||G.st==="nav_drift")&&G.aim) drawX(...toScreen(G.aim.q,G.aim.r),"#ff2a6a");
+  // ships
+  const fr=(now/120|0)%2;
+  for(const sh of G.ships){
+    if(sh.hp<=0) continue;
+    const p=sh===s?sp:{q:sh.q,r:sh.r}, [x,y]=toScreen(p.q,p.r);
+    if(sh===s){ ctx.strokeStyle=fr?"#ffffff":P_COLORS[sh.pid-1]; ctx.lineWidth=1; hexOutline(x,y,HS-1); }
+    if(G.target===sh.pid&&G.phase==="ATK"){ ctx.strokeStyle=S().f.locked?"#3dff6a":"#ff4040"; hexOutline(x,y,HS-1); hexOutline(x,y,HS-3); }
+    let ang=sh.o*Math.PI/3;
+    ctx.save(); ctx.translate(x,y); ctx.rotate(ang); ctx.drawImage(shipSprite(P_COLORS[sh.pid-1],fr),-7,-6); ctx.restore();
+    // hp pips
+    const w=16, f=Math.ceil(w*sh.hp/sh.maxHp);
+    ctx.fillStyle="#000"; ctx.fillRect(x-w/2-1,y-14,w+2,4);
+    ctx.fillStyle=sh.hp/sh.maxHp<HP_LOW?"#ff4d5e":"#5be37a"; ctx.fillRect(x-w/2,y-13,f,2);
+    if(sh.evasive){ ctx.fillStyle="#7fe8ff"; ctx.fillRect(x+9,y-13,2,2); }
+  }
+  // off-screen pointer
+  const o=other(s);
+  if(o&&o.hp>0){
+    const [x,y]=toScreen(o.q,o.r);
+    if(x<6||x>W-6||y<6||y>H-6){
+      const cx=W/2,cy=H/2,a=Math.atan2(y-cy,x-cx);
+      const k=Math.min((W/2-12)/Math.abs(Math.cos(a)||1e-6),(H/2-12)/Math.abs(Math.sin(a)||1e-6));
+      const px=cx+Math.cos(a)*k, py=cy+Math.sin(a)*k;
+      ctx.save(); ctx.translate(Math.round(px),Math.round(py)); ctx.rotate(a);
+      ctx.fillStyle=P_COLORS[o.pid-1]; ctx.beginPath(); ctx.moveTo(6,0); ctx.lineTo(-4,-5); ctx.lineTo(-4,5); ctx.fill(); ctx.restore();
+      ctx.font='8px "Press Start 2P"'; ctx.fillStyle=P_COLORS[o.pid-1];
+      const dtx=`P${o.pid} ${hexDist(o.q-s.q,o.r-s.r)}`; const tw=ctx.measureText(dtx).width;
+      ctx.fillText(dtx,Math.max(2,Math.min(W-tw-2,Math.round(px-Math.cos(a)*14-tw/2))),Math.max(10,Math.min(H-3,Math.round(py-Math.sin(a)*14+4))));
+    }
+  }
+  // shots
+  shots=shots.filter(sh=>{
+    const t=(now-sh.t0)/320; if(t>1.3) return false;
+    const tt=Math.min(1,t), x=sh.a[0]+(sh.b[0]-sh.a[0])*tt, y=sh.a[1]+(sh.b[1]-sh.a[1])*tt;
+    const [px,py]=[Math.round(x-cam.x+W/2),Math.round(y-cam.y+H/2)];
+    ctx.fillStyle="#fff"; ctx.fillRect(px-1,py-1,3,3); ctx.fillStyle=sh.col;
+    for(let k=1;k<5;k++){ const t2=Math.max(0,tt-k*.05); ctx.fillRect(Math.round(sh.a[0]+(sh.b[0]-sh.a[0])*t2-cam.x+W/2),Math.round(sh.a[1]+(sh.b[1]-sh.a[1])*t2-cam.y+H/2),2,2); }
+    return true;
+  });
+  parts=parts.filter(p=>{ p.x+=p.vx; p.y+=p.vy; p.vx*=.95; p.vy*=.95; p.l--; ctx.fillStyle=p.c; ctx.fillRect(Math.round(p.x-cam.x+W/2),Math.round(p.y-cam.y+H/2),2,2); return p.l>0; });
+  ctx.font='8px "Press Start 2P"'; ctx.textBaseline="alphabetic";
+  floats=floats.filter(f=>{ f.l--; f.y-=.35; const tw=ctx.measureText(f.t).width, x=Math.round(f.x-cam.x+W/2-tw/2), y=Math.round(f.y-cam.y+H/2);
+    ctx.fillStyle="#000"; ctx.fillText(f.t,x+1,y+1); ctx.fillStyle=f.c; ctx.fillText(f.t,x,y); return f.l>0; });
+  // dust
+  const moving=G.st==="moving";
+  for(const p of dust){ p.x+=p.s*(moving?6:1); p.y+=p.s*(moving?6:1)*.6; if(p.x>W) p.x-=W; if(p.y>H) p.y-=H;
+    ctx.fillStyle=p.c<.33?"#8a7a5a":p.c<.66?"#b8a078":"#e0caa0"; ctx.fillRect(p.x|0,p.y|0,1,1); }
+  cam.x=saved.x; cam.y=saved.y;
+  // hover tooltip
+  const hud=document.getElementById("hud");
+  if(hud){
+    let t="";
+    if(hover&&!G.handoff){
+      const [q,r]=hover, dq=q-s.q, dr=r-s.r, ob=obstacleType(q,r);
+      if(G.st==="nav_pick"){ const o=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(o) t=`SPEED ${o.speed} · TURN ${o.side>0?"+":""}${o.side} · DC ${o.dc}`; }
+      if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r&&x!==s); if(sh){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(dq,dr)} HEX · ${ai?"IN ARC, RANGE "+ai.range:"OUT OF ARC"}`; } }
+      if(!t&&ob) t=["","SLATE ROCK","RUST MESA","TAR PIT"][ob]+" · 5 DMG";
+    }
+    if(hud.textContent!==t) hud.textContent=t;
+  }
+}
+const HP_LOW=0.4;
+function drawX(x,y,c){ ctx.fillStyle=c; for(let k=-4;k<=4;k++){ ctx.fillRect(x+k,y+k,1,1); ctx.fillRect(x+k,y-k,1,1);} }
+function hexOutline(x,y,s){ ctx.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/3*i; const px=x+s*Math.cos(a)+.5, py=y+s*Math.sin(a)+.5; i?ctx.lineTo(px,py):ctx.moveTo(px,py);} ctx.closePath(); ctx.stroke(); }
+
+function onHexClick(q,r){
+  if(G.handoff||(G.roll&&G.roll.rolling)) return;
+  const s=S();
+  if(G.st==="nav_pick"){ const o=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(o){ G.nav.speed=o.speed; G.nav.side=o.side; render(); } }
+  else if(G.st==="atk_acquire"){ const t=other(s); if(t.q===q&&t.r===r&&arcInfo(s,t)){ acquire(); render(); } }
+}
+
+// ======================================================================
+// UI
+// ======================================================================
+const app=document.getElementById("app");
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function faceCanvas(key){ return `<canvas width="12" height="12" data-face="${key}"></canvas>`; }
+function paintFaces(){
+  document.querySelectorAll("canvas[data-face]").forEach(c=>{
+    const d=CREW_BY[c.dataset.face], x=c.getContext("2d"); x.clearRect(0,0,12,12);
+    const m={s:d.pal[0],h:d.pal[1],u:d.pal[2],a:d.pal[3],e:"#101018"};
+    PORTRAIT.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(m[ch]){ x.fillStyle=m[ch]; x.fillRect(xx,yy,1,1);} }));
+  });
+}
+function header(){
+  let track="";
+  if(G.screen==="game"){
+    const s=S(), slots=["CMD",...G.queue]; while(slots.length<1+slotsAllowed()) slots.push("···");
+    track=slots.map((p,i)=>{ const on=G.phase==="CMD"?i===0:i===G.qi+1; const col=p==="NAV"?"var(--nav)":p==="ATK"?"var(--atk)":p==="ENG"?"var(--eng)":"var(--dim)";
+      return `<span class="slot ${on?"on":""}" style="border-color:${col};${on?`background:${col}`:""}">${p}</span>`; }).join("");
+    track=`<div class="track" aria-label="Phase sequence">${track}</div><span class="turnchip" style="color:${P_COLORS[s.pid-1]}">PLAYER ${s.pid}</span>`;
+  }
+  return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · CREW WARS</small></div>${track}</div>`;
+}
+function rulesHTML(){
+  const r=[["var(--sand)","1 · Draft a crew","Players take turns picking 3 crew from 9. Picks snake: 1-2-2-1-1-2."],
+    ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2."],
+    ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
+    ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
+    ["var(--eng)","ENG","Spend energy on ENG, BST, DFT, WPN. Repair with spare parts."],
+    ["#c9a0ff","Crew","Each crew member gives a passive bonus and one order. After an order they rest 2 turns."]];
+  return `<div class="rules">${r.map(x=>`<div class="rule" style="--c:${x[0]}"><h4>${x[1]}</h4><p>${x[2]}</p></div>`).join("")}</div>`;
+}
+function render(){
+  if(G.screen==="title") return renderTitle();
+  if(G.screen==="draft") return renderDraft();
+  renderGame();
+}
+function renderTitle(){
+  app.innerHTML=header()+`<section class="full"><div class="hero"><div><h1>TETHYS<small>DESERT DRIFTER</small></h1></div>
+  <div style="display:flex;flex-direction:column;gap:14px"><p>Two drift-ships, one hex desert, and the crews that keep them flying. A hotseat tactics duel: plan your phases, roll the d20, and let your crew bend the rules.</p>
+  <div class="btnrow"><button class="go" data-act="start" id="btn-start">New 2-player game</button></div></div></div>${rulesHTML()}</section>`;
+}
+function crewCard(key,taken){
+  const d=CREW_BY[key];
+  return `<button class="card ${taken?"taken":""}" style="--st:${ST_COLOR[d.st]}" data-act="pick" data-v="${key}" ${taken?"disabled":""} id="pick-${key}">
+    ${faceCanvas(key)}<div class="nm">${d.name}<em>${d.role.toUpperCase()} · ${d.st}</em></div>
+    <div class="full2"><span class="k">PASSIVE</span><span>${esc(d.passive)}</span><span class="k">ORDER · ${esc(d.order.toUpperCase())}</span><span>${esc(d.text)}</span></div></button>`;
+}
+function renderDraft(){
+  const dr=G.draft, pi=dr.order[dr.idx], s=G.ships[pi];
+  app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">
+    <div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: RECRUIT A CREW MEMBER<span class="sub">Pick ${dr.idx+1} of ${dr.order.length}. Each ship gets 3 crew. Station shows the phase where their order works.</span></div>
+    <div class="cards">${CREW.map(c=>crewCard(c.key,!dr.pool.includes(c.key))).join("")}</div>
+    <div class="picks">${G.ships.map(sh=>`<div style="color:${P_COLORS[sh.pid-1]}">P${sh.pid} CREW: ${sh.crew.map(c=>CREW_BY[c.key].name).join(", ")||"—"}</div>`).join("")}
+    <button data-act="randpick" id="btn-rand">Random pick</button></div></section>`;
+  paintFaces();
+}
+function draftPick(key){
+  const dr=G.draft; if(!dr.pool.includes(key)) return;
+  const s=G.ships[dr.order[dr.idx]];
+  dr.pool=dr.pool.filter(k=>k!==key); s.crew.push({key,rest:0,stun:false});
+  if(key==="QM") s.parts++;
+  log(`P${s.pid} recruits ${CREW_BY[key].name} (${CREW_BY[key].role}).`,"p"+s.pid);
+  dr.idx++;
+  if(dr.idx>=dr.order.length){ G.screen="game"; startTurn(0); }
+  render();
+}
+
+function shipCard(s){
+  const active=s===S()&&G.st!=="over", cap=energyCap(s), used=energyUsed(s), pct=s.hp/s.maxHp;
+  const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jammed) flags.push(["JAMMED","red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
+  if(active&&G.phase==="ATK"&&s.f.locked) flags.push(["LOCKED",""]); if(active&&s.f.debuff) flags.push([`AIM ${s.f.debuff}`,"red"]);
+  if(pct<R.HP_FAIL&&s.hp>0) flags.push(["HULL CRITICAL −1","red"]);
+  const sysCell=([k,lab,dk])=>`<div class="stat"><span>${lab}</span>+${s.sys[k]}${s.dmg[dk]?` <span class="hurt" style="display:inline;font-family:var(--f-txt);font-size:18px">−${s.dmg[dk]}</span>`:""}</div>`;
+  const crew=s.crew.map((c,i)=>{
+    const d=CREW_BY[c.key], block=orderBlock(s,c), stt=c.stun?["STUNNED","bad"]:c.rest>0?[`REST ${c.rest}`,"dim"]:["READY","ok"];
+    return `<div class="cm ${c.stun?"stun":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(c.key)}
+      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div></div>
+      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active?`<button data-act="order" data-v="${i}" id="order-${s.pid}-${i}" ${block?"disabled":""} title="${esc(block||"Give order")}">Order</button>`:""}</div></div>`;
+  }).join("");
+  return `<section class="ship ${active?"active":""} ${s.hp<=0?"dead":""}" style="--c:${P_COLORS[s.pid-1]}">
+    <h3><span>PLAYER ${s.pid}</span><span>${s.hp}/${s.maxHp}</span></h3>
+    <div class="bar"><i class="${pct<HP_LOW?"lo":""}" style="width:${pct*100}%"></i></div>
+    <div class="stats"><div class="stat"><span>ENERGY</span>${used}/${cap}</div><div class="stat"><span>AMMO</span>${s.ammo}</div><div class="stat"><span>PARTS</span>${s.parts}</div><div class="stat"><span>HEAD</span>${DIR_NAMES[s.o]}</div>
+    ${SYS.map(sysCell).join("")}</div>
+    ${flags.length?`<div class="flags">${flags.map(f=>`<span class="flag ${f[1]}">${f[0]}</span>`).join("")}</div>`:""}
+    <div class="crew">${crew}</div></section>`;
+}
+function diceHTML(){
+  const r=G.roll; if(!r) return "";
+  if(r.rolling) return `<div class="dice"><div class="die ${r.sides===6||r.sides===4?"d6":""} rolling" id="die">${r.shown}</div><div class="formula">Rolling d${r.sides}…</div></div>`;
+  let body;
+  if(r.auto) body=`<b>${r.label}</b><br><span class="ok">AUTO-SUCCESS</span> <span class="dim">(Afterburn)</span>`;
+  else {
+    const m=(r.mods||[]).filter(x=>x[0]!==0).map(x=>` ${x[0]>0?"+":"−"}${Math.abs(x[0])} <span class="dim">${x[1]}</span>`).join("");
+    const res=r.dmg?`<span class="bad">${r.total} damage</span>`:r.heal?`<span class="ok">+${r.total} hull</span>`:`${r.total} vs ${r.vs} → <span class="${r.ok?"ok":"bad"}">${r.ok?"SUCCESS":"FAIL"}</span>`;
+    body=`<b>${r.label}</b><br>${r.die}${m} = ${res}`;
+  }
+  return `<div class="dice"><div class="die ${r.sides!==20?"d6":""}">${r.auto?"✓":r.die}</div><div class="formula">${body}</div></div>`;
+}
+function paintDie(){ const d=document.getElementById("die"); if(d&&G.roll) d.textContent=G.roll.shown; }
+function btn(act,label,opts={}){ const {v="",dis=false,cls="",id=act+(v!==""?"-"+v:"")}=opts; return `<button class="${cls}" data-act="${act}" data-v="${v}" id="b-${id}" ${dis?"disabled":""}>${label}</button>`; }
+function actionsHTML(){
+  const s=S(), busy=G.roll&&G.roll.rolling, endLbl=G.qi+1<G.queue.length?"End phase ▸":"End turn ▸";
+  const end=(dis)=>btn("end",endLbl,{cls:"go",dis:dis||busy});
+  let p="",sub="",rows=[];
+  switch(G.st){
+    case "cmd": {
+      const n=slotsAllowed();
+      p=`PLAN YOUR TURN`; sub=`Pick the order of ${n} phases.${s.jammed?" Your comms are jammed.":""} Chosen: ${G.queue.join(" → ")||"none"}`;
+      rows.push(`<div class="btnrow">${["NAV","ATK","ENG"].map(x=>btn("phase",x,{v:x,cls:x.toLowerCase(),dis:G.queue.includes(x)})).join("")}${btn("undo","Undo",{dis:!G.queue.length})}</div>`);
+      break; }
+    case "nav_pick": {
+      const o=navOption(s,G.nav.speed,G.nav.side), ee=effEngine(s);
+      p="NAVIGATION · SET COURSE"; sub=`Choose speed and turn, or tap a lit hex. Engine +${ee} adds ${ee*R.ENG_DIST_BONUS} hexes and raises the DC.`;
+      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${[1,2,3].map(v=>btn("speed",v,{v,cls:G.nav.speed===v?"sel":""})).join("")}</div>`);
+      rows.push(`<div class="btnrow"><span class="lab">TURN</span>${[-3,-2,-1,0,1,2,3].map(v=>btn("side",(v>0?"+":"")+v,{v,cls:G.nav.side===v?"sel":"",dis:!navOption(s,G.nav.speed,v)})).join("")}</div>`);
+      rows.push(`<div class="btnrow">${btn("boost",o?(s.autoBoost?"Afterburn ▸":`Roll boost · DC ${o.dc}`):"No course",{cls:"nav",dis:!o||busy})}${btn("end","Skip move",{dis:busy})}</div>`);
+      break; }
+    case "moving": p="DRIFTING…"; break;
+    case "nav_drift": p="NAVIGATION · HOLD THE DRIFT"; sub=`Roll DRIFT vs DC ${G.dc}. Success lets you set a new heading and allows lock-on this turn.`;
+      rows.push(`<div class="btnrow">${btn("drift",`Roll drift · DC ${G.dc}`,{cls:"nav",dis:busy})}</div>`); break;
+    case "nav_heading": p="NAVIGATION · SET HEADING";
+      rows.push(`<div class="btnrow">${DIR_NAMES.map((d,i)=>btn("head",d,{v:i,cls:s.o===i?"sel":""})).join("")}</div>`); break;
+    case "done": p="PHASE COMPLETE"; rows.push(`<div class="btnrow">${end()}</div>`); break;
+    case "atk_acquire": {
+      const t=other(s), ai=arcInfo(s,t);
+      p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:`No ship in your arc (front, range 1–3). You can still reload.`;
+      rows.push(`<div class="btnrow">${btn("acquire",`Target P${t.pid}`,{cls:"atk",dis:!ai})}${btn("reload","Reload",{dis:s.f.reloaded})}${end()}</div>`); break; }
+    case "atk_menu": {
+      const t=tgt(), ai=arcInfo(s,t);
+      p=`COMBAT · P${t.pid} AT RANGE ${ai?ai.range:"—"}`;
+      sub=`Lock on (needs a stable drift): +${R.LOCK_BONUS} to hit and a critical. Fire: d20 vs AC ${ai?R.BASE_AC+R.AC_DIST[ai.range-1]:"—"}.`;
+      const lockDis=s.f.targeted||s.f.reloaded||!s.f.drift||busy;
+      rows.push(`<div class="btnrow">${btn("lock",s.f.drift?"Lock on":"Lock on (no drift)",{dis:lockDis})}${btn("reload","Reload",{dis:s.f.targeted||s.f.reloaded||busy})}${btn("fire",`Fire · ammo ${s.ammo}`,{cls:"atk",dis:s.f.fired||s.ammo<=0||!ai||busy})}${end()}</div>`); break; }
+    case "atk_debuff": p="COMBAT · PICK A SYSTEM TO CRIPPLE"; sub="Applied if your next shot hits. CREW stuns a random enemy crew member.";
+      rows.push(`<div class="btnrow">${DEBUFFS.map(([k,l])=>btn("debuff",l,{v:k,cls:"atk"})).join("")}</div>`); break;
+    case "atk_dmg": p="COMBAT · HIT!"; rows.push(`<div class="btnrow">${btn("dmg","Roll damage · d6",{cls:"atk",dis:busy})}</div>`); break;
+    case "eng": {
+      const cap=energyCap(s), used=energyUsed(s);
+      p=`ENGINEERING · ENERGY ${used}/${cap}`; sub="Power stays allocated between turns. Heavy hull damage lowers the cap.";
+      rows.push(`<div class="eng-grid">${SYS.map(([k,lab])=>`<span class="sys">${lab}</span>${btn("sysm","−",{v:k,dis:s.sys[k]<=0})}<span>+${s.sys[k]}${k==="eng"?" <span class=\"dim\">(max 2)</span>":""}</span>${btn("sysp","+",{v:k,cls:"eng",dis:used>=cap||(k==="eng"&&s.sys.eng>=2)})}`).join("")}</div>`);
+      rows.push(`<div class="btnrow">${btn("repair",`Repair · ${s.parts} parts`,{cls:"eng",dis:s.parts<=0||s.hp>=s.maxHp})}${end()}</div>`); break; }
+  }
+  return `<div class="prompt">${p}${sub?`<span class="sub">${esc(sub)}</span>`:""}</div>${rows.join("")}`;
+}
+function renderGame(){
+  const s=S();
+  let overlay="";
+  if(G.st==="over"){
+    const w=G.winner; const c=w?P_COLORS[w.pid-1]:"var(--bad)";
+    overlay=`<div class="overlay"><div class="box" style="--c:${c}"><h2>${w?`PLAYER ${w.pid} WINS`:"BOTH SHIPS LOST"}</h2>
+      ${w?`<p class="dim" style="margin:0">Crew: ${w.crew.map(c=>CREW_BY[c.key].name).join(", ")}</p>`:""}${btn("rematch","Rematch",{cls:"go"})}</div></div>`;
+  } else if(G.handoff){
+    overlay=`<div class="overlay"><div class="box" style="--c:${P_COLORS[s.pid-1]}"><h2>PLAYER ${s.pid}<br>TAKE THE HELM</h2>
+      <p class="dim" style="margin:0">${s.jammed?"Your comms are jammed: plan only 2 phases.":"Plan NAV, ATK and ENG in any order."}</p>${btn("begin","Begin turn",{cls:"go"})}</div></div>`;
+  }
+  const keepCanvas=cv&&document.body.contains(cv);
+  if(!keepCanvas){
+    app.innerHTML=`<div id="hdr"></div><div class="main"><div class="col">
+      <div class="screen"><canvas id="map" width="${W}" height="${H}" aria-label="Battle map"></canvas><div class="hud" id="hud"></div><div id="ovl"></div></div>
+      <div class="console" id="console"></div><div class="log" id="log" aria-live="polite"></div>
+      <details class="help"><summary>Rules quick reference</summary><ul>
+      <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
+      <li>Rocks and rams deal 5 damage. Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
+      <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
+      <li>Crew orders rest 2 turns after use. Stunned crew lose their passive until the end of their next turn.</li></ul></details>
+      </div><div class="col" id="side"></div></div>`;
+    initCanvas(document.getElementById("map"));
+  }
+  document.getElementById("hdr").innerHTML=header();
+  document.getElementById("ovl").innerHTML=overlay;
+  document.getElementById("console").innerHTML=G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div>${diceHTML()}</div>`;
+  document.getElementById("log").innerHTML=G.log.slice(0,40).map(l=>{
+    const c=l.c==="ok"?"var(--good)":l.c==="bad"?"var(--bad)":l.c==="crew"?"var(--any)":l.c==="p1"?P_COLORS[0]:l.c==="p2"?P_COLORS[1]:"var(--ink)";
+    return `<div style="color:${c}">${esc(l.t)}</div>`; }).join("");
+  document.getElementById("side").innerHTML=G.ships.map(shipCard).join("");
+  paintFaces();
+}
+
+app.addEventListener("click",e=>{
+  const b=e.target.closest("button[data-act]"); if(!b||b.disabled) return;
+  const a=b.dataset.act, v=b.dataset.v;
+  switch(a){
+    case "start": newGame(); break;
+    case "pick": draftPick(v); return;
+    case "randpick": draftPick(G.draft.pool[Math.floor(Math.random()*G.draft.pool.length)]); return;
+    case "begin": G.handoff=false; break;
+    case "phase": pickPhase(v); break;
+    case "undo": G.queue.pop(); break;
+    case "speed": G.nav.speed=+v; fixNavSide(); break;
+    case "side": G.nav.side=+v; break;
+    case "boost": doBoost(); return;
+    case "drift": doDrift(); return;
+    case "head": S().o=+v; log(`Heading locked: ${DIR_NAMES[+v]}.`); G.st="done"; break;
+    case "end": endPhase(); break;
+    case "acquire": acquire(); break;
+    case "reload": doReload(); break;
+    case "lock": doLock(); return;
+    case "fire": doFire(); return;
+    case "debuff": chooseDebuff(v); break;
+    case "dmg": doDamage(); return;
+    case "sysp": sysAdd(v,1); break;
+    case "sysm": sysAdd(v,-1); break;
+    case "repair": doRepair(); break;
+    case "order": useOrder(+v); return;
+    case "rematch": newGame(); break;
+  }
+  render();
+});
+
+// keep a running game across live page updates
+window.claude?.hot?.snapshot?.(()=>({G}));
+function start(data){
+  if(data&&data.G){ G=data.G; if(G.roll) G.roll.rolling=false; if(G.st==="moving"&&G.dest){ const s=S(); s.q=G.dest.q; s.r=G.dest.r; G.st="nav_drift"; } }
+  else G={screen:"title",ships:[],log:[]};
+  render(); requestAnimationFrame(frame);
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
