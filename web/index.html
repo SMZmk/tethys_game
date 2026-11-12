@@ -822,7 +822,7 @@ function actionsHTML(){
       break; }
     case "nav_pick": {
       const o=navOption(s,G.nav.speed,G.nav.side), ee=effEngine(s);
-      p="NAVIGATION · SET COURSE"; sub=`Choose speed and turn, or tap a lit hex. Engine +${ee} adds ${ee*R.ENG_DIST_BONUS} hexes and raises the DC.`;
+      p="NAVIGATION · SET COURSE"; sub=`Choose speed and turn, or tap a lit hex.${ee?` Engine +${ee} adds ${ee*R.ENG_DIST_BONUS} hexes and raises the DC.`:" Power the ENGINE in ENG to fly further."}`;
       rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${[1,2,3].map(v=>btn("speed",v,{v,cls:G.nav.speed===v?"sel":""})).join("")}</div>`);
       rows.push(`<div class="btnrow"><span class="lab">TURN</span>${[-3,-2,-1,0,1,2,3].map(v=>btn("side",(v>0?"+":"")+v,{v,cls:G.nav.side===v?"sel":"",dis:!navOption(s,G.nav.speed,v)})).join("")}</div>`);
       rows.push(`<div class="btnrow">${btn("boost",o?(s.autoBoost?"Afterburn ▸":`Roll boost · DC ${o.dc}`):"No course",{cls:"nav",dis:!o||busy})}${btn("end","Skip move",{dis:busy})}</div>`);
