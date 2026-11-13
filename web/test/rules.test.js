@@ -354,6 +354,23 @@ test("crew: SELA Tailwind lowers boost DC by 4; failed drift still sets heading"
   assert.strictEqual(G.st, "nav_heading"); assert.ok(!sh(G, 0).f.drift);
 });
 
+// ---------- skiff ----------
+test("skiff: less hull, but speed 4, repairs +2 and double salvage", () => {
+  assert.ok(L.CLASSES.SKIFF.hull < L.CLASSES.HAULER.hull);
+  const G = face(drafted({ c1: "SKIFF", c2: "HAULER", crew1: ["GUNNER", "ACE", "TECH"] }));
+  assert.strictEqual(L.maxSpeed(sh(G, 0)), 4); assert.strictEqual(L.maxSpeed(sh(G, 1)), 3);
+  plan(G, "ENG", "NAV", "ATK"); const s = sh(G, 0); s.hp = 4;
+  forceVal(G, 4, 1); L.apply(G, "REP"); assert.strictEqual(s.hp, 4 + 1 + 2 + 1);   // d4 + Skiff 2 + Scrappers 1
+});
+test("skiff: an old-world wreck gives the Skiff 2 parts", () => {
+  const G = face(drafted({ c1: "SKIFF" })); plan(G, "NAV", "ATK", "ENG");
+  L.setTerrainSeed(G.seed); const s = sh(G, 0); let spot = null;
+  for (let q = -9; q <= 9 && !spot; q++) for (let r = -9; r <= 9 && !spot; r++) if (L.terrain(q, r) === 4) spot = [q, r];
+  Object.assign(s, { q: spot[0], r: spot[1] + 1, o: 0 }); G.ships[1].q = 30;
+  const parts = s.parts; force(G, 20, v => v >= 19); L.apply(G, "B:1:0");
+  assert.strictEqual(s.parts, parts + 2);
+});
+
 // ---------- fight length ----------
 test("fight length: every ship goes down to 2-3 average hits", () => {
   const avgHit = 3.5 + L.R.DMG_BONUS, maxHit = 6 + L.R.DMG_BONUS + 1;   // d6 + 4 (+1 Dreadnought)

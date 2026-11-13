@@ -103,14 +103,14 @@ const FACTIONS = {
 };
 const KINDRED_HULL=1;
 const CLASSES = {
-  SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:15,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:0,
-    text:"Twin-hull racer. +1 to boost and drift rolls.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
+  SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:2,speed:4,salvage:2,
+    text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
   HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:15,energy:3,parts:3,bst:-1,dft:0,atk:0,dmg:0,rep:0,
     text:"Mobile fortress. +1 spare part, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
   DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:15,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,
     text:"Gunboat. +1 attack, +1 damage, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
-  RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:-1,
-    text:"Old-world tech. 5 energy, repairs −1.",lore:"Nobody knows who built it. It hums when the wind dies."},
+  RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
+    text:"Old-world tech. 5 energy: power every system at once.",lore:"Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
 const CREW = [
@@ -170,6 +170,7 @@ function log(G,t,c=""){ G.log.unshift({t,c}); if(G.log.length>80) G.log.pop(); }
 function ev(G,e){ G.ev.push(e); }
 
 const cls=s=>CLASSES[s.cls]||{bst:0,dft:0,atk:0,dmg:0,rep:0};
+const maxSpeed=s=>cls(s).speed||3;
 const has=(s,key)=>s.crew.some(c=>c.key===key&&!c.stun);
 function energyCap(s){ const p=s.hp/s.maxHp; if(p<R.HP_FAIL) return 0; if(p<R.HP_CRIT) return 1; return s.baseEnergy+(has(s,"TECH")?1:0); }
 const energyUsed=s=>s.sys.eng+s.sys.bst+s.sys.dft+s.sys.wpn;
@@ -328,7 +329,7 @@ function navOption(s,speed,side){
   if(!ok) return null;
   return {speed,side,q:s.q+rq,r:s.r+rr,dc:Math.trunc((R.DC_BASE+total+m)*(1+ee*R.ENG_DC_MULT))-(s.tailwind?4:0)};
 }
-function allNavOptions(s){ const o=[]; for(let sp=1;sp<=3;sp++) for(let sd=-3;sd<=3;sd++){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
+function allNavOptions(s){ const o=[]; for(let sp=1;sp<=maxSpeed(s);sp++) for(let sd=-3;sd<=3;sd++){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
 function arcInfo(s,t){
   if(!t||t.hp<=0) return null;
   const [side,sp]=relInfo(t.q-s.q,t.r-s.r,s.o);
@@ -494,7 +495,7 @@ function doBoost(G,speed,side){
   const tt=terrain(s.q,s.r);
   if(isObstacle(s.q,s.r)){ log(G,`${shipName(s)} crashed into ${TERRAIN_NAMES[tt].toLowerCase()}!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?1:R.CRASH_DMG); }
   const k=s.q+","+s.r;
-  if(tt===4&&!G.looted.includes(k)){ G.looted.push(k); s.parts++; log(G,`${shipName(s)} salvages a wreck: +1 spare part.`,"ok"); tell(G,"wreck",{p:cname(s)},s.fac); }
+  if(tt===4&&!G.looted.includes(k)){ const n=cls(s).salvage||1; G.looted.push(k); s.parts+=n; log(G,`${shipName(s)} salvages a wreck: +${n} spare part${n>1?"s":""}.`,"ok"); tell(G,"wreck",{p:cname(s)},s.fac); }
   const o=other(G,s);
   if(o.hp>0&&o.q===s.q&&o.r===s.r){ log(G,"Collision! Both ships rammed.","bad"); tell(G,"ram",{}); damage(G,s,R.CRASH_DMG); damage(G,o,R.CRASH_DMG); }
   if(checkWin(G)) return;
@@ -591,4 +592,4 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};

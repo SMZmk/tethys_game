@@ -125,10 +125,10 @@ Nomads count heads after every hit, Drifters trust the wind.
 ### Ship classes
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
-| Skiff | small twin-hull sand-catamaran | 15 | 3 | 2 | +1 boost and drift rolls |
+| Skiff | small twin-hull sand-catamaran | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
 | Hauler | huge diesel barge with smokestacks | 15 | 3 | 3 | −1 boost rolls |
 | Dreadnought | riveted gunboat with a turret | 15 | 3 | 1 | +1 attack, +1 damage |
-| Construct | old-world relic with orbiting shards | 15 | 5 | 2 | repairs −1 |
+| Construct | old-world relic with orbiting shards | 15 | 5 | 2 | 5 energy |
 
 ### Crew (browser version)
 15 crew, 5 per faction, drafted 3 per ship (picks go 1-2-2-1-1-2). Click a card, then confirm; you can undo picks
@@ -154,11 +154,11 @@ your next 2 turns.
 | | ZED, Jammer | ATK | enemy locks on you −2 | Jam Comms: enemy plans 2 phases next turn |
 
 ### Fight length
-Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 8), ships have 15 hull
+Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 8), ships have 15 hull (Skiff 13)
 (+1 per kindred crew), base armour class is 10 (+2/+4 at range 2/3), so a ship goes down after 2–3 hits.
 In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rocks and rams deal 3, repairs heal d4.
 
-Balance (2,000 bot games): factions win 44–56% against each other, ship classes 42–58%.
+Balance (3,000 bot games): factions win 46–54% against each other, ship classes 42–58%.
 
 ### The arena
 The two ships start in open flats in the middle. Rock gets denser the further out you drift, but winding
@@ -166,7 +166,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 48 rules tests (draft, factions, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 50 rules tests (draft, factions, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, phone width.
 
 ### Source

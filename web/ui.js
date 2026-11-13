@@ -500,7 +500,7 @@ function btn(m,label,cls="",L){ return `<button class="${cls}" data-m="${m}" id=
 function fixNavSide(){
   const s=S(G); if(navOption(s,UI.speed,UI.side)) return;
   for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,UI.speed,d)){ UI.side=d; return; }
-  for(const sp of [1,2,3]) for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
+  for(let sp=1;sp<=maxSpeed(s);sp++) for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
 }
 function actionsHTML(){
   const s=S(G), L=myTurn()&&!UI.busy?legal(G):[], endLbl=G.qi+1<G.queue.length?"End phase ▸":"End turn ▸";
@@ -516,7 +516,7 @@ function actionsHTML(){
       const o=navOption(s,UI.speed,UI.side), ee=effEngine(s);
       p="NAVIGATION · SET COURSE"; sub=`Choose speed and turn, or tap a lit hex.${ee?` Engine +${ee} adds ${ee*R.ENG_DIST_BONUS} hexes and raises the DC.`:" Power the ENGINE in ENG to fly further."}`;
       const can=L.length>0;
-      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${[1,2,3].map(v=>`<button data-ui="speed" data-v="${v}" id="ui-speed-${v}" class="${UI.speed===v?"sel":""}" ${can&&[-3,-2,-1,0,1,2,3].some(d=>navOption(s,v,d))?"":"disabled"}>${v}</button>`).join("")}</div>`);
+      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${Array.from({length:maxSpeed(s)},(_,i)=>i+1).map(v=>`<button data-ui="speed" data-v="${v}" id="ui-speed-${v}" class="${UI.speed===v?"sel":""}" ${can&&[-3,-2,-1,0,1,2,3].some(d=>navOption(s,v,d))?"":"disabled"}>${v}</button>`).join("")}</div>`);
       rows.push(`<div class="btnrow"><span class="lab">TURN</span>${[-3,-2,-1,0,1,2,3].map(v=>`<button data-ui="side" data-v="${v}" id="ui-side-${v}" class="${UI.side===v?"sel":""}" ${can&&navOption(s,UI.speed,v)?"":"disabled"}>${v>0?"+":""}${v}</button>`).join("")}</div>`);
       const bm=o?`B:${o.speed}:${o.side>0?"+":""}${o.side}`:"B:none";
       rows.push(`<div class="btnrow">${btn(bm,o?(s.autoBoost?"Afterburn ▸":`Roll boost · DC ${o.dc}`):"No open course","nav",L)}${L.includes("PIVOT:L")?btn("PIVOT:L","Pivot left","",L)+btn("PIVOT:R","Pivot right","",L):""}${btn("END","Skip move","",L)}</div>`);
