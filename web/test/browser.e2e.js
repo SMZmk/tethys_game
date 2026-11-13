@@ -92,10 +92,10 @@ const BOT=`window.botMove=function(){
     const msgs = await A.evaluate(async () => {
       const out = []; await importCode("hello"); out.push(UI.msg);
       await importCode(await encodeGame(G.seed, G.moves.slice(0, 5))); out.push(UI.msg);
-      await importCode(await encodeGame(G.seed + 1, ["C:SKIFF"])); out.push(MODE.seat === null ? "" : "seat ok");
+      await importCode(await encodeGame(G.seed + 1, ["C:NOPE"])); out.push(UI.msg);
       return out; });
-    assert.ok(/No move code/.test(msgs[0])); assert.ok(/older than your game/.test(msgs[1]));
-    console.log("ok   codes: garbage and old codes are refused with a message");
+    assert.ok(/No move code/.test(msgs[0])); assert.ok(/older than your game/.test(msgs[1])); assert.ok(/illegal move/.test(msgs[2]));
+    console.log("ok   codes: garbage, old and invalid codes are refused with a message");
   }
 
   // ---- 4. phone ----
