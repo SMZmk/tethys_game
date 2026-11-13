@@ -56,7 +56,7 @@ At the start of your turn, you must program a sequence of three phases in the Co
 * **ATK (Combat):** Use your radar to input a target's distance and direction. Choose to target (lock on), reload, or fire main weapons using d20 rolls against the enemy's Armor Class.
 * **ENG (Engineering):** Allocate energy to your ship's subsystems to gain stat bonuses (e.g., type `SPEED 1` or `WPN 1`), or type `REPAIR` to spend spare parts to fix your hull.
 
-### Crew
+### Crew (Python version)
 
 Each crew member has a **station** (the phase where their order works), a **passive** that is always on,
 and one **order**. Type `USE 1`, `USE 2` or `USE 3` during a phase to give an order.
@@ -99,7 +99,7 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 ### Move notation
 | Move | Meaning |
 |---|---|
-| `C:SKIFF` | choose ship class (SKIFF, HAULER, DREAD, RELIC) |
+| `C:SKIFF:WIND` | choose ship class (SKIFF, HAULER, DREAD, RELIC) and faction (MACHINE, HEART, WIND) |
 | `R:CAPTAIN` | recruit a crew member |
 | `Q:NAV,ATK,ENG` | plan the phase order |
 | `B:2:+1` | boost at speed 2, turn +1 (rolls d20) |
@@ -110,13 +110,55 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 | `O:2` | give an order to crew member 2 |
 | `END` | end the phase |
 
+### Factions
+Every ship sails under a faction and every crew member belongs to one. Each crew member who shares
+your ship's faction adds **+1 hull** (kindred), so the draft is also about denying your opponent their faction.
+The story text changes with your faction: Scrappers fire scrap-iron arrows and grieve for their engine,
+Nomads count heads after every hit, Drifters trust the wind.
+
+| Faction | From the setting | Perk |
+|---|---|---|
+| Scrappers | Followers of the Machine: the ship is the living body | Repairs heal +1 |
+| Nomads | Followers of the Heart: no one is left in the sand | Crew orders sit out only 1 turn (others 2) |
+| Drifters | Followers of the Wind: free and never lost | +1 to boost and drift rolls |
+
 ### Ship classes
-| Ship | Role | Hull | Energy | Parts | Trait |
+| Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
-| Skiff | Runner | 22 | 3 | 2 | +1 boost and drift rolls |
-| Hauler | Fortress | 28 | 3 | 3 | repairs +1, −1 boost rolls |
-| Dreadnought | Ripper | 26 | 3 | 1 | +1 attack, +1 damage |
-| Construct | Relic | 26 | 5 | 2 | repairs −1 |
+| Skiff | small twin-hull sand-catamaran | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
+| Hauler | huge diesel barge with smokestacks | 15 | 3 | 3 | −1 boost rolls |
+| Dreadnought | riveted gunboat with a turret | 15 | 3 | 1 | +1 attack, +1 damage |
+| Construct | old-world relic with orbiting shards | 15 | 5 | 2 | 5 energy |
+
+### Crew (browser version)
+15 crew, 5 per faction, drafted 3 per ship (picks go 1-2-2-1-1-2). Click a card, then confirm; you can undo picks
+(on one device any time during the draft, online until your turn is sent). After an order a crew member sits out
+your next 2 turns.
+
+| Faction | Crew | Station | Passive | Order |
+|---|---|---|---|---|
+| Scrappers | VOSS, Iron Captain | ANY | +1 attack rolls | Scrap Fury: next hit this turn +4 damage |
+| | GRIT, Harpooner | ATK | +1 damage | Chain Shot: next hit also cripples a random system |
+| | BRAKK, Engineer | ENG | repairs +1 | Field Fix: all system damage −1 |
+| | IVO, Reactor Tech | ENG | +1 energy cap | Surge: next roll +5 |
+| | SAL, Scavenger | ENG | +1 part, reload gives 2 ammo | Salvage: +2 parts |
+| Nomads | RHO, Captain | ANY | +1 to all rolls | Battle Stations: repeat this phase |
+| | KAEL, Soldier | ATK | +2 attack rolls | Double Tap: +1 ammo, fire again |
+| | DOV, Bulwark | ATK | enemy attacks on you −1 | Brace: damage taken −3 until your next turn |
+| | FENN, Ecologist | NAV | rock crashes deal 1, not 3 | Sandstorm: enemy −2 to all rolls next turn |
+| | ANA, Medic | ENG | stunned crew recover at your turn start | Patch Up: heal 3 hull |
+| Drifters | SELA, Wind Captain | NAV | a failed drift still lets you set heading | Tailwind: next boost DC −4 |
+| | VEX, Ace Pilot | NAV | +2 boost rolls | Afterburn: next boost auto-succeeds |
+| | ORO, Wayfinder | NAV | +2 drift rolls | Evasive: enemy attacks −3 |
+| | NYX, Spotter | ATK | +3 lock rolls | Auto-Lock: lock with no roll |
+| | ZED, Jammer | ATK | enemy locks on you −2 | Jam Comms: enemy plans 2 phases next turn |
+
+### Fight length
+Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 8), ships have 15 hull (Skiff 13)
+(+1 per kindred crew), base armour class is 10 (+2/+4 at range 2/3), so a ship goes down after 2–3 hits.
+In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rocks and rams deal 3, repairs heal d4.
+
+Balance (3,000 bot games): factions win 46–54% against each other, ship classes 42–58%.
 
 ### The arena
 The two ships start in open flats in the middle. Rock gets denser the further out you drift, but winding
@@ -124,7 +166,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 35 rules tests (draft, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 50 rules tests (draft, factions, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, phone width.
 
 ### Source

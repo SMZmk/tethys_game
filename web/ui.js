@@ -5,7 +5,7 @@
 let G=null;
 let MODE={mode:"local",seat:0};                 // local hotseat, or online with my seat (0/1)
 const UI={screen:"title",speed:1,side:0,handoff:false,busy:false,rolling:null,shown:null,
-  focus:null,heading:null,share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
+  focus:null,heading:null,pickCls:null,pickFac:null,pickCrew:null,share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
 const SAVE_KEY="tethys.v2";
 const P_COLORS=["#ffcf4a","#5fd0ff"];
 const ST_COLOR={NAV:"var(--nav)",ATK:"var(--atk)",ENG:"var(--eng)",ANY:"var(--any)"};
@@ -58,7 +58,7 @@ async function act(m){
   if(UI.busy||!myTurn()) return;
   if(!legal(G).includes(m)) return;
   const before=actor(G);
-  apply(G,m); const evs=G.ev; G.ev=[]; UI.heading=null;
+  apply(G,m); const evs=G.ev; G.ev=[]; UI.heading=null; UI.pickCls=null; UI.pickFac=null; UI.pickCrew=null;
   save();
   await present(evs);
   if(MODE.mode==="online"&&before===MODE.seat&&actor(G)!==MODE.seat) await makeShare();
@@ -98,8 +98,10 @@ async function importCode(text){
   let tail;
   if(!G||G.seed!==d.seed){
     // new game from a friend's code: catch up silently, then watch their latest move
-    const ps=plies(d.seed,d.moves), last=ps.length?ps[ps.length-1].moves.length:0;
-    try{ G=replay(d.seed,d.moves.slice(0,d.moves.length-last)); }catch(e){ return fail("This code contains an illegal move."); }
+    let last, G2;
+    try{ const ps=plies(d.seed,d.moves); last=ps.length?ps[ps.length-1].moves.length:0; G2=replay(d.seed,d.moves.slice(0,d.moves.length-last)); }
+    catch(e){ return fail("This code contains an illegal move. It may be damaged, or from a different version of the game."); }
+    G=G2;
     tail=d.moves.slice(d.moves.length-last);
     MODE={mode:"online",seat:null}; UI.share=null; UI.shareText="";
   } else {
@@ -227,17 +229,46 @@ function drawTerrain(cs){
     } }
   ctx.putImageData(img,0,0);
 }
-const SHIP_ART=["......oo......",".....oAAo.....",".....oAAo.....","....oAccAo....","....oAccAo....","...oAAAAAAo...",
-  "..oAAsAAsAAo..",".oAAssAAssAAo.","oAAso.AA.osAAo","oAso..oo..osAo","oso...ff...oso","oo....ff....oo"];
+// Ship silhouettes, facing north. A = player colour, F = faction colour.
+// Skiff: twin-hull sand-catamaran. Hauler: diesel barge with stacks. Dreadnought: riveted gunboat. Construct: old-world relic.
+const SHIP_ART={
+  SKIFF:["..oo....oo..",".oAAo..oAAo.",".oAAo..oAAo.",".oAAo..oAAo.",".oAAooooAAo.",".oAAmccmAAo.",
+         ".oAAmccmAAo.",".oAAmFFmAAo.",".oAAooooAAo.",".osAo..oAso.",".osAo..oAso.",".osso..osso.","..ff....ff.."],
+  HAULER:["....oooooooooo....","...oAAAAAAAAAAo...","..oAAwwwwwwwwAAo..","..oAwwddwwddwwAo..","..oAwwddwwddwwAo..",
+          "..oAwwwwccwwwwAo..","..oAwwwmccmwwwAo..","..oAwddwwwwddwAo..","..oAwddwwwwddwAo..","..oAwwwwwwwwwwAo..",
+          "..oAwwkkwwkkwwAo..","..oAwwkkwwkkwwAo..","..oAFFFFFFFFFFAo..","..oAssssssssssAo..","..oAAAAAAAAAAAAo..",
+          "...oooooooooooo...","....f..f..f..f...."],
+  DREAD:[".......oo.......","......omdo......","......omdo......",".....oAmdAo.....","....oAAddAAo....",
+         "....oAmddmAo....","...oAAAmmAAAo...","...oAdAAAAdAo...","..oAAdAkkAdAAo..","..oAAAAkkAAAAo..",
+         "..oAFFFFFFFFAo..","..oAssssssssAo..",".oAAsAAAAAAsAAo.",".oAsoooooooosAo.","oAso........osAo",
+         "oso..........oso","o..f........f..o"],
+  RELIC:["......oo......",".....oggo.....","....ogAAgo....","...ogAssAgo...","..ogAsGGsAgo..",".ogAsGFFGsAgo.",
+         "ogAsGFFFFGsAgo","ogAsGFFFFGsAgo",".ogAsGFFGsAgo.","..ogAsGGsAgo..","...ogAssAgo...","....ogAAgo....",
+         ".....oggo.....","......oo......"],
+};
+const STACKS={HAULER:[[6,10],[11,10]],DREAD:[[7,8]]};   // smokestack pixels (x,y) in the sprite
 const shipSprites={};
 function shade(hex,amt){ const n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*(1+amt)))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; }
-function shipSprite(color,frame){
-  const k=color+frame; if(shipSprites[k]) return shipSprites[k];
-  const c=document.createElement("canvas"); c.width=14; c.height=12; const x=c.getContext("2d");
-  const map={o:"#120e18",A:color,s:shade(color,-0.45),c:"#7fe8ff",f:frame?"#ffffff":"#3fd8ff"};
-  SHIP_ART.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(map[ch]){ x.fillStyle=map[ch]; x.fillRect(xx,yy,1,1);} }));
+function shipSprite(cls,color,fac,frame){
+  cls=SHIP_ART[cls]?cls:"SKIFF";
+  const k=cls+color+fac+frame; if(shipSprites[k]) return shipSprites[k];
+  const art=SHIP_ART[cls], w=Math.max(...art.map(r=>r.length)), h=art.length;
+  const c=document.createElement("canvas"); c.width=w; c.height=h; const x=c.getContext("2d");
+  const fc=(FACTIONS[fac]||{color:"#c0c0c0"}).color;
+  const map={o:"#120e18",A:color,s:shade(color,-0.45),c:"#7fe8ff",m:"#8a909c",d:"#4a4e58",w:"#a8865a",k:"#2a2a30",
+    F:fc,f:frame?"#ffffff":"#ffb040",g:frame?"#60f0ff":"#3ab0e0",G:frame?"#e0ffff":"#a0f0ff"};
+  if(cls==="SKIFF") map.f=frame?"#ffffff":"#3fd8ff";
+  art.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(map[ch]){ x.fillStyle=map[ch]; x.fillRect(xx,yy,1,1);} }));
   return shipSprites[k]=c;
 }
+function paintShips(){
+  document.querySelectorAll("canvas[data-ship]").forEach(c=>{
+    const sp=shipSprite(c.dataset.ship,P_COLORS[+c.dataset.pid-1]||P_COLORS[0],c.dataset.fac||"",0), x=c.getContext("2d");
+    x.clearRect(0,0,c.width,c.height); x.imageSmoothingEnabled=false;
+    x.drawImage(sp,Math.floor((c.width-sp.width)/2),Math.floor((c.height-sp.height)/2));
+  });
+}
+const shipCanvas=(cls,pid,fac,cl="")=>`<canvas class="shipimg ${cl}" width="20" height="20" data-ship="${cls}" data-pid="${pid}" data-fac="${fac||""}" aria-hidden="true"></canvas>`;
 function toScreen(q,r){ const [x,y]=hexPx(q,r); return [Math.round(x-cam.x+W/2),Math.round(y-cam.y+H/2)]; }
 const fx={
   shot(a,b){ const pa=shipPos(G.ships[a-1]),pb=shipPos(G.ships[b-1]); shots.push({a:hexPx(pa.q,pa.r),b:hexPx(pb.q,pb.r),t0:performance.now(),col:P_COLORS[a-1]}); },
@@ -267,11 +298,17 @@ function frame(now){
     const p=shipPos(sh), [x,y]=toScreen(p.q,p.r);
     if(sh===s&&G.st!=="over"){ ctx.strokeStyle=fr?"#ffffff":P_COLORS[sh.pid-1]; ctx.lineWidth=1; hexOutline(x,y,HS-1); }
     if(G.target===sh.pid&&G.phase==="ATK"){ ctx.strokeStyle=s.f.locked?"#3dff6a":"#ff4040"; hexOutline(x,y,HS-1); hexOutline(x,y,HS-3); }
-    ctx.save(); ctx.translate(x,y); ctx.rotate((sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3); ctx.drawImage(shipSprite(P_COLORS[sh.pid-1],fr),-7,-6); ctx.restore();
-    const w=16, f=Math.ceil(w*sh.hp/sh.maxHp);
-    ctx.fillStyle="#000"; ctx.fillRect(x-w/2-1,y-14,w+2,4);
-    ctx.fillStyle=sh.hp/sh.maxHp<HP_LOW?"#ff4d5e":"#5be37a"; ctx.fillRect(x-w/2,y-13,f,2);
-    if(sh.evasive){ ctx.fillStyle="#7fe8ff"; ctx.fillRect(x+9,y-13,2,2); }
+    ctx.save(); ctx.translate(x,y); ctx.rotate((sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3); const spr=shipSprite(sh.cls,P_COLORS[sh.pid-1],sh.fac,fr), sw=spr.width, sh2=spr.height;
+    ctx.drawImage(spr,-Math.floor(sw/2),-Math.floor(sh2/2));
+    if(sh.cls==="RELIC"){ const a=now/400; for(let k=0;k<3;k++){ const b=a+k*2.094; ctx.fillStyle=k?"#60f0ff":"#e0ffff"; ctx.fillRect(Math.round(Math.cos(b)*9)-1,Math.round(Math.sin(b)*9)-1,2,2); } }
+    for(const [px,py] of (STACKS[sh.cls]||[])) if(Math.random()<0.05&&!reduceMotion()){
+      const ang=(sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3, lx=px-sw/2, ly=py-sh2/2;
+      const [wx,wy]=hexPx(p.q,p.r); parts.push({x:wx+lx*Math.cos(ang)-ly*Math.sin(ang),y:wy+lx*Math.sin(ang)+ly*Math.cos(ang),vx:.15+Math.random()*.2,vy:-.25,l:40,c:Math.random()<.5?"#5a5660":"#3a3840"}); }
+    ctx.restore();
+    const w=16, f=Math.ceil(w*sh.hp/sh.maxHp), top=y-Math.ceil(Math.max(sw,sh2)/2)-4;
+    ctx.fillStyle="#000"; ctx.fillRect(x-w/2-1,top,w+2,4);
+    ctx.fillStyle=sh.hp/sh.maxHp<HP_LOW?"#ff4d5e":"#5be37a"; ctx.fillRect(x-w/2,top+1,f,2);
+    if(sh.evasive){ ctx.fillStyle="#7fe8ff"; ctx.fillRect(x+9,top+1,2,2); }
   }
   const o=other(G,fs);
   if(o&&o.hp>0){
@@ -346,11 +383,11 @@ function header(){
   const seatChip=G&&MODE.mode==="online"&&MODE.seat!==null?`<span class="turnchip" style="color:${P_COLORS[MODE.seat]}">YOU ARE P${MODE.seat+1}</span>`:"";
   return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
-const RULES=[["var(--sand)","1 · Ships & crew","Each player picks a ship class, then drafts 3 crew from 9 (picks go 1-2-2-1-1-2)."],
+const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull and a faction, then draft 3 crew from 15 (picks go 1-2-2-1-1-2). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
   ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2 phases."],
   ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
   ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
-  ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts."],
+  ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts (d4 hull each)."],
   ["#c9a0ff","Online","Each turn becomes a short move code. Send it to your friend; their game replays your moves."]];
 function render(){
   if(UI.screen==="title"||!G) return renderTitle();
@@ -374,25 +411,49 @@ function waitingPanel(){
     <textarea id="reply-code" class="code" placeholder="Paste their move code here"></textarea>
     <div class="btnrow"><button data-ui="reply" id="btn-reply">Load their move</button><span class="msg ${UI.msgErr?"err":""}">${esc(UI.msg)}</span></div></div>`;
 }
+function canUndo(){
+  if(!G||UI.busy||!G.moves.length) return false;
+  const last=G.moves[G.moves.length-1];
+  if(!/^[CR]:/.test(last)) return false;
+  if(MODE.mode==="local") return true;
+  const prev=replay(G.seed,G.moves.slice(0,-1));
+  return actor(prev)===MODE.seat&&actor(G)===MODE.seat;      // online: only inside your own, unsent turn
+}
+function undoLast(){
+  if(!canUndo()) return;
+  G=replay(G.seed,G.moves.slice(0,-1)); UI.pickCrew=null; UI.handoff=false; save();
+}
+const facChip=f=>f?`<span class="fchip" style="--fc:${FACTIONS[f].color}">${FACTIONS[f].name.toUpperCase()}</span>`:"";
 function renderDraft(){
   const pi=actor(G), s=G.ships[pi], mine=myTurn();
+  const undo=canUndo()?`<button data-ui="undo" id="btn-undo">Undo last pick</button>`:"";
   let body;
   if(!mine) body=waitingPanel();
   else if(!s.cls){
-    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR SHIP<span class="sub">The ship is your body in the desert. Crew come next.</span></div>
-    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls" data-m="C:${k}" id="m-C-${k}"><span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()}</em></span>
-      <span class="row"><span>HULL ${c.hull}</span><span>ENERGY ${c.energy}</span><span>PARTS ${c.parts}</span></span><span>${esc(c.text)}</span><span class="dim">${esc(c.lore)}</span></button>`).join("")}</div>`;
+    const cl=UI.pickCls, fa=UI.pickFac;
+    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR SHIP<span class="sub">Pick a hull and the faction you sail under. You can change both until you confirm.</span></div>
+    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}">
+      <span class="clshead">${shipCanvas(k,s.pid,fa,"big")}<span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()} · ${c.size.toUpperCase()}</em></span></span>
+      <span class="row"><span>HULL ${c.hull}</span><span>ENERGY ${c.energy}</span><span>PARTS ${c.parts}</span></span><span>${esc(c.text)}</span><span class="dim">${esc(c.lore)}</span></button>`).join("")}</div>
+    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull.</span></div>
+    <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}">
+      <span class="nm" style="color:${f.color}">${f.name.toUpperCase()}<em>${esc(f.long.toUpperCase())}</em></span><span>${esc(f.perk)}</span><span class="dim">“${esc(f.creed)}”</span>
+      <span class="dim">Crew: ${CREW.filter(c=>c.f===k).map(c=>c.name).join(", ")}</span></button>`).join("")}</div>
+    <div class="btnrow">${cl&&fa?`<button class="go" data-m="C:${cl}:${fa}" id="m-confirm-ship">Confirm: ${CLASSES[cl].name} of the ${FACTIONS[fa].name} ▸</button>`:`<button class="go" disabled>Choose a ship and a faction</button>`}${undo}</div>`;
   } else {
-    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: RECRUIT A CREW MEMBER<span class="sub">Pick ${G.draft.idx+1} of ${G.draft.order.length}. Station shows the phase where their order works.</span></div>
-    <div class="cards">${CREW.map(c=>{ const taken=!G.draft.pool.includes(c.key);
-      return `<button class="card ${taken?"taken":""}" style="--st:${ST_COLOR[c.st]}" data-m="R:${c.key}" id="m-R-${c.key}" ${taken?"disabled":""}>
+    const pk=UI.pickCrew&&G.draft.pool.includes(UI.pickCrew)?UI.pickCrew:null;
+    const kin=kindred(s);
+    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: RECRUIT A CREW MEMBER<span class="sub">Pick ${G.draft.idx+1} of ${G.draft.order.length}. You sail with the ${FACTIONS[s.fac].name}: their crew add +${KINDRED_HULL} hull each (now ${kin}).</span></div>
+    ${Object.entries(FACTIONS).map(([fk,f])=>`<div class="facgroup" style="--fc:${f.color}"><div class="fachead">${f.name.toUpperCase()} <span class="dim">· ${esc(f.long)}${fk===s.fac?" · YOUR FACTION":""}</span></div>
+      <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const taken=!G.draft.pool.includes(c.key);
+      return `<button class="card ${taken?"taken":""} ${pk===c.key?"picked":""}" style="--st:${ST_COLOR[c.st]}" data-ui="selcrew" data-v="${c.key}" id="sel-${c.key}" ${taken?"disabled":""} aria-pressed="${pk===c.key}">
       ${faceCanvas(c.key)}<div class="nm">${c.name}<em>${c.role.toUpperCase()} · ${c.st}</em></div>
-      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div>
-    <div class="btnrow"><button data-ui="randpick" id="btn-rand">Random pick</button></div>`;
+      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
+    <div class="btnrow">${pk?`<button class="go" data-m="R:${pk}" id="m-confirm-crew">Recruit ${CREW_BY[pk].name} ▸</button>`:`<button class="go" disabled>Choose a crew member</button>`}<button data-ui="randpick" id="btn-rand">Random pick</button>${undo}</div>`;
   }
   app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">${storyHTML()}${body}
-    <div class="picks">${G.ships.map(sh=>`<div style="color:${P_COLORS[sh.pid-1]}">P${sh.pid}: ${sh.cls?CLASSES[sh.cls].name:"—"} · ${sh.crew.map(c=>CREW_BY[c.key].name).join(", ")||"no crew yet"}</div>`).join("")}</div></section>`;
-  paintFaces();
+    <div class="picks">${G.ships.map(sh=>`<div style="color:${P_COLORS[sh.pid-1]}">P${sh.pid}: ${sh.cls?CLASSES[sh.cls].name:"—"} ${facChip(sh.fac)} · ${sh.crew.map(c=>CREW_BY[c.key].name).join(", ")||"no crew yet"}</div>`).join("")}</div></section>`;
+  paintFaces(); paintShips();
 }
 function storyHTML(){
   const st=G.story.slice(0,3);
@@ -402,18 +463,22 @@ function paintStory(){ const el=document.getElementById("story"); if(el) el.oute
 function shipCard(s){
   const active=s===S(G)&&G.st!=="over", cap=energyCap(s), used=energyUsed(s), pct=s.hp/s.maxHp, c=CLASSES[s.cls];
   const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jammed) flags.push(["JAMMED","red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
+  if(s.fury) flags.push(["SCRAP FURY",""]); if(s.chain) flags.push(["CHAIN SHOT",""]); if(s.tailwind) flags.push(["TAILWIND",""]); if(s.brace) flags.push(["BRACED",""]); if(s.storm) flags.push(["SANDSTORM −2","red"]);
   if(active&&G.phase==="ATK"&&s.f.locked) flags.push(["LOCKED",""]); if(active&&s.f.debuff) flags.push([`AIM ${s.f.debuff}`,"red"]);
   if(pct<R.HP_FAIL&&s.hp>0) flags.push(["HULL CRITICAL −1","red"]);
   const sysCell=([k,lab,dk])=>`<div class="stat"><span>${lab}</span>+${s.sys[k]}${s.dmg[dk]?` <span class="hurt" style="display:inline;font-family:var(--f-txt);font-size:18px">−${s.dmg[dk]}</span>`:""}</div>`;
   const canAct=active&&myTurn()&&!UI.busy, L=canAct?legal(G):[];
   const crew=s.crew.map((cm,i)=>{
-    const d=CREW_BY[cm.key], block=orderBlock(G,s,cm), stt=cm.stun?["STUNNED","bad"]:cm.rest>0?[`REST ${cm.rest}`,"dim"]:["READY","ok"];
-    return `<div class="cm ${cm.stun?"stun":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
-      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div></div>
-      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${L.includes("O:"+(i+1))?"":"disabled"} title="${esc(block||"Give order")}">Order</button>`:""}</div></div>`;
+    const d=CREW_BY[cm.key], block=orderBlock(G,s,cm), stt=cm.stun?["STUNNED","bad"]:cm.rest>0?(cm.used===G.turn?["ORDER GIVEN","dim"]:[`REST ${cm.rest}`,"dim"]):["READY","ok"];
+    const mineShip=active&&(MODE.mode==="local"||s.pid-1===MODE.seat), usable=L.includes("O:"+(i+1));
+    return `<div class="cm ${cm.stun?"stun":""} ${usable?"usable":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
+      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div>
+      ${mineShip&&!usable&&block&&!UI.busy?`<div class="why">${esc(block)}</div>`:""}</div>
+      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${usable?"":"disabled"} title="${esc(block||"Give order")}">${usable?"Give order":"Order"}</button>`:""}</div></div>`;
   }).join("");
   return `<section class="ship ${active?"active":""} ${s.hp<=0?"dead":""}" style="--c:${P_COLORS[s.pid-1]}">
-    <h3><span>P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode==="online"&&MODE.seat===s.pid-1?" (YOU)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
+    <h3><span class="shiphead">${shipCanvas(s.cls,s.pid,s.fac)}P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode==="online"&&MODE.seat===s.pid-1?" (YOU)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
+    <div class="flags">${facChip(s.fac)}<span class="flag" style="background:transparent;color:var(--dim)">${s.fac?esc(FACTIONS[s.fac].perk):""}${kindred(s)?` · KINDRED ${kindred(s)}`:""}</span></div>
     <div class="bar"><i class="${pct<HP_LOW?"lo":""}" style="width:${pct*100}%"></i></div>
     <div class="stats"><div class="stat"><span>ENERGY</span>${used}/${cap}</div><div class="stat"><span>AMMO</span>${s.ammo}</div><div class="stat"><span>PARTS</span>${s.parts}</div><div class="stat"><span>HEAD</span>${DIR_NAMES[s.o]}</div>
     ${SYS.map(sysCell).join("")}</div>
@@ -437,7 +502,7 @@ function btn(m,label,cls="",L){ return `<button class="${cls}" data-m="${m}" id=
 function fixNavSide(){
   const s=S(G); if(navOption(s,UI.speed,UI.side)) return;
   for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,UI.speed,d)){ UI.side=d; return; }
-  for(const sp of [1,2,3]) for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
+  for(let sp=1;sp<=maxSpeed(s);sp++) for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
 }
 function actionsHTML(){
   const s=S(G), L=myTurn()&&!UI.busy?legal(G):[], endLbl=G.qi+1<G.queue.length?"End phase ▸":"End turn ▸";
@@ -453,7 +518,7 @@ function actionsHTML(){
       const o=navOption(s,UI.speed,UI.side), ee=effEngine(s);
       p="NAVIGATION · SET COURSE"; sub=`Choose speed and turn, or tap a lit hex.${ee?` Engine +${ee} adds ${ee*R.ENG_DIST_BONUS} hexes and raises the DC.`:" Power the ENGINE in ENG to fly further."}`;
       const can=L.length>0;
-      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${[1,2,3].map(v=>`<button data-ui="speed" data-v="${v}" id="ui-speed-${v}" class="${UI.speed===v?"sel":""}" ${can&&[-3,-2,-1,0,1,2,3].some(d=>navOption(s,v,d))?"":"disabled"}>${v}</button>`).join("")}</div>`);
+      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${Array.from({length:maxSpeed(s)},(_,i)=>i+1).map(v=>`<button data-ui="speed" data-v="${v}" id="ui-speed-${v}" class="${UI.speed===v?"sel":""}" ${can&&[-3,-2,-1,0,1,2,3].some(d=>navOption(s,v,d))?"":"disabled"}>${v}</button>`).join("")}</div>`);
       rows.push(`<div class="btnrow"><span class="lab">TURN</span>${[-3,-2,-1,0,1,2,3].map(v=>`<button data-ui="side" data-v="${v}" id="ui-side-${v}" class="${UI.side===v?"sel":""}" ${can&&navOption(s,UI.speed,v)?"":"disabled"}>${v>0?"+":""}${v}</button>`).join("")}</div>`);
       const bm=o?`B:${o.speed}:${o.side>0?"+":""}${o.side}`:"B:none";
       rows.push(`<div class="btnrow">${btn(bm,o?(s.autoBoost?"Afterburn ▸":`Roll boost · DC ${o.dc}`):"No open course","nav",L)}${L.includes("PIVOT:L")?btn("PIVOT:L","Pivot left","",L)+btn("PIVOT:R","Pivot right","",L):""}${btn("END","Skip move","",L)}</div>`);
@@ -486,6 +551,9 @@ function actionsHTML(){
       rows.push(`<div class="btnrow">${btn("REP",`Repair · ${s.parts} parts`,"eng",L)}${end()}</div>`); break; }
   }
   if(UI.busy) sub="…";
+  const orders=L.filter(m=>m.startsWith("O:")).map(m=>{ const c=s.crew[+m.slice(2)-1], d=CREW_BY[c.key];
+    return `<button class="ord" data-m="${m}" id="c-${m.replace(":","-")}" title="${esc(d.text)}">${d.name}: ${esc(d.order)}</button>`; });
+  if(orders.length) rows.push(`<div class="btnrow"><span class="lab">CREW ORDERS</span>${orders.join("")}</div>`);
   return `<div class="prompt">${p}${sub?`<span class="sub">${esc(sub)}</span>`:""}</div>${rows.join("")}`;
 }
 function recordHTML(){
@@ -515,11 +583,12 @@ function renderGame(){
       <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
-      <li>Rocks and rams deal 5 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
+      <li>Rocks and rams deal 3 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
-      <li>Crew orders rest 2 turns after use. Stunned crew lose their passive until the end of their next turn.</li></ul></details>
+      <li>After an order, a crew member sits out your next 2 turns (Nomads: 1). Stunned crew lose their passive until the end of their next turn.</li>
+      <li>Factions: Scrappers repair +1, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +1 hull.</li></ul></details>
       </div><div class="col" id="side"></div></div>`;
     initCanvas(document.getElementById("map"));
   }
@@ -532,7 +601,7 @@ function renderGame(){
     return `<div style="color:${c}">${esc(l.t)}</div>`; }).join("");
   const rb=document.getElementById("record-box"); if(rb.open) document.getElementById("record").innerHTML=recordHTML();
   document.getElementById("side").innerHTML=G.ships.map(shipCard).join("");
-  paintFaces();
+  paintFaces(); paintShips();
 }
 
 app.addEventListener("toggle",e=>{ if(e.target.id==="record-box"&&e.target.open) document.getElementById("record").innerHTML=recordHTML(); },true);
@@ -551,11 +620,15 @@ app.addEventListener("click",async e=>{
       try{ await navigator.clipboard.writeText(UI.shareText); msg.textContent="Copied."; }
       catch(err){ ta.focus(); ta.select(); msg.textContent="Press Ctrl+C (or ⌘C) to copy."; }
       return; }
-    case "randpick": { const ls=legal(G).filter(m=>m.startsWith("R:")); await act(ls[Math.floor(Math.random()*ls.length)]); return; }
+    case "randpick": { const ls=legal(G).filter(m=>m.startsWith("R:")); UI.pickCrew=ls[Math.floor(Math.random()*ls.length)].slice(2); break; }
     case "begin": UI.handoff=false; break;
     case "speed": UI.speed=+v; fixNavSide(); break;
     case "side": UI.side=+v; break;
     case "heading": UI.heading=+v; break;
+    case "selcls": UI.pickCls=v; break;
+    case "selfac": UI.pickFac=v; break;
+    case "selcrew": UI.pickCrew=v; break;
+    case "undo": undoLast(); break;
     case "newgame": G=null; UI.screen="title"; UI.share=null; try{ localStorage.removeItem(SAVE_KEY); }catch(err){} break;
   }
   render();

@@ -7,8 +7,8 @@
 const R = {
   START_ENERGY:3, START_PARTS:2, START_AMMO:1,
   DC_BASE:8, DC_MOD_EASY:1, DC_MOD_HARD:2, ENG_DIST_BONUS:2, ENG_DC_MULT:0.5,
-  BASE_AC:12, AC_DIST:[0,2,4], DMG_BONUS:4, LOCK_DC:8, LOCK_BONUS:4,
-  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:5, REST:2,
+  BASE_AC:10, AC_DIST:[0,2,4], DMG_BONUS:4, LOCK_DC:8, LOCK_BONUS:4,
+  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:3, REST:2,   // REST = own turns a crew member sits out after an order
 };
 const DIRS = [[0,-1],[1,-1],[1,0],[0,1],[-1,1],[-1,0]];
 const DIR_NAMES = ["N","NE","SE","S","SW","NW"];
@@ -90,27 +90,48 @@ function angleDifficulty(dir,tq,tr,sq,sr){
   return [0,false];
 }
 
-// ---------------- SHIPS & CREW ----------------
-const CLASSES = {
-  SKIFF:{name:"Skiff",role:"Runner",hull:22,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:0,
-    text:"Fast raider. +1 to boost and drift rolls.",lore:"Common, light, and quick to vanish into the dunes."},
-  HAULER:{name:"Hauler",role:"Fortress",hull:28,energy:3,parts:3,bst:-1,dft:0,atk:0,dmg:0,rep:1,
-    text:"Mobile fortress. 28 hull, +1 part, repairs +1, −1 to boost rolls.",lore:"A slow cargo-hulk that carries a whole camp on its back."},
-  DREAD:{name:"Dreadnought",role:"Ripper",hull:26,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,
-    text:"Built to fight. +1 attack, +1 damage, one fewer part.",lore:"Bristling with guns and always hungry for spare parts."},
-  RELIC:{name:"Construct",role:"Relic",hull:26,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:-1,
-    text:"Old-world tech. 5 energy, 26 hull, repairs −1.",lore:"Nobody knows who built it. It hums when the wind dies."},
+// ---------------- FACTIONS, SHIPS & CREW ----------------
+// Every ship sails under a faction; every crew member belongs to one.
+// Kindred: each crew member who shares the ship's faction adds +2 hull.
+const FACTIONS = {
+  MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#d0743a",
+    perk:"Repairs heal +1",creed:"The ship is the living body. The crew are its servants."},
+  HEART:{name:"Nomads",long:"Followers of the Heart",color:"#e0607e",
+    perk:"Crew orders rest only 1 turn",creed:"The crew is the heart. No one is left in the sand."},
+  WIND:{name:"Drifters",long:"Followers of the Wind",color:"#7fd8c8",
+    perk:"+1 to boost and drift rolls",creed:"Free as the wind, owned by no one, lost never."},
 };
+const KINDRED_HULL=1;
+const CLASSES = {
+  SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:2,speed:4,salvage:2,
+    text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
+  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:15,energy:3,parts:3,bst:-1,dft:0,atk:0,dmg:0,rep:0,
+    text:"Mobile fortress. +1 spare part, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
+  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:15,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,
+    text:"Gunboat. +1 attack, +1 damage, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
+  RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
+    text:"Old-world tech. 5 energy: power every system at once.",lore:"Nobody knows who built it. It hums when the wind dies."},
+};
+// f = faction, st = station (phase where the order works)
 const CREW = [
-  {key:"CAPTAIN",name:"RHO",role:"Captain",st:"ANY",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e8f0","#283878","#f8c828"]},
-  {key:"ACE",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
-  {key:"DRIFTER",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#181820","#208878","#a0f8c8"]},
-  {key:"GUNNER",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#583820","#902828","#f87828"]},
-  {key:"SPOTTER",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
-  {key:"JAMMER",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Comms",text:"Target plans only 2 phases next turn",pal:["#986848","#28c848","#202830","#40f860"]},
-  {key:"MECHANIC",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +2",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
-  {key:"TECH",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#28a0e8","#384048","#78e8f8"]},
-  {key:"QM",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
+  // Followers of the Machine — Scrappers
+  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ANY",passive:"+1 attack rolls",order:"Scrap Fury",text:"Your next hit this turn deals +4",pal:["#c89878","#303038","#4a3a30","#e86a20"]},
+  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",passive:"+1 damage on hits",order:"Chain Shot",text:"Your next hit this turn also cripples a random system",pal:["#a87050","#b84818","#5a4030","#d8d0c0"]},
+  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
+  {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#28a0e8","#384048","#78e8f8"]},
+  {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
+  // Followers of the Heart — Nomads
+  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e8f0","#283878","#f8c828"]},
+  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#583820","#902828","#f87828"]},
+  {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#d8c8a0","#6a4a3a","#c0a060"]},
+  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#5a8a3a","#3a5a3a","#c8e070"]},
+  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#e8e0d8","#e04848"]},
+  // Followers of the Wind — Drifters
+  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you choose a heading",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0f0e8","#2a6a7a","#9ae8f0"]},
+  {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
+  {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#181820","#208878","#a0f8c8"]},
+  {key:"SPOTTER",f:"WIND",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
+  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Comms",text:"Target plans only 2 phases next turn",pal:["#986848","#28c848","#202830","#40f860"]},
 ];
 const CREW_BY = Object.fromEntries(CREW.map(c=>[c.key,c]));
 
@@ -125,10 +146,11 @@ function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.cha
 
 // ---------------- STATE ----------------
 function newShip(pid,q,r,o){
-  return {pid,cls:null,q,r,o,hp:26,maxHp:26,baseEnergy:R.START_ENERGY,parts:R.START_PARTS,ammo:R.START_AMMO,
+  return {pid,cls:null,fac:null,q,r,o,hp:26,maxHp:26,baseEnergy:R.START_ENERGY,parts:R.START_PARTS,ammo:R.START_AMMO,
     sys:{eng:0,bst:0,dft:0,wpn:0},dmg:{SPEED:0,BOOST:0,DRIFT:0,WEAPONS:0},
     f:{targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null},
-    crew:[],evasive:false,jammed:false,surge:0,autoBoost:false};
+    crew:[],evasive:false,jammed:false,surge:0,autoBoost:false,
+    fury:false,tailwind:false,chain:false,storm:false,brace:false};
 }
 function newGame(seed){
   seed=(seed>>>0)||1; setTerrainSeed(seed);
@@ -148,6 +170,7 @@ function log(G,t,c=""){ G.log.unshift({t,c}); if(G.log.length>80) G.log.pop(); }
 function ev(G,e){ G.ev.push(e); }
 
 const cls=s=>CLASSES[s.cls]||{bst:0,dft:0,atk:0,dmg:0,rep:0};
+const maxSpeed=s=>cls(s).speed||3;
 const has=(s,key)=>s.crew.some(c=>c.key===key&&!c.stun);
 function energyCap(s){ const p=s.hp/s.maxHp; if(p<R.HP_FAIL) return 0; if(p<R.HP_CRIT) return 1; return s.baseEnergy+(has(s,"TECH")?1:0); }
 const energyUsed=s=>s.sys.eng+s.sys.bst+s.sys.dft+s.sys.wpn;
@@ -164,6 +187,9 @@ function integrity(G,s){
 function crewMods(s,kind,target,consume){
   const m=[];
   if(has(s,"CAPTAIN")) m.push([1,"RHO"]);
+  if(kind==="ATK"&&has(s,"IRONCAPT")) m.push([1,"VOSS"]);
+  if((kind==="BOOST"||kind==="DRIFT")&&s.fac==="WIND") m.push([1,"Drifters"]);
+  if(s.storm) m.push([-2,"sandstorm"]);
   if(kind==="BOOST"&&has(s,"ACE")) m.push([2,"VEX"]);
   if(kind==="DRIFT"&&has(s,"DRIFTER")) m.push([2,"ORO"]);
   if(kind==="ATK"&&has(s,"GUNNER")) m.push([2,"KAEL"]);
@@ -172,6 +198,7 @@ function crewMods(s,kind,target,consume){
   if(target){
     if(kind==="LOCK"&&has(target,"JAMMER")) m.push([-2,"jammer"]);
     if(kind==="ATK"&&target.evasive) m.push([-3,"evasive"]);
+    if(kind==="ATK"&&has(target,"BULWARK")) m.push([-1,"DOV"]);
   }
   return m;
 }
@@ -185,29 +212,78 @@ function rollCheck(G,label,sides,mods,vs,vsLabel,pid){
 
 // ---------------- STORYTELLER ----------------
 // Deterministic: both players read the same chronicle.
+// Generic lines, then faction lines that replace them when the ship has that faction.
+// {p} = the ship acting, {t} = the other ship, {c} = a crew name, {s} = a system.
 const TALES={
   open:["The bazaar burns behind you. Somewhere past the dunes lies Europa, and only one of these ships will carry the tale.",
         "Two hulls drift across the salt-flats of Tethys. The old roads to Europa are wide enough for one.",
         "Wind scours the bones of the old world. Two crews have heard the same rumour of a relic, and neither will share it."],
-  turnFar:["{p} scans the horizon. A dust plume, far off, betrays the enemy.","The badlands swallow sound. {p}'s lookout swears the enemy is still out there.","{p}'s compass needle twitches toward the open flats, where old roads meet."],
-  turnNear:["{p} can see the enemy's crew on deck now. Nobody speaks.","Close enough to hear their engines. {p}'s gunners wipe sand from the sights.","{p} watches the enemy hull glint between the dunes."],
-  boostOk:["{p}'s engines roar and the hull leaps across the sand.","Sails snap, turbines scream, and {p} drives clean to the mark."],
-  boostFail:["{p}'s boost kicks too hard. The ship skates far past the mark.","A gust catches {p} broadside and flings it beyond its course."],
-  driftOk:["{p} carves a perfect arc through the dust.","The pilot of {p} leans into the drift and the ship obeys."],
-  driftFail:["{p} spins out in a spray of sand.","The rudders of {p} bite wrong and the ship slews sideways."],
-  crash:["{p} grinds into the rocks. Metal shrieks.","A ridge of old-world slag tears into {p}'s hull."],
+  turnFar:["{p} scans the horizon. A dust plume, far off, betrays the enemy.","The badlands swallow sound. {p}'s lookout swears the enemy is still out there."],
+  turnNear:["{p} can see the enemy's crew on deck now. Nobody speaks.","Close enough to hear their engines. {p} readies for a fight."],
+  boostOk:["{p}'s engines roar and the hull leaps across the sand."],
+  boostFail:["{p}'s boost kicks too hard. The ship skates far past the mark."],
+  driftOk:["{p} carves a clean arc through the dust."],
+  driftFail:["{p} spins out in a spray of sand."],
+  crash:["{p} grinds into the rocks. Metal shrieks."],
   ram:["The two hulls slam together. Crews are thrown across the decks."],
-  wreck:["{p} finds an old-world wreck half-buried in the dunes and strips it for parts.","Under the sand, {p}'s scavengers find the ribs of a dead machine. Useful bits come aboard."],
-  hit:["{p}'s shot finds its mark. Fire blooms on {t}'s hull.","A round from {p} punches through {t}'s plating."],
-  miss:["{p}'s shot kicks up a fountain of sand beside {t}.","The shell from {p} whistles past {t} and into the dunes."],
+  wreck:["{p} finds an old-world wreck half-buried in the dunes and strips it for parts."],
+  hit:["{p}'s shot punches through {t}'s plating."],
+  miss:["{p}'s shot kicks up a fountain of sand beside {t}."],
   stun:["Shrapnel sweeps {t}'s deck. {c} goes down hard."],
   crit:["{t}'s {s} sputters and smokes."],
   repair:["{p}'s engineers weld scrap over the worst of the holes."],
   order:["{c} of {p}: \"{o}!\""],
-  win:["{p} stands alone on the sand. The road to Europa is theirs, for now.","The dust settles. Only {p} still flies, and the Immortals will hear of it."],
+  win:["{p} stands alone on the sand. The road to Europa is theirs, for now."],
 };
-function tell(G,key,vars){
-  const opts=TALES[key]; if(!opts) return;
+const FACTION_TALES={
+  MACHINE:{
+    turnFar:["{p} sniffs the wind for diesel. The engine purrs like a hungry animal.","The Scrappers of {p} press their ears to the hull and listen for the enemy's engine."],
+    turnNear:["{p}'s Scrappers bang wrenches on the rails. The ship wants a fight.","Through the smoke, {p} smells the enemy's engine. The Scrappers grin."],
+    boostOk:["{p} bellows black smoke and lunges forward. The Scrappers howl with it."],
+    boostFail:["{p}'s pistons scream past the redline and the ship careens on. The crew curse the engine, then apologise to it."],
+    driftOk:["{p} drifts, chains rattling, and the Scrappers bang the hull in praise."],
+    driftFail:["{p} lurches sideways. Somewhere below, a Scrapper whispers sorry to the gearbox."],
+    crash:["{p} tears its plating on the rocks. The Scrappers wail as if they were the ones bleeding."],
+    hit:["Scrap-iron arrows hiss from {p}'s launchers and bite deep into {t}.","{p}'s rivet guns hammer {t}. Bolts and splinters fly."],
+    miss:["{p}'s metal arrows clatter off the stones. The Scrappers spit and reload."],
+    stun:["{c} of {t} goes down and {p}'s Scrappers cheer, hammering the rails."],
+    crit:["{t}'s Scrappers cry out as if wounded themselves: their {s} is hurt."],
+    repair:["{p}'s Scrappers stitch the hull with scrap and sing to the engine while they work."],
+    win:["{p} rolls over the wreck, already stripping it. The Machine is fed. Europa waits."],
+  },
+  HEART:{
+    turnFar:["{p}'s Nomads share the last of the water and watch the dunes together.","Around a small stove on {p}'s deck, the Nomads tell stories of Europa while the lookout watches."],
+    turnNear:["{p}'s Nomads clasp hands before the fight. Nobody will be left behind.","The enemy is close. {p}'s elders hum the old song to steady the young."],
+    boostOk:["{p} surges ahead as one: every hand on a rope, every voice in the chant."],
+    boostFail:["{p} overshoots. The Nomads laugh it off and count heads. Everyone is still aboard."],
+    driftOk:["{p} swings round with the grace of a caravan that has done this a thousand times."],
+    driftFail:["{p} spins out. The Nomads grab each other until the deck stops moving."],
+    crash:["{p} strikes rock. The Nomads rush below, first to check on each other, then on the ship."],
+    hit:["{p}'s old longrifles crack in unison. The shots strike {t} true.","The Nomads of {p} fire the family guns, and {t} shudders."],
+    miss:["{p}'s volley falls short. The elders shake their heads: patience."],
+    stun:["{c} of {t} falls. On {p}, the Nomads lower their eyes for a moment before reloading."],
+    crit:["{t}'s Nomads call to each other over the noise: the {s} is hurt, but everyone is alive."],
+    repair:["{p}'s Nomads patch the hull together, passing tools hand to hand."],
+    win:["{p}'s Nomads stand on deck, counting every face. All here. Now, Europa."],
+  },
+  WIND:{
+    turnFar:["{p}'s sails catch a gust that smells of salt and somewhere else.","The Drifters on {p} read the dune ripples like a map. The enemy is out there."],
+    turnNear:["{p}'s Drifters loosen the sails. Close enough to dance.","The enemy is near. {p}'s Drifters whistle to each other in the old wind-code."],
+    boostOk:["{p} skims the dunes like a thrown stone."],
+    boostFail:["A rogue gust takes {p} too far. The Drifters only laugh: the wind decides."],
+    driftOk:["{p} slides around the turn, sails singing."],
+    driftFail:["{p} spins like a leaf. The Drifters hold on and wait for the wind to be kind."],
+    crash:["{p} clips a ridge. The Drifters curse the stone that would not move."],
+    hit:["Glass-tipped bolts sing from {p}'s sail-bows and shatter on {t}.","{p} fires from the wind's blind side and {t} never sees it coming."],
+    miss:["{p}'s bolts vanish into the sand. The wind was not with them."],
+    stun:["{c} of {t} drops. On {p}, a Drifter tips a hat: nothing personal."],
+    crit:["{t}'s Drifters groan as their {s} sputters. The wind turns its back."],
+    repair:["{p}'s Drifters patch the sails and tie new knots, singing to the breeze."],
+    win:["{p}'s sails fill. The Drifters turn toward the horizon. Europa is a direction, not a place."],
+  },
+};
+function tell(G,key,vars,fac){
+  const opts=(fac&&FACTION_TALES[fac]&&FACTION_TALES[fac][key])||TALES[key]; if(!opts) return;
   const h=hashStr(G.seed+":"+G.moves.length+":"+G.story.length+":"+key);
   let t=opts[h%opts.length];
   for(const k in vars) t=t.split("{"+k+"}").join(vars[k]);
@@ -215,23 +291,26 @@ function tell(G,key,vars){
   ev(G,{t:"story",text:t});
 }
 const cname=s=>s.cls?`P${s.pid}'s ${CLASSES[s.cls].name.toLowerCase()}`:`P${s.pid}`;
+const kindred=s=>s.crew.filter(c=>CREW_BY[c.key].f===s.fac).length;
 
 // ---------------- TURN FLOW ----------------
 function startTurn(G,idx){
   G.active=idx; const s=S(G); G.turn++;
   s.f={targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null};
-  s.evasive=false; s.crew.forEach(c=>{ if(c.rest>0) c.rest--; });
+  s.evasive=false; s.brace=false; s.crew.forEach(c=>{ if(c.rest>0) c.rest--; });
+  if(has(s,"MEDIC")&&s.crew.some(c=>c.stun)){ s.crew.forEach(c=>c.stun=false); log(G,`ANA tends the wounded: ${shipName(s)} crew back on their feet.`,"ok"); }
   G.repeated=false; G.phase="CMD"; G.queue=[]; G.qi=0; G.st="cmd"; G.target=null; G.roll=null; G.aim=null;
   log(G,`— Turn ${G.turn}: Player ${s.pid} —`,"p"+s.pid);
   if(s.jammed) log(G,`${shipName(s)} comms jammed: only 2 phases.`,"bad");
+  if(s.storm) log(G,`${shipName(s)} is caught in a sandstorm: −2 to all rolls this turn.`,"bad");
   integrity(G,s);
   const o=other(G,s);
-  tell(G,hexDist(o.q-s.q,o.r-s.r)<=4?"turnNear":"turnFar",{p:cname(s)});
+  tell(G,hexDist(o.q-s.q,o.r-s.r)<=4?"turnNear":"turnFar",{p:cname(s)},s.fac);
   ev(G,{t:"turn",pid:s.pid});
 }
 function endTurn(G){
   const s=S(G);
-  s.jammed=false; s.surge=0; s.autoBoost=false; s.crew.forEach(c=>c.stun=false);
+  s.jammed=false; s.surge=0; s.autoBoost=false; s.fury=false; s.tailwind=false; s.chain=false; s.storm=false; s.crew.forEach(c=>c.stun=false);
   startTurn(G,G.ships.indexOf(other(G,s)));
 }
 const slotsAllowed=G=>S(G).jammed?2:3;
@@ -248,9 +327,9 @@ function navOption(s,speed,side){
   const [rq,rr]=navToCoords(s.o,side,total-1);
   const [m,ok]=angleDifficulty(s.o,rq,rr,s.q,s.r);
   if(!ok) return null;
-  return {speed,side,q:s.q+rq,r:s.r+rr,dc:Math.trunc((R.DC_BASE+total+m)*(1+ee*R.ENG_DC_MULT))};
+  return {speed,side,q:s.q+rq,r:s.r+rr,dc:Math.trunc((R.DC_BASE+total+m)*(1+ee*R.ENG_DC_MULT))-(s.tailwind?4:0)};
 }
-function allNavOptions(s){ const o=[]; for(let sp=1;sp<=3;sp++) for(let sd=-3;sd<=3;sd++){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
+function allNavOptions(s){ const o=[]; for(let sp=1;sp<=maxSpeed(s);sp++) for(let sd=-3;sd<=3;sd++){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
 function arcInfo(s,t){
   if(!t||t.hp<=0) return null;
   const [side,sp]=relInfo(t.q-s.q,t.r-s.r,s.o);
@@ -268,37 +347,43 @@ function checkWin(G){
   const alive=G.ships.filter(s=>s.hp>0);
   if(alive.length<=1){
     G.winner=alive[0]?alive[0].pid:0; G.st="over"; G.phase="OVER";
-    if(alive[0]) tell(G,"win",{p:cname(alive[0])});
+    if(alive[0]) tell(G,"win",{p:cname(alive[0])},alive[0].fac);
     return true;
   }
   return false;
 }
-function stunCrew(G,t){
+function stunCrew(G,t,by){
   const pool=t.crew.filter(c=>!c.stun);
   if(!pool.length){ log(G,"No crew left to stun."); return; }
   const c=pool[rnd(G,pool.length)-1]; c.stun=true;
   log(G,`Crew hit: ${shipName(t)} ${CREW_BY[c.key].name} stunned!`,"bad");
-  tell(G,"stun",{t:cname(t),c:CREW_BY[c.key].name});
+  tell(G,"stun",{p:cname(by),t:cname(t),c:CREW_BY[c.key].name},by.fac);
 }
 
 function orderBlock(G,s,c){
   const d=CREW_BY[c.key];
   if(G.st==="over"||s!==S(G)||G.st==="draft") return "Not your turn";
   if(c.stun) return "Stunned";
-  if(c.rest>0) return `Resting ${c.rest}`;
-  if(G.phase==="CMD") return "Plan phases first";
-  if(d.st!=="ANY"&&d.st!==G.phase) return `${d.st} phase only`;
+  if(c.rest>0) return c.used===G.turn?"Order given this turn":`Resting: ready in ${c.rest} turn${c.rest>1?"s":""}`;
+  if(G.phase==="CMD") return "Plan your phases first";
+  if(d.st!=="ANY"&&d.st!==G.phase) return `Usable in the ${d.st} phase`;
   const t=tgt(G);
   switch(c.key){
-    case "CAPTAIN": return G.repeated?"Already repeated":null;
-    case "ACE": return G.st!=="nav_pick"?"Use before boost":s.autoBoost?"Primed":null;
-    case "DRIFTER": return s.evasive?"Active":null;
+    case "CAPTAIN": return G.repeated?"A phase was already repeated":null;
+    case "ACE": return G.st!=="nav_pick"?"Use before the boost roll":s.autoBoost?"Already active":null;
+    case "DRIFTER": return s.evasive?"Already active":null;
     case "GUNNER": return null;
-    case "SPOTTER": return G.st!=="atk_menu"?"Acquire target":s.f.targeted?"Lock spent":null;
-    case "JAMMER": return !t?"Acquire target":t.jammed?"Already jammed":null;
-    case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No damage";
-    case "TECH": return s.surge?"Primed":null;
+    case "SPOTTER": return G.st!=="atk_menu"?"Target an enemy first":s.f.targeted?"Lock already used":null;
+    case "JAMMER": return !t?"Target an enemy first":t.jammed?"Enemy already jammed":null;
+    case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No system damage to fix";
+    case "TECH": return s.surge?"Already active":null;
     case "QM": return null;
+    case "IRONCAPT": return s.fury?"Already active":null;
+    case "HARPOON": return s.chain?"Already active":null;
+    case "BULWARK": return s.brace?"Already active":null;
+    case "ECO": { const o=other(G,s); return o.storm?"Already in a storm":null; }
+    case "MEDIC": return s.hp>=s.maxHp?"Hull is full":null;
+    case "WINDCAPT": return G.st!=="nav_pick"?"Use before the boost roll":s.tailwind?"Already active":null;
   }
   return null;
 }
@@ -309,7 +394,7 @@ function legal(G){
   if(G.st==="over") return L;
   if(G.st==="draft"){
     const s=G.ships[actor(G)];
-    if(!s.cls) for(const k in CLASSES) L.push("C:"+k);
+    if(!s.cls) for(const k in CLASSES) for(const f in FACTIONS) L.push("C:"+k+":"+f);
     else for(const k of G.draft.pool) L.push("R:"+k);
     return L;
   }
@@ -352,7 +437,7 @@ function apply(G,a){
   if(a.startsWith("O:")) { useOrder(G,+a.slice(2)-1); return G; }
   const [head,arg,arg2]=a.split(":");
   switch(G.st){
-    case "draft": draftMove(G,head,arg); break;
+    case "draft": draftMove(G,head,arg,arg2); break;
     case "cmd":
       if(a==="Q-") G.queue.pop();
       else { G.queue.push(arg); if(G.queue.length===slotsAllowed(G)){ log(G,"Plan: "+G.queue.join(" → ")); beginPhase(G,0); } }
@@ -381,33 +466,36 @@ function apply(G,a){
   }
   return G;
 }
-function draftMove(G,head,key){
+function draftMove(G,head,key,fac){
   const s=G.ships[actor(G)];
   if(head==="C"){
-    const c=CLASSES[key]; s.cls=key; s.maxHp=s.hp=c.hull; s.baseEnergy=c.energy; s.parts=c.parts;
-    log(G,`P${s.pid} takes the ${c.name}.`,"p"+s.pid); return;
+    const c=CLASSES[key]; s.cls=key; s.fac=fac; s.maxHp=s.hp=c.hull; s.baseEnergy=c.energy; s.parts=c.parts;
+    log(G,`P${s.pid} takes a ${c.name} under the ${FACTIONS[fac].name}.`,"p"+s.pid); return;
   }
   G.draft.pool=G.draft.pool.filter(k=>k!==key); s.crew.push({key,rest:0,stun:false});
   if(key==="QM") s.parts++;
   log(G,`P${s.pid} recruits ${CREW_BY[key].name} (${CREW_BY[key].role}).`,"p"+s.pid);
   G.draft.idx++;
-  if(G.draft.idx>=G.draft.order.length) startTurn(G,0);
+  if(G.draft.idx>=G.draft.order.length){
+    for(const sh of G.ships){ const k=kindred(sh); if(k){ sh.maxHp+=k*KINDRED_HULL; sh.hp=sh.maxHp; log(G,`P${sh.pid} kindred crew: ${k} × +${KINDRED_HULL} hull.`,"p"+sh.pid); } }
+    startTurn(G,0);
+  }
 }
 function doBoost(G,speed,side){
   const s=S(G), opt=navOption(s,speed,side);
-  G.dc=opt.dc; G.aim={q:opt.q,r:opt.r};
+  G.dc=opt.dc; G.aim={q:opt.q,r:opt.r}; if(s.tailwind){ s.tailwind=false; log(G,"Tailwind: boost DC −4.","ok"); }
   let ok;
   if(s.autoBoost){ s.autoBoost=false; ok=true; G.roll={label:"BOOST",sides:20,auto:true,ok:true,vs:"DC "+opt.dc,pid:s.pid}; ev(G,{t:"roll",roll:{...G.roll}}); log(G,"Afterburn! Boost auto-succeeds.","ok"); }
   else ok=rollCheck(G,"BOOST",20,[[s.sys.bst,"BST"],[cls(s).bst,"hull class"],[hullPen(s),"hull"],[-s.dmg.BOOST,"dmg"],...crewMods(s,"BOOST",null,true)],opt.dc,"DC",s.pid);
   let dest;
-  if(ok){ log(G,"Boost success.","ok"); dest={q:opt.q,r:opt.r}; tell(G,"boostOk",{p:cname(s)}); }
-  else { log(G,"Boost failed! Overshooting +50%.","bad"); const [q,r]=hexRound(s.q+(opt.q-s.q)*1.5, s.r+(opt.r-s.r)*1.5); dest={q,r}; tell(G,"boostFail",{p:cname(s)}); }
+  if(ok){ log(G,"Boost success.","ok"); dest={q:opt.q,r:opt.r}; tell(G,"boostOk",{p:cname(s)},s.fac); }
+  else { log(G,"Boost failed! Overshooting +50%.","bad"); const [q,r]=hexRound(s.q+(opt.q-s.q)*1.5, s.r+(opt.r-s.r)*1.5); dest={q,r}; tell(G,"boostFail",{p:cname(s)},s.fac); }
   ev(G,{t:"move",pid:s.pid,from:{q:s.q,r:s.r},to:dest});
   s.q=dest.q; s.r=dest.r;
   const tt=terrain(s.q,s.r);
-  if(isObstacle(s.q,s.r)){ log(G,`${shipName(s)} crashed into ${TERRAIN_NAMES[tt].toLowerCase()}!`,"bad"); tell(G,"crash",{p:cname(s)}); damage(G,s,R.CRASH_DMG); }
+  if(isObstacle(s.q,s.r)){ log(G,`${shipName(s)} crashed into ${TERRAIN_NAMES[tt].toLowerCase()}!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?1:R.CRASH_DMG); }
   const k=s.q+","+s.r;
-  if(tt===4&&!G.looted.includes(k)){ G.looted.push(k); s.parts++; log(G,`${shipName(s)} salvages a wreck: +1 spare part.`,"ok"); tell(G,"wreck",{p:cname(s)}); }
+  if(tt===4&&!G.looted.includes(k)){ const n=cls(s).salvage||1; G.looted.push(k); s.parts+=n; log(G,`${shipName(s)} salvages a wreck: +${n} spare part${n>1?"s":""}.`,"ok"); tell(G,"wreck",{p:cname(s)},s.fac); }
   const o=other(G,s);
   if(o.hp>0&&o.q===s.q&&o.r===s.r){ log(G,"Collision! Both ships rammed.","bad"); tell(G,"ram",{}); damage(G,s,R.CRASH_DMG); damage(G,o,R.CRASH_DMG); }
   if(checkWin(G)) return;
@@ -417,8 +505,9 @@ function doDrift(G){
   const s=S(G);
   const ok=rollCheck(G,"DRIFT",20,[[s.sys.dft,"DFT"],[cls(s).dft,"hull class"],[hullPen(s),"hull"],[-s.dmg.DRIFT,"dmg"],...crewMods(s,"DRIFT",null,true)],G.dc,"DC",s.pid);
   s.f.drift=ok;
-  if(ok){ log(G,"Drift stable. Set your heading.","ok"); G.st="nav_heading"; tell(G,"driftOk",{p:cname(s)}); }
-  else { s.o=mod(s.o+(rnd(G,2)===1?-1:1),6); log(G,`Drift failed — spun out to ${DIR_NAMES[s.o]}.`,"bad"); tell(G,"driftFail",{p:cname(s)}); G.st="done"; }
+  if(ok){ log(G,"Drift stable. Set your heading.","ok"); G.st="nav_heading"; tell(G,"driftOk",{p:cname(s)},s.fac); }
+  else if(has(s,"WINDCAPT")){ log(G,"Drift failed, but SELA keeps the helm. Set your heading (no lock-on this turn).","bad"); tell(G,"driftFail",{p:cname(s)},s.fac); G.st="nav_heading"; }
+  else { s.o=mod(s.o+(rnd(G,2)===1?-1:1),6); log(G,`Drift failed — spun out to ${DIR_NAMES[s.o]}.`,"bad"); tell(G,"driftFail",{p:cname(s)},s.fac); G.st="done"; }
 }
 function doLock(G){
   const s=S(G), t=tgt(G);
@@ -433,19 +522,22 @@ function doFire(G){
   const ok=rollCheck(G,"ATTACK",20,[[s.f.locked?R.LOCK_BONUS:0,"lock"],[s.sys.wpn,"WPN"],[cls(s).atk,"hull class"],[hullPen(s),"hull"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"ATK",t,true)],ac,"AC",s.pid);
   ev(G,{t:"shot",from:s.pid,to:t.pid,hit:ok});
   if(ok){ log(G,"Hit! Roll damage.","ok"); G.st="atk_dmg"; }
-  else { log(G,"Shot missed.","bad"); tell(G,"miss",{p:cname(s),t:cname(t)}); ev(G,{t:"miss",pid:t.pid}); s.f.locked=false; s.f.debuff=null; G.st="atk_menu"; }
+  else { log(G,"Shot missed.","bad"); tell(G,"miss",{p:cname(s),t:cname(t)},s.fac); ev(G,{t:"miss",pid:t.pid}); s.f.locked=false; s.f.debuff=null; G.st="atk_menu"; }
 }
 function doDamage(G){
   const s=S(G), t=tgt(G);
-  const v=rnd(G,6), mods=[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[cls(s).dmg,"hull class"],[-s.dmg.WEAPONS,"dmg"]].filter(x=>x[0]!==0);
+  const v=rnd(G,6), mods=[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[cls(s).dmg,"hull class"],[-s.dmg.WEAPONS,"dmg"],
+    [has(s,"HARPOON")?1:0,"GRIT"],[s.fury?4:0,"fury"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
+  s.fury=false;
   const n=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0));
   G.roll={label:"DAMAGE",sides:6,die:v,mods,total:n,dmg:true,pid:s.pid};
   ev(G,{t:"roll",roll:{...G.roll}});
-  tell(G,"hit",{p:cname(s),t:cname(t)});
+  tell(G,"hit",{p:cname(s),t:cname(t)},s.fac);
   damage(G,t,n);
+  if(t.hp>0&&s.chain){ s.chain=false; const k=["SPEED","BOOST","DRIFT","WEAPONS"][rnd(G,4)-1]; t.dmg[k]++; log(G,`Chain shot: ${shipName(t)} ${k.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:k.toLowerCase()},t.fac); }
   if(t.hp>0&&s.f.debuff){
-    if(s.f.debuff==="CREW") stunCrew(G,t);
-    else { t.dmg[s.f.debuff]++; log(G,`Critical: ${shipName(t)} ${s.f.debuff.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:s.f.debuff.toLowerCase()}); }
+    if(s.f.debuff==="CREW") stunCrew(G,t,s);
+    else { t.dmg[s.f.debuff]++; log(G,`Critical: ${shipName(t)} ${s.f.debuff.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:s.f.debuff.toLowerCase()},t.fac); }
   }
   s.f.debuff=null; s.f.locked=false;
   if(checkWin(G)) return;
@@ -453,11 +545,11 @@ function doDamage(G){
 }
 function doRepair(G){
   const s=S(G);
-  const v=rnd(G,4), extra=(has(s,"MECHANIC")?2:0)+cls(s).rep, heal=Math.max(1,v+1+extra);
+  const v=rnd(G,4), extra=(has(s,"MECHANIC")?1:0)+cls(s).rep+(s.fac==="MACHINE"?1:0), heal=Math.max(1,v+extra);
   s.parts--; s.hp=Math.min(s.maxHp,s.hp+heal);
-  G.roll={label:"REPAIR",sides:4,die:v,mods:[[1,"base"],[extra,"crew/class"]].filter(x=>x[0]),total:heal,heal:true,pid:s.pid};
+  G.roll={label:"REPAIR",sides:4,die:v,mods:[[extra,"crew/class/faction"]].filter(x=>x[0]),total:heal,heal:true,pid:s.pid};
   ev(G,{t:"roll",roll:{...G.roll}});
-  log(G,`Repaired ${heal} hull. Parts left: ${s.parts}.`,"ok"); tell(G,"repair",{p:cname(s)}); integrity(G,s);
+  log(G,`Repaired ${heal} hull. Parts left: ${s.parts}.`,"ok"); tell(G,"repair",{p:cname(s)},s.fac); integrity(G,s);
 }
 function useOrder(G,i){
   const s=S(G), c=s.crew[i], d=CREW_BY[c.key];
@@ -471,10 +563,17 @@ function useOrder(G,i){
     case "MECHANIC": for(const k in s.dmg) s.dmg[k]=Math.max(0,s.dmg[k]-1); break;
     case "TECH": s.surge=5; break;
     case "QM": s.parts+=2; break;
+    case "IRONCAPT": s.fury=true; break;
+    case "HARPOON": s.chain=true; break;
+    case "BULWARK": s.brace=true; break;
+    case "ECO": other(G,s).storm=true; break;
+    case "MEDIC": { const h=Math.min(3,s.maxHp-s.hp); s.hp+=h; log(G,`ANA patches ${h} hull.`,"ok"); integrity(G,s); break; }
+    case "WINDCAPT": s.tailwind=true; break;
   }
-  c.rest=R.REST;
+  // counts down at the start of each of your turns: rest n+1 now = sits out your next n turns
+  c.rest=(s.fac==="HEART"?1:R.REST)+1; c.used=G.turn;
   log(G,`Order: ${d.name} — ${d.order}. ${d.text}.`,"crew");
-  tell(G,"order",{c:d.name,p:cname(s),o:d.order});
+  tell(G,"order",{c:d.name,p:cname(s),o:d.order},s.fac);
   ev(G,{t:"order",pid:s.pid,text:d.order});
 }
 
@@ -493,4 +592,4 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
