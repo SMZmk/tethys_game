@@ -107,13 +107,13 @@ const FORBIDDEN={MACHINE:["RELIC"],WIND:["HAULER"]};
 const shipAllowed=(cls,fac)=>!(FORBIDDEN[fac]||[]).includes(cls);
 const CLASSES = {
   SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:2,speed:4,salvage:2,
-    text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A regatta catamaran of the dune sea: two knife hulls, a tall wing sail, no armour."},
+    text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A regatta catamaran of the dune sea: two knife hulls that skim like skis, a tall wing sail, no armour."},
   HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:14,energy:3,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
-    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A great junk with three battened sails that carries a whole camp on its back."},
+    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A great junk with battened sails and two smokestacks, riding on a fluke at each side. It carries a whole camp on its back."},
   DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,twin:true,half:true,
-    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"A war junk: a ram at the bow, a gun behind it and cannons along both rails."},
-  RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
-    text:"Old-world tech. 5 energy: power every system at once.",lore:"A manta ray of old-world metal. Nobody knows who built it. It hums when the wind dies."},
+    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"A war junk on a single fluke: a ram at the bow, cannons along both rails and a stack that never stops smoking."},
+  RELIC:{name:"Construct",role:"Relic",size:"Small",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
+    text:"Old-world tech. 5 energy: power every system at once.",lore:"A small manta ray of old-world metal on one glowing fluke. Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
 const CREW = [

@@ -127,10 +127,10 @@ See `ROADMAP.md` for the design behind this and what is planned next.
 ### Ship classes
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
-| Skiff | small regatta catamaran with a wing sail | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
-| Hauler | huge Chinese junk with three battened sails | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
-| Dreadnought | war junk with a ram, bow gun and side cannons | 17 | 3 | 1 | twin guns: every shot rolls to hit twice, each hit half damage (+1 before halving); +1 attack |
-| Construct | old-world manta ray with orbiting shards | 15 | 5 | 2 | 5 energy |
+| Skiff | small regatta catamaran with a wing sail, hulls like skis | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
+| Hauler | huge Chinese junk: battened sails, two smokestacks, a fluke at each side | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
+| Dreadnought | war junk: ram, bow gun, side cannons, smokestack, one fluke | 17 | 3 | 1 | twin guns: every shot rolls to hit twice, each hit half damage (+1 before halving); +1 attack |
+| Construct | small old-world manta ray with orbiting shards, one fluke | 15 | 5 | 2 | 5 energy |
 
 All ships hover over the dune sea. On the map each ship has a hover shadow and an arrow in the player's colour
 ahead of its bow, so you can always see its heading. Sails take the faction's colours: rust for Scrappers,
