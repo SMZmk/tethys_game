@@ -101,7 +101,7 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 | `R:CAPTAIN` | recruit a crew member |
 | `Q:NAV,ATK,ENG` | plan the phase order |
 | `B:2:+1` | boost at speed 2, turn +1 (rolls d20) |
-| `DRIFT`, `H:NE` | drift roll, then set heading |
+| `DRIFT`, `H:NE` | drift roll; after a stable drift, preview a heading and confirm it |
 | `PIVOT:L` / `PIVOT:R` | turn in place (only when rocks block every course) |
 | `TGT`, `RLD`, `LOCK`, `AIM:WEAPONS`, `FIRE`, `DMG` | combat |
 | `+WPN`, `-ENG`, `REP` | engineering: power up/down a system, repair |
@@ -120,6 +120,10 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 The two ships start in open flats in the middle. Rock gets denser the further out you drift, but winding
 canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in the flats.
 You can leave, but the desert makes coming back the easy way.
+
+### Tests
+- `node web/test/rules.test.js`: 35 rules tests (draft, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, phone width.
 
 ### Source
 `web/page.html` (styles), `web/logic.js` (rules, no DOM, runs in Node too) and `web/ui.js` (screen and online codes).

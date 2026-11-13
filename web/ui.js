@@ -5,7 +5,7 @@
 let G=null;
 let MODE={mode:"local",seat:0};                 // local hotseat, or online with my seat (0/1)
 const UI={screen:"title",speed:1,side:0,handoff:false,busy:false,rolling:null,shown:null,
-  focus:null,share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
+  focus:null,heading:null,share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
 const SAVE_KEY="tethys.v2";
 const P_COLORS=["#ffcf4a","#5fd0ff"];
 const ST_COLOR={NAV:"var(--nav)",ATK:"var(--atk)",ENG:"var(--eng)",ANY:"var(--any)"};
@@ -58,7 +58,7 @@ async function act(m){
   if(UI.busy||!myTurn()) return;
   if(!legal(G).includes(m)) return;
   const before=actor(G);
-  apply(G,m); const evs=G.ev; G.ev=[];
+  apply(G,m); const evs=G.ev; G.ev=[]; UI.heading=null;
   save();
   await present(evs);
   if(MODE.mode==="online"&&before===MODE.seat&&actor(G)!==MODE.seat) await makeShare();
@@ -157,6 +157,14 @@ function focusShip(){
   return G.ships[Math.max(0,actor(G))];
 }
 function showHints(){ return myTurn()&&!UI.busy&&!UI.handoff; }
+// heading preview while choosing where to face after a stable drift
+const previewHeading=()=>UI.heading===null?S(G).o:UI.heading;
+const ARROWS=["↑","↗","↘","↓","↙","↖"];
+function dirToward(s,q,r){
+  const [x1,y1]=hexPx(s.q,s.r), [x2,y2]=hexPx(q,r);
+  const deg=Math.atan2(x2-x1,-(y2-y1))*180/Math.PI;
+  return mod(Math.round(deg/60),6);
+}
 function highlights(){
   const hl=new Map(), s=S(G); if(!showHints()) return hl;
   if(G.st==="nav_pick"){
@@ -165,6 +173,10 @@ function highlights(){
       const c=o.dc<=12?[64,220,220]:o.dc<=15?[48,120,255]:[170,60,255];
       hl.set(o.q*10007+o.r,{c,a:sel?.75:.38,sel});
     }
+  } else if(G.st==="nav_heading"){
+    const h=previewHeading();
+    for(const [q,r] of arcHexes({...s,o:h})) hl.set(q*10007+r,{c:[240,60,50],a:.32});
+    const [aq,ar]=DIRS[h]; for(let k=1;k<=3;k++) hl.set((s.q+aq*k)*10007+(s.r+ar*k),{c:[255,235,120],a:.5});
   } else if(G.st==="atk_acquire"||G.st==="atk_menu"||G.st==="atk_debuff"){
     for(const [q,r] of arcHexes(s)) hl.set(q*10007+r,{c:[240,60,50],a:.28});
   }
@@ -172,7 +184,7 @@ function highlights(){
 }
 function drawTerrain(cs){
   setTerrainSeed(G.seed);
-  const key=[G.seed,cam.x.toFixed(2),cam.y.toFixed(2),hover&&hover.join(","),G.st,UI.speed,UI.side,G.moves.length,showHints(),cs.q.toFixed(2),cs.r.toFixed(2)].join("|");
+  const key=[G.seed,cam.x.toFixed(2),cam.y.toFixed(2),hover&&hover.join(","),G.st,UI.speed,UI.side,UI.heading,G.moves.length,showHints(),cs.q.toFixed(2),cs.r.toFixed(2)].join("|");
   if(key===terrainKey){ ctx.putImageData(img,0,0); return; }
   terrainKey=key;
   const d=img.data, hl=highlights(), hv=hover&&showHints()?hover[0]*10007+hover[1]:null;
@@ -255,7 +267,7 @@ function frame(now){
     const p=shipPos(sh), [x,y]=toScreen(p.q,p.r);
     if(sh===s&&G.st!=="over"){ ctx.strokeStyle=fr?"#ffffff":P_COLORS[sh.pid-1]; ctx.lineWidth=1; hexOutline(x,y,HS-1); }
     if(G.target===sh.pid&&G.phase==="ATK"){ ctx.strokeStyle=s.f.locked?"#3dff6a":"#ff4040"; hexOutline(x,y,HS-1); hexOutline(x,y,HS-3); }
-    ctx.save(); ctx.translate(x,y); ctx.rotate(sh.o*Math.PI/3); ctx.drawImage(shipSprite(P_COLORS[sh.pid-1],fr),-7,-6); ctx.restore();
+    ctx.save(); ctx.translate(x,y); ctx.rotate((sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3); ctx.drawImage(shipSprite(P_COLORS[sh.pid-1],fr),-7,-6); ctx.restore();
     const w=16, f=Math.ceil(w*sh.hp/sh.maxHp);
     ctx.fillStyle="#000"; ctx.fillRect(x-w/2-1,y-14,w+2,4);
     ctx.fillStyle=sh.hp/sh.maxHp<HP_LOW?"#ff4d5e":"#5be37a"; ctx.fillRect(x-w/2,y-13,f,2);
@@ -294,6 +306,7 @@ function frame(now){
     let t="";
     if(hover){
       const [q,r]=hover, ob=terrain(q,r);
+      if(G.st==="nav_heading"&&showHints()&&(q!==s.q||r!==s.r)) t=`TAP TO FACE ${DIR_NAMES[dirToward(s,q,r)]}`;
       if(G.st==="nav_pick"&&showHints()){ const op=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(op) t=`SPEED ${op.speed} · TURN ${op.side>0?"+":""}${op.side} · DC ${op.dc}`; }
       if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r); if(sh&&sh!==s){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(q-s.q,r-s.r)} HEX · ${ai?"IN ARC, RANGE "+ai.range:"OUT OF ARC"}`; } }
       if(!t&&ob) t=ob===4?(G.looted.includes(q+","+r)?"PICKED-CLEAN WRECK":"OLD-WORLD WRECK · +1 PART"):TERRAIN_NAMES[ob].toUpperCase()+" · 5 DMG";
@@ -305,6 +318,7 @@ function onHexClick(q,r){
   if(!showHints()) return;
   const s=S(G);
   if(G.st==="nav_pick"){ const o=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(o){ UI.speed=o.speed; UI.side=o.side; render(); } }
+  else if(G.st==="nav_heading"){ if(q!==s.q||r!==s.r){ UI.heading=dirToward(s,q,r); render(); } }
   else if(G.st==="atk_acquire"){ const t=other(G,s); if(t.q===q&&t.r===r&&legal(G).includes("TGT")) act("TGT"); }
 }
 
@@ -447,8 +461,13 @@ function actionsHTML(){
       break; }
     case "nav_drift": p="NAVIGATION · HOLD THE DRIFT"; sub=`Roll DRIFT vs DC ${G.dc}. Success lets you set a new heading and allows lock-on this turn.`;
       rows.push(`<div class="btnrow">${btn("DRIFT",`Roll drift · DC ${G.dc}`,"nav",L)}</div>`); break;
-    case "nav_heading": p="NAVIGATION · SET HEADING";
-      rows.push(`<div class="btnrow">${DIR_NAMES.map(d=>btn("H:"+d,d,DIR_NAMES[s.o]===d?"sel":"",L)).join("")}</div>`); break;
+    case "nav_heading": {
+      const h=previewHeading(), t=other(G,s), ai=t.hp>0?arcInfo({...s,o:h},t):null, can=L.length>0;
+      p="NAVIGATION · CHOOSE HEADING";
+      sub=`Pick a direction or tap the map, check the preview, then confirm. Facing ${DIR_NAMES[h]}${h===s.o?" (unchanged)":""}: ${ai?`P${t.pid} would be in your firing arc at range ${ai.range}.`:`P${t.pid} would be outside your firing arc.`}`;
+      rows.push(`<div class="btnrow"><span class="lab">FACE</span>${DIR_NAMES.map((d,i)=>`<button data-ui="heading" data-v="${i}" id="ui-heading-${d}" class="${h===i?"sel":""}" ${can?"":"disabled"} aria-pressed="${h===i}"><span class="arr" aria-hidden="true">${ARROWS[i]}</span> ${d}</button>`).join("")}</div>`);
+      rows.push(`<div class="btnrow">${btn("H:"+DIR_NAMES[h],`Confirm heading ${DIR_NAMES[h]} ▸`,"go",L)}</div>`);
+      break; }
     case "done": p="PHASE COMPLETE"; rows.push(`<div class="btnrow">${end()}</div>`); break;
     case "atk_acquire": { const t=other(G,s), ai=arcInfo(s,t);
       p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:`No ship in your arc (front, range 1–3). You can still reload.`;
@@ -536,6 +555,7 @@ app.addEventListener("click",async e=>{
     case "begin": UI.handoff=false; break;
     case "speed": UI.speed=+v; fixNavSide(); break;
     case "side": UI.side=+v; break;
+    case "heading": UI.heading=+v; break;
     case "newgame": G=null; UI.screen="title"; UI.share=null; try{ localStorage.removeItem(SAVE_KEY); }catch(err){} break;
   }
   render();
