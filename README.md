@@ -133,6 +133,10 @@ See `ROADMAP.md` for the design behind this and what is planned next.
 | Construct | old-world relic with orbiting shards | 15 | 5 | 2 | 5 energy |
 
 ### Crew (browser version)
+Each faction has its own look: Nomads are wastelanders in leather jackets, sunglasses, cowboy hats and bandanas;
+Scrappers wear helmets and face paint, have piercings and smoke; Drifters wear bedouin-like wraps and scarves, with
+mouth amplifiers that send a deep bass against the wind.
+
 15 crew, 5 per faction. Each player picks ship, faction and the whole crew in one turn (3 crew, Hauler 4; at most one captain);
 both players may take the same people. Click cards to select, then confirm; you can undo (on one device any
 time during setup, online or against the computer until your turn is done). After an order a crew member sits out
@@ -150,7 +154,7 @@ your next 2 turns.
 | | DOV, Bulwark | ATK | enemy attacks on you −1 | Brace: damage taken −3 until your next turn |
 | | FENN, Ecologist | NAV | rock crashes deal 1, not 3 | **Epic** Sandstorm: enemy −2 to all rolls next turn |
 | | ANA, Medic | ENG | stunned crew recover at your turn start | **Epic** Patch Up: heal 3 hull |
-| Drifters | SELA, Wind Captain | NAV | **Epic** Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls | Tailwind: next boost DC −4 |
+| Drifters | SELA, Wind Captain | NAV | a failed drift still lets you set heading; **Epic** Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls | Tailwind: next boost DC −4 |
 | | VEX, Ace Pilot | NAV | +2 boost rolls | Afterburn: next boost auto-succeeds |
 | | ORO, Wayfinder | NAV | +2 drift rolls | Evasive: enemy attacks −3 |
 | | NYX, Spotter | ATK | +3 lock rolls | Auto-Lock: lock with no roll |
@@ -186,7 +190,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 61 rules tests (setup, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 62 rules tests (setup, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online, phone width.
 
 ### Source

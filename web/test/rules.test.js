@@ -377,6 +377,11 @@ test("crew: ANA Patch Up (Nomad epic) heals 3 after a stable drift; stunned crew
   plan(G, "NAV", "ATK", "ENG"); ["END", "END", "END"].forEach(m => L.apply(G, m));
   assert.ok(!s.crew[1].stun);
 });
+test("crew: SELA keeps the helm: a failed drift still lets you set the heading (no lock)", () => {
+  const G = face(drafted({ crew1: ["WINDCAPT", "GUNNER", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
+  force(G, 20, v => v >= 19); L.apply(G, "B:1:0"); forceVal(G, 20, 1); L.apply(G, "DRIFT");
+  assert.strictEqual(G.st, "nav_heading"); assert.ok(!sh(G, 0).f.drift);
+});
 test("crew: SELA Tailwind lowers boost DC by 4", () => {
   const G = face(drafted({ crew1: ["WINDCAPT", "GUNNER", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
   const dc = L.navOption(sh(G, 0), 1, 0).dc; L.apply(G, "O:1");

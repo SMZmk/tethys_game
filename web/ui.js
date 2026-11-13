@@ -9,8 +9,11 @@ const UI={screen:"title",speed:1,side:0,handoff:false,busy:false,rolling:null,sh
 const SAVE_KEY="tethys.v2";
 const P_COLORS=["#ffcf4a","#5fd0ff"];
 const ST_COLOR={NAV:"var(--nav)",ATK:"var(--atk)",ENG:"var(--eng)",ANY:"var(--any)"};
-const PORTRAIT=["...hhhhhh...","..hhhhhhhh..",".hhhsssshhh.",".hhssssssh..","..sesssesa..","..ssssssss..",
-  "...ssaass...","....ssss....","..uuuaauuu..",".uuuuaauuuu.","uuuauuuuauuu","uuuuuuuuuuuu"];
+// 16x16 crew portraits, one template per faction (lowercase = colour from the crew palette).
+// Nomads: wastelanders with cowboy hats, sunglasses, bandanas, leather jackets.
+// Scrappers: helmets, smoke, painted faces, piercings.  Drifters: bedouin wraps, face scarves and
+// mouth amplifiers that send a deep bass against the wind.
+const PORTRAITS={"HEART": ["....hhhhhhhh....","...hhhhhhhhhh...","...hhHHHHHHhh...","hhhhhhhhhhhhhhhh",".hhhhhhhhhhhhhh.","....ssssssss....","...sggggggggs...","...sgGgssgGgs...","....ssssnsss....","....sssssss.....",".....snnnns.....","....bbbbbbbb....","..uubbbbbbbbuu..",".uuuUUbbbbUUuuu.","uuuuuuUbbUuuuuuu","uuuuuuuUUuuuuuuu"],"MACHINE": [".....mmmmmm...k.","....mhhhhhhm.k..","...mhhhhhhhhm.k.","...mHhhhhhhHm..k","...mmmmmmmmmm.k.","...ssssssssss...","...sppppppppsk..","...speppppeps...","...sppppppppsi..","....ssssnssss...","....sspsspssk...",".....siaaaiswk..","......ssssss....","..uuuuuUUuuuuu..",".uuuummuummuuuu.","uuuuuuuuuuuuuuuu"],"WIND": ["....hhhhhhhh....","...hhhhhhhhhh...","..hhhHHHHHHhhh..","..hhHssssssHhh..","..hhseesseeshh..","..hhssssssssh...","..huuuuuuuuuuha.","..huuUmaamUuuh.a","..huuumGGmuuuh.a","..huuuuaauuuuh.a","...uuuuuuuuuu.a.","..huuuuuuuuuuh..",".hhuuuUUUUuuuhh.","hhhuuuuuuuuuuhhh","hhuuuuuuuuuuuuhh","huuuuuuuuuuuuuuh"]};
 const HP_LOW=0.4;
 const reduceMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep=ms=>new Promise(r=>setTimeout(r,reduceMotion()?Math.min(ms,60):ms));
@@ -391,12 +394,14 @@ function onHexClick(q,r){
 // HTML UI
 // ======================================================================
 const app=document.getElementById("app");
-const faceCanvas=key=>`<canvas width="12" height="12" data-face="${key}"></canvas>`;
+const faceCanvas=key=>`<canvas width="16" height="16" data-face="${key}"></canvas>`;
 function paintFaces(){
   document.querySelectorAll("canvas[data-face]").forEach(c=>{
-    const d=CREW_BY[c.dataset.face], x=c.getContext("2d"); x.clearRect(0,0,12,12);
-    const m={s:d.pal[0],h:d.pal[1],u:d.pal[2],a:d.pal[3],e:"#101018"};
-    PORTRAIT.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(m[ch]){ x.fillStyle=m[ch]; x.fillRect(xx,yy,1,1);} }));
+    const d=CREW_BY[c.dataset.face], x=c.getContext("2d"); x.clearRect(0,0,16,16);
+    const [skin,head,cloth,acc]=d.pal;
+    const m={s:skin,n:shade(skin,-0.18),e:"#101018",h:head,H:shade(head,-0.35),u:cloth,U:shade(cloth,-0.35),a:acc,b:acc,p:acc,
+      g:"#0c0c12",G:"#e8f4ff",m:"#9aa0a8",i:"#f0f0f8",k:"#8a8a90",w:"#f8e8c8"};
+    PORTRAITS[d.f].forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(m[ch]){ x.fillStyle=m[ch]; x.fillRect(xx,yy,1,1);} }));
   });
 }
 function header(){

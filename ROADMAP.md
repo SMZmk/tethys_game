@@ -19,6 +19,7 @@ Epic orders (no lock-on needed for the Scrapper ones):
 - Nomads: **RHO, Battle Stations** (repeat this phase), **FENN, Sandstorm** (enemy −2 to all rolls next turn), **ANA, Patch Up** (heal 3).
 - Drifters: **SELA, Song of the Wind** is a *passive* epic: below half hull, engine power no longer raises the DC
   and boost rolls get +2. Lore: a wounded Drifter shakes off pursuers, especially in difficult terrain.
+  SELA also keeps her first passive: a failed drift still lets her ship set its heading.
 
 Crew rules: at most **one captain** per crew (VOSS, RHO or SELA).
 
@@ -30,6 +31,12 @@ Other changes made with this:
 Why: the "Nomad sustain" build (RHO, FENN, ANA, DOV) won 77% against random builds. With epic orders tied
 to a stable drift it wins 60–61%, in line with good builds of the other factions (48–63%).
 Computer against computer, the factions win 44–56% against each other (before 40–62%).
+
+## Faction looks (done)
+- Nomads: wastelanders. Leather jackets, sunglasses, cowboy hats, bandanas.
+- Scrappers: helmets, smoke, painted faces, piercings.
+- Drifters: bedouin-like wraps and scarves. They don't whistle: mouth amplifiers make deep, subwoofer-like bass
+  that travels against the wind. The story text uses this.
 
 ## Maps (planned)
 

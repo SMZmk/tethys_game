@@ -118,23 +118,23 @@ const CLASSES = {
 // f = faction, st = station (phase where the order works)
 const CREW = [
   // Followers of the Machine — Scrappers
-  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Knock Them Down!",text:"After a hit: stun a random enemy crew member (no lock needed)",pal:["#c89878","#303038","#4a3a30","#e86a20"]},
-  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit, no lock needed: d6 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn)",pal:["#a87050","#b84818","#5a4030","#d8d0c0"]},
-  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
-  {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#28a0e8","#384048","#78e8f8"]},
-  {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
+  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Knock Them Down!",text:"After a hit: stun a random enemy crew member (no lock needed)",pal:["#c89878","#6a6f78","#3a3030","#e8e0d0"]},
+  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit, no lock needed: d6 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn)",pal:["#a87050","#8a4a28","#4a3a30","#c83020"]},
+  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e8a020","#5a4a3a","#202020"]},
+  {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#4a5a6a","#383c44","#40c8f0"]},
+  {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#7a7a70","#586838","#e0e0e0"]},
   // Followers of the Heart — Nomads
-  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",epic:"DRIFT",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e8f0","#283878","#f8c828"]},
-  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#583820","#902828","#f87828"]},
-  {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#d8c8a0","#6a4a3a","#c0a060"]},
-  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#5a8a3a","#3a5a3a","#c8e070"]},
-  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#e8e0d8","#e04848"]},
+  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",epic:"DRIFT",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e0d0","#6a4028","#3050a0"]},
+  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#3a2a20","#5a3a22","#c03030"]},
+  {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#a07848","#3a2a20","#d8c060"]},
+  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#6a8a3a","#6a4a30","#2a8a6a"]},
+  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#7a3a30","#e04848"]},
   // Followers of the Wind — Drifters
-  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"Epic, Song of the Wind: below half hull, engine power no longer raises the DC, and +2 to boost rolls",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0f0e8","#2a6a7a","#9ae8f0"]},
+  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you set your heading. Epic, Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0ecdc","#2a6a7a","#9ae8f0"]},
   {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
-  {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#181820","#208878","#a0f8c8"]},
+  {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#2a2a40","#208878","#a0f8c8"]},
   {key:"SPOTTER",f:"WIND",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
-  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Weapons",text:"Enemy −2 to lock and attack rolls on their next turn",pal:["#986848","#28c848","#202830","#40f860"]},
+  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Weapons",text:"Enemy −2 to lock and attack rolls on their next turn",pal:["#986848","#304030","#202830","#40f860"]},
 ];
 const CREW_BY = Object.fromEntries(CREW.map(c=>[c.key,c]));
 
@@ -248,7 +248,7 @@ const TALES={
 const FACTION_TALES={
   MACHINE:{
     turnFar:["{p} sniffs the wind for diesel. The engine purrs like a hungry animal.","The Scrappers of {p} press their ears to the hull and listen for the enemy's engine."],
-    turnNear:["{p}'s Scrappers bang wrenches on the rails. The ship wants a fight.","Through the smoke, {p} smells the enemy's engine. The Scrappers grin."],
+    turnNear:["{p}'s Scrappers bang wrenches on the rails. The ship wants a fight.","{p}'s Scrappers flick away their smokes, slap fresh paint on their faces and pull down their helmets."],
     boostOk:["{p} bellows black smoke and lunges forward. The Scrappers howl with it."],
     boostFail:["{p}'s pistons scream past the redline and the ship careens on. The crew curse the engine, then apologise to it."],
     driftOk:["{p} drifts, chains rattling, and the Scrappers bang the hull in praise."],
@@ -264,7 +264,7 @@ const FACTION_TALES={
   },
   HEART:{
     turnFar:["{p}'s Nomads share the last of the water and watch the dunes together.","Around a small stove on {p}'s deck, the Nomads tell stories of Europa while the lookout watches."],
-    turnNear:["{p}'s Nomads clasp hands before the fight. Nobody will be left behind.","The enemy is close. {p}'s elders hum the old song to steady the young."],
+    turnNear:["{p}'s Nomads clasp hands before the fight. Nobody will be left behind.","The enemy is close. {p}'s Nomads pull up their bandanas, push their sunglasses up and tip their hats to each other."],
     boostOk:["{p} surges ahead as one: every hand on a rope, every voice in the chant."],
     boostFail:["{p} overshoots. The Nomads laugh it off and count heads. Everyone is still aboard."],
     driftOk:["{p} swings round with the grace of a caravan that has done this a thousand times."],
@@ -278,8 +278,8 @@ const FACTION_TALES={
     win:["{p}'s Nomads stand on deck, counting every face. All here. Now, Europa."],
   },
   WIND:{
-    turnFar:["{p}'s sails catch a gust that smells of salt and somewhere else.","The Drifters on {p} read the dune ripples like a map. The enemy is out there."],
-    turnNear:["{p}'s Drifters loosen the sails. Close enough to dance.","The enemy is near. {p}'s Drifters whistle to each other in the old wind-code."],
+    turnFar:["{p}'s sails catch a gust that smells of salt and somewhere else.","The Drifters on {p} pull their scarves tight and read the dune ripples like a map.","A low bass thrums from {p}'s deck, carried against the wind. Somewhere out there, other Drifters answer."],
+    turnNear:["{p}'s Drifters loosen the sails. Close enough to dance.","The enemy is near. Behind their scarves, {p}'s Drifters hum through their mouth-amps: a deep bass that rolls against the wind."],
     boostOk:["{p} skims the dunes like a thrown stone."],
     boostFail:["A rogue gust takes {p} too far. The Drifters only laugh: the wind decides."],
     driftOk:["{p} slides around the turn, sails singing."],
@@ -287,7 +287,7 @@ const FACTION_TALES={
     crash:["{p} clips a ridge. The Drifters curse the stone that would not move."],
     hit:["Glass-tipped bolts sing from {p}'s sail-bows and shatter on {t}.","{p} fires from the wind's blind side and {t} never sees it coming."],
     miss:["{p}'s bolts vanish into the sand. The wind was not with them."],
-    stun:["{c} of {t} drops. On {p}, a Drifter tips a hat: nothing personal."],
+    stun:["{c} of {t} drops. On {p}, a Drifter's mouth-amp drops to a slow, satisfied bass."],
     crit:["{t}'s Drifters groan as their {s} sputters. The wind turns its back."],
     repair:["{p}'s Drifters patch the sails and tie new knots, singing to the breeze."],
     win:["{p}'s sails fill. The Drifters turn toward the horizon. Europa is a direction, not a place."],
@@ -533,6 +533,7 @@ function doDrift(G){
   const ok=rollCheck(G,"DRIFT",20,[[s.sys.dft,"DFT"],[cls(s).dft,"hull class"],[hullPen(s),"hull"],[-s.dmg.DRIFT,"dmg"],...crewMods(s,"DRIFT",null,true)],G.dc,"DC",s.pid);
   s.f.drift=ok;
   if(ok){ log(G,"Drift stable. Set your heading.","ok"); G.st="nav_heading"; tell(G,"driftOk",{p:cname(s)},s.fac); }
+  else if(has(s,"WINDCAPT")){ log(G,"Drift failed, but SELA keeps the helm. Set your heading (no lock-on this turn).","bad"); tell(G,"driftFail",{p:cname(s)},s.fac); G.st="nav_heading"; }
   else { s.o=mod(s.o+(rnd(G,2)===1?-1:1),6); log(G,`Drift failed — spun out to ${DIR_NAMES[s.o]}.`,"bad"); tell(G,"driftFail",{p:cname(s)},s.fac); G.st="done"; }
 }
 function doLock(G){
