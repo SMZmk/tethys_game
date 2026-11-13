@@ -110,16 +110,16 @@ const CLASSES = {
     text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
   HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:14,energy:3,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
     text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
-  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,shots:2,ammo:2,half:true,
-    text:"Twin guns: fires twice per combat phase, each hit does half damage (+1 before halving). +1 attack, 2 ammo per reload, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
+  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,twin:true,half:true,
+    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
   RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
     text:"Old-world tech. 5 energy: power every system at once.",lore:"Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
 const CREW = [
   // Followers of the Machine — Scrappers
-  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Fire in the Engines!",text:"After a hit: the enemy loses NAV or ENG (d6) next turn",pal:["#c89878","#303038","#4a3a30","#e86a20"]},
-  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit: cripple a random enemy system",pal:["#a87050","#b84818","#5a4030","#d8d0c0"]},
+  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Knock Them Down!",text:"After a hit: stun a random enemy crew member (no lock needed)",pal:["#c89878","#303038","#4a3a30","#e86a20"]},
+  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit, no lock needed: d6 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn)",pal:["#a87050","#b84818","#5a4030","#d8d0c0"]},
   {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
   {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#28a0e8","#384048","#78e8f8"]},
   {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
@@ -130,7 +130,7 @@ const CREW = [
   {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#5a8a3a","#3a5a3a","#c8e070"]},
   {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#e8e0d8","#e04848"]},
   // Followers of the Wind — Drifters
-  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you choose a heading",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0f0e8","#2a6a7a","#9ae8f0"]},
+  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"Epic, Song of the Wind: below half hull, engine power no longer raises the DC, and +2 to boost rolls",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0f0e8","#2a6a7a","#9ae8f0"]},
   {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
   {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#181820","#208878","#a0f8c8"]},
   {key:"SPOTTER",f:"WIND",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
@@ -160,7 +160,7 @@ function newGame(seed){
   const G={v:2,seed,rng:seed,moves:[],ships:SPAWNS.map((s,i)=>newShip(i+1,s[0],s[1],s[2])),active:0,
     draft:{order:[0,1],idx:0},
     phase:"DRAFT",queue:[],qi:0,repeated:false,st:"draft",target:null,dc:0,aim:null,
-    roll:null,winner:null,looted:[],turn:0,log:[],story:[],ev:[]};
+    roll:null,winner:null,looted:[],turn:0,hits:0,log:[],story:[],ev:[]};
   tell(G,"open",{});
   return G;
 }
@@ -175,6 +175,7 @@ function ev(G,e){ G.ev.push(e); }
 const cls=s=>CLASSES[s.cls]||{bst:0,dft:0,atk:0,dmg:0,rep:0};
 const maxSpeed=s=>cls(s).speed||3;
 const crewSlots=s=>cls(s).crew||3;
+const songOfWind=s=>has(s,"WINDCAPT")&&s.hp*2<s.maxHp;
 const maxShots=s=>cls(s).shots||1;
 const has=(s,key)=>s.crew.some(c=>c.key===key&&!c.stun);
 function energyCap(s){ const p=s.hp/s.maxHp; if(p<R.HP_FAIL) return 0; if(p<R.HP_CRIT) return 1; return s.baseEnergy+(has(s,"TECH")?1:0); }
@@ -198,6 +199,7 @@ function crewMods(s,kind,target,consume){
   if((kind==="LOCK"||kind==="ATK")&&s.jamW) m.push([-2,"jammed"]);
   if(s.storm) m.push([-2,"sandstorm"]);
   if(kind==="BOOST"&&has(s,"ACE")) m.push([2,"VEX"]);
+  if(kind==="BOOST"&&songOfWind(s)) m.push([2,"Song of the Wind"]);
   if(kind==="DRIFT"&&has(s,"DRIFTER")) m.push([2,"ORO"]);
   if(kind==="ATK"&&has(s,"GUNNER")) m.push([2,"KAEL"]);
   if(kind==="LOCK"&&has(s,"SPOTTER")) m.push([3,"NYX"]);
@@ -337,7 +339,8 @@ function navOption(s,speed,side){
   const [rq,rr]=navToCoords(s.o,side,total-1);
   const [m,ok]=angleDifficulty(s.o,rq,rr,s.q,s.r);
   if(!ok) return null;
-  return {speed,side,q:s.q+rq,r:s.r+rr,dc:Math.trunc((R.DC_BASE+total+m)*(1+ee*R.ENG_DC_MULT))-(s.tailwind?4:0)};
+  const mult=songOfWind(s)?1:1+ee*R.ENG_DC_MULT;                     // Song of the Wind: engine power costs no DC
+  return {speed,side,q:s.q+rq,r:s.r+rr,dc:Math.trunc((R.DC_BASE+total+m)*mult)-(s.tailwind?4:0)};
 }
 function allNavOptions(s){ const o=[]; for(let sp=1;sp<=maxSpeed(s);sp++) for(let sd=-3;sd<=3;sd++){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
 function arcInfo(s,t){
@@ -390,7 +393,7 @@ function orderBlock(G,s,c){
     case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No system damage to fix";
     case "TECH": return s.surge?"Already active":null;
     case "QM": return null;
-    case "IRONCAPT": return other(G,s).lostPhase?"Enemy engines already burning":other(G,s).hp<=0?"No target":null;
+    case "IRONCAPT": { const o=other(G,s); return o.hp<=0?"No target":o.crew.every(c=>c.stun)?"Enemy crew already down":null; }
     case "HARPOON": return other(G,s).hp<=0?"No target":null;
     case "BULWARK": return s.brace?"Already active":null;
     case "ECO": { const o=other(G,s); return o.storm?"Already in a storm":null; }
@@ -447,7 +450,8 @@ function validCrewMove(G,a){
   if(G.st!=="draft"||!a.startsWith("CREW:")) return false;
   const s=G.ships[actor(G)]; if(!s.cls) return false;
   const keys=a.slice(5).split(",");
-  return keys.length===crewSlots(s)&&new Set(keys).size===keys.length&&keys.every(k=>CREW_BY[k]);
+  return keys.length===crewSlots(s)&&new Set(keys).size===keys.length&&keys.every(k=>CREW_BY[k])
+    &&keys.filter(k=>/Captain/.test(CREW_BY[k].role)).length<=1;          // only one captain per crew
 }
 // The computer's crew for each faction, in pick order (a Hauler takes the 4th as well).
 const AI_CREW={MACHINE:["IRONCAPT","HARPOON","TECH","MECHANIC"],HEART:["CAPTAIN","GUNNER","MEDIC","BULWARK"],WIND:["WINDCAPT","ACE","SPOTTER","DRIFTER"]};
@@ -529,7 +533,6 @@ function doDrift(G){
   const ok=rollCheck(G,"DRIFT",20,[[s.sys.dft,"DFT"],[cls(s).dft,"hull class"],[hullPen(s),"hull"],[-s.dmg.DRIFT,"dmg"],...crewMods(s,"DRIFT",null,true)],G.dc,"DC",s.pid);
   s.f.drift=ok;
   if(ok){ log(G,"Drift stable. Set your heading.","ok"); G.st="nav_heading"; tell(G,"driftOk",{p:cname(s)},s.fac); }
-  else if(has(s,"WINDCAPT")){ log(G,"Drift failed, but SELA keeps the helm. Set your heading (no lock-on this turn).","bad"); tell(G,"driftFail",{p:cname(s)},s.fac); G.st="nav_heading"; }
   else { s.o=mod(s.o+(rnd(G,2)===1?-1:1),6); log(G,`Drift failed — spun out to ${DIR_NAMES[s.o]}.`,"bad"); tell(G,"driftFail",{p:cname(s)},s.fac); G.st="done"; }
 }
 function doLock(G){
@@ -542,22 +545,32 @@ function doFire(G){
   const s=S(G), t=tgt(G), ai=arcInfo(s,t);
   const ac=R.BASE_AC+R.AC_DIST[ai.range-1];
   s.ammo--; s.f.shots++;
-  const ok=rollCheck(G,"ATTACK",20,[[s.f.locked?R.LOCK_BONUS:0,"lock"],[s.sys.wpn,"WPN"],[cls(s).atk,"hull class"],[hullPen(s),"hull"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"ATK",t,true)],ac,"AC",s.pid);
-  ev(G,{t:"shot",from:s.pid,to:t.pid,hit:ok});
-  if(ok){ log(G,"Hit! Roll damage.","ok"); G.st="atk_dmg"; }
+  // Twin guns (Dreadnought): one shot, two attack rolls; each hit does half damage.
+  const rolls=cls(s).twin?2:1; let hits=0;
+  for(let i=0;i<rolls;i++){
+    const hit=rollCheck(G,rolls>1?`ATTACK ${i+1}/2`:"ATTACK",20,[[s.f.locked?R.LOCK_BONUS:0,"lock"],[s.sys.wpn,"WPN"],[cls(s).atk,"hull class"],[hullPen(s),"hull"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"ATK",t,true)],ac,"AC",s.pid);
+    ev(G,{t:"shot",from:s.pid,to:t.pid,hit});
+    if(hit) hits++;
+  }
+  G.hits=hits;
+  const ok=hits>0;
+  if(ok){ log(G,hits>1?"Two hits! Roll damage.":"Hit! Roll damage.","ok"); G.st="atk_dmg"; }
   else { log(G,"Shot missed.","bad"); tell(G,"miss",{p:cname(s),t:cname(t)},s.fac); ev(G,{t:"miss",pid:t.pid}); s.f.locked=false; s.f.debuff=null; G.st="atk_menu"; }
 }
 function doDamage(G){
-  const s=S(G), t=tgt(G);
-  const v=rnd(G,6), mods=[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[cls(s).dmg,"hull class"],[-s.dmg.WEAPONS,"dmg"],
-    [has(s,"HARPOON")?1:0,"GRIT"],[s.fac==="MACHINE"?1:0,"Scrappers"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
+  const s=S(G), t=tgt(G), hits=G.hits||1;
   s.f.hit=true;
-  const raw=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0)), n=cls(s).half?Math.ceil(raw/2):raw;
-  if(cls(s).half) mods.push([n-raw,"twin guns ½"]);
-  G.roll={label:"DAMAGE",sides:6,die:v,mods,total:n,dmg:true,pid:s.pid};
-  ev(G,{t:"roll",roll:{...G.roll}});
   tell(G,"hit",{p:cname(s),t:cname(t)},s.fac);
-  damage(G,t,n);
+  for(let i=0;i<hits&&t.hp>0;i++){
+    const v=rnd(G,6), mods=[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[cls(s).dmg,"hull class"],[-s.dmg.WEAPONS,"dmg"],
+      [has(s,"HARPOON")?1:0,"GRIT"],[s.fac==="MACHINE"?1:0,"Scrappers"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
+    const raw=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0)), n=cls(s).half?Math.ceil(raw/2):raw;
+    if(cls(s).half) mods.push([n-raw,"twin guns ½"]);
+    G.roll={label:hits>1?`DAMAGE ${i+1}/${hits}`:"DAMAGE",sides:6,die:v,mods,total:n,dmg:true,pid:s.pid};
+    ev(G,{t:"roll",roll:{...G.roll}});
+    damage(G,t,n);
+  }
+  G.hits=0;
   if(t.hp>0&&s.f.debuff){
     if(s.f.debuff==="CREW") stunCrew(G,t,s);
     else { t.dmg[s.f.debuff]++; log(G,`Critical: ${shipName(t)} ${s.f.debuff.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:s.f.debuff.toLowerCase()},t.fac); }
@@ -586,10 +599,12 @@ function useOrder(G,i){
     case "MECHANIC": for(const k in s.dmg) s.dmg[k]=Math.max(0,s.dmg[k]-1); break;
     case "TECH": s.surge=5; break;
     case "QM": s.parts+=2; break;
-    case "IRONCAPT": { const t=other(G,s), r=rnd(G,6); t.lostPhase=r<=3?"NAV":"ENG";
-      log(G,`Fire in the engines! d6 ${r}: ${shipName(t)} loses ${t.lostPhase} next turn.`,"bad"); tell(G,"fire",{p:cname(s),t:cname(t),s:t.lostPhase==="NAV"?"drive":"power plant"},s.fac); break; }
-    case "HARPOON": { const t=other(G,s), k=["SPEED","BOOST","DRIFT","WEAPONS"][rnd(G,4)-1]; t.dmg[k]++;
-      log(G,`Chain shot: ${shipName(t)} ${k.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:k.toLowerCase()},t.fac); break; }
+    case "IRONCAPT": stunCrew(G,other(G,s),s); break;
+    case "HARPOON": { const t=other(G,s), r=rnd(G,6);
+      if(r<=4){ const k=["SPEED","BOOST","DRIFT","WEAPONS"][r-1]; t.dmg[k]++; log(G,`Chain shot d6 ${r}: ${shipName(t)} ${k.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:k.toLowerCase()},t.fac); }
+      else if(!t.lostPhase){ const r2=rnd(G,6); t.lostPhase=r2<=3?"NAV":"ENG"; log(G,`Chain shot d6 ${r}: fire in the engines! d6 ${r2}: ${shipName(t)} loses ${t.lostPhase} next turn.`,"bad"); tell(G,"fire",{p:cname(s),t:cname(t),s:t.lostPhase==="NAV"?"drive":"power plant"},s.fac); }
+      else { t.dmg.SPEED++; log(G,`Chain shot d6 ${r}: the engines already burn; ${shipName(t)} speed −1.`,"bad"); }
+      break; }
     case "BULWARK": s.brace=true; break;
     case "ECO": other(G,s).storm=true; break;
     case "MEDIC": { const h=Math.min(3,s.maxHp-s.hp); s.hp+=h; log(G,`ANA patches ${h} hull.`,"ok"); integrity(G,s); break; }
@@ -698,4 +713,4 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};

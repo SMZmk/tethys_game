@@ -62,6 +62,11 @@ test("draft: crew must fill every slot, no duplicates, known names", () => {
   for (const bad of ["CREW:ACE,DRIFTER", "CREW:ACE,ACE,SPOTTER", "CREW:ACE,DRIFTER,NOBODY", "CREW:ACE,DRIFTER,SPOTTER,QM"])
     assert.throws(() => L.apply(G, bad), /Illegal/, bad);
 });
+test("draft: only one captain per crew", () => {
+  const G = L.newGame(7); L.apply(G, "C:SKIFF:WIND");
+  assert.throws(() => L.apply(G, "CREW:WINDCAPT,CAPTAIN,ACE"), /Illegal/);
+  L.apply(G, "CREW:WINDCAPT,ACE,DRIFTER");
+});
 test("hauler: room for 4 crew", () => {
   const G = L.newGame(7); L.apply(G, "C:HAULER:HEART");
   assert.throws(() => L.apply(G, "CREW:CAPTAIN,GUNNER,MEDIC"), /Illegal/);
@@ -326,22 +331,28 @@ test("faction: the story speaks in the ship's voice", () => {
 });
 
 // ---------- new crew ----------
-test("crew: VOSS Fire in the Engines (Scrapper epic) needs a hit; enemy loses NAV or ENG", () => {
+test("crew: VOSS Knock Them Down! (Scrapper epic) stuns an enemy crew member after a hit, no lock", () => {
   const G = toAttack({ f1: "MACHINE", crew1: ["IRONCAPT", "GUNNER", "TECH"] }), t = sh(G, 1);
   L.apply(G, "TGT"); assert.ok(!L.legal(G).includes("O:1"));                  // no hit yet
   force(G, 20, v => v >= 19); L.apply(G, "FIRE"); assert.ok(G.roll.mods.some(m => m[1] === "VOSS"));
-  L.apply(G, "DMG"); assert.ok(L.legal(G).includes("O:1"));
-  forceVal(G, 6, 2); L.apply(G, "O:1"); assert.strictEqual(t.lostPhase, "NAV");
-  L.apply(G, "END"); L.apply(G, "END");                                       // P2's turn
-  assert.strictEqual(L.slotsAllowed(G), 2); assert.ok(!L.legal(G).includes("Q:NAV"));
-  plan(G, "ATK", "ENG"); L.apply(G, "END"); L.apply(G, "END"); assert.strictEqual(t.lostPhase, null);
+  L.apply(G, "DMG"); assert.ok(!sh(G, 0).f.locked); assert.ok(L.legal(G).includes("O:1"));
+  L.apply(G, "O:1"); assert.strictEqual(t.crew.filter(c => c.stun).length, 1);
 });
-test("crew: GRIT +1 damage; Chain Shot (Scrapper epic) cripples a random system after a hit", () => {
+test("crew: GRIT Chain Shot (Scrapper epic) after a hit, no lock: d6 1-4 cripples a system", () => {
   const G = toAttack({ f1: "MACHINE", crew1: ["HARPOON", "GUNNER", "TECH"] }), t = sh(G, 1), hp = t.hp;
   L.apply(G, "TGT"); assert.ok(!L.legal(G).includes("O:1"));
   force(G, 20, v => v >= 19); L.apply(G, "FIRE"); forceVal(G, 6, 2); L.apply(G, "DMG");
   assert.strictEqual(t.hp, hp - (2 + 4 + 1 + 1));                              // + GRIT + Scrappers
-  L.apply(G, "O:1"); assert.strictEqual(Object.values(t.dmg).reduce((a, b) => a + b, 0), 1);
+  forceVal(G, 6, 4); L.apply(G, "O:1"); assert.strictEqual(t.dmg.WEAPONS, 1);
+});
+test("crew: GRIT Chain Shot d6 5-6: fire in the engines, enemy loses NAV or ENG", () => {
+  const G = toAttack({ f1: "MACHINE", crew1: ["HARPOON", "GUNNER", "TECH"] }), t = sh(G, 1);
+  L.apply(G, "TGT"); force(G, 20, v => v >= 19); L.apply(G, "FIRE"); L.apply(G, "DMG");
+  // first d6 must be 5-6, second decides NAV (1-3) or ENG (4-6)
+  for (let r = 1; r < 100000; r++) { const p = { rng: r }; if (L.rnd(p, 6) >= 5 && L.rnd(p, 6) <= 3) { G.rng = r; break; } }
+  L.apply(G, "O:1"); assert.strictEqual(t.lostPhase, "NAV");
+  L.apply(G, "END"); L.apply(G, "END");
+  assert.strictEqual(L.slotsAllowed(G), 2); assert.ok(!L.legal(G).includes("Q:NAV"));
 });
 test("crew: DOV −1 to enemy attacks; Brace −3 damage taken", () => {
   const G = toAttack({ crew2: ["BULWARK", "SPOTTER", "QM"] }), t = sh(G, 1), hp = t.hp; t.brace = true;
@@ -366,31 +377,40 @@ test("crew: ANA Patch Up (Nomad epic) heals 3 after a stable drift; stunned crew
   plan(G, "NAV", "ATK", "ENG"); ["END", "END", "END"].forEach(m => L.apply(G, m));
   assert.ok(!s.crew[1].stun);
 });
-test("crew: SELA Tailwind lowers boost DC by 4; failed drift still sets heading", () => {
+test("crew: SELA Tailwind lowers boost DC by 4", () => {
   const G = face(drafted({ crew1: ["WINDCAPT", "GUNNER", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
   const dc = L.navOption(sh(G, 0), 1, 0).dc; L.apply(G, "O:1");
   assert.strictEqual(L.navOption(sh(G, 0), 1, 0).dc, dc - 4);
-  force(G, 20, v => v >= 19); L.apply(G, "B:1:0"); forceVal(G, 20, 1); L.apply(G, "DRIFT");
-  assert.strictEqual(G.st, "nav_heading"); assert.ok(!sh(G, 0).f.drift);
 });
-
-// ---------- dreadnought ----------
-test("dreadnought: twin guns fire twice, each hit half damage (+1 before halving)", () => {
+test("crew: SELA Song of the Wind (passive epic) below half hull: engine adds no DC, +2 boost", () => {
+  const G = face(drafted({ crew1: ["WINDCAPT", "GUNNER", "TECH"] })); const s = sh(G, 0);
+  s.sys.eng = 2; const hard = L.navOption(s, 1, 0).dc;
+  s.hp = Math.floor(s.maxHp / 2) - 1; assert.ok(L.songOfWind(s));
+  const easy = L.navOption(s, 1, 0).dc; assert.ok(easy < hard, `${easy} < ${hard}`);
+  assert.strictEqual(easy, 8 + 1 + 2 * 2);                                    // DC base + distance, no engine multiplier
+  plan(G, "NAV", "ATK", "ENG"); forceVal(G, 20, 10); L.apply(G, "B:1:0");
+  assert.ok(G.roll.mods.some(m => m[1] === "Song of the Wind" && m[0] === 2));
+});
+test("dreadnought: one shot rolls to hit twice, each hit half damage (+1 before halving)", () => {
   const G = toAttack({ c1: "DREAD", crew1: ["SPOTTER", "ACE", "TECH"] }), t = sh(G, 1), s = sh(G, 0);
-  assert.strictEqual(s.ammo, 2); assert.strictEqual(L.maxShots(s), 2);
+  assert.strictEqual(s.ammo, 1);
   L.apply(G, "TGT"); const hp = t.hp;
-  force(G, 20, v => v >= 19); L.apply(G, "FIRE"); forceVal(G, 6, 5); L.apply(G, "DMG");
-  assert.strictEqual(t.hp, hp - Math.ceil((5 + 4 + 1) / 2));
-  assert.ok(L.legal(G).includes("FIRE"));
-  force(G, 20, v => v >= 19); L.apply(G, "FIRE"); forceVal(G, 6, 5); L.apply(G, "DMG");
-  assert.strictEqual(t.hp, hp - 10); assert.ok(!L.legal(G).includes("FIRE"));
+  force(G, 20, v => v >= 19); L.apply(G, "FIRE");
+  assert.strictEqual(s.ammo, 0); assert.ok(!L.legal(G).includes("FIRE"));          // one shot per phase
+  const hits = G.hits; assert.ok(hits >= 1 && hits <= 2);
+  L.apply(G, "DMG"); const dealt = hp - t.hp;
+  assert.ok(dealt >= hits * Math.ceil((1 + 4 + 1) / 2) && dealt <= hits * Math.ceil((6 + 4 + 1) / 2), "dealt " + dealt);
 });
-test("dreadnought: reload gives 2 ammo", () => {
-  const G = face(drafted({ c1: "DREAD" })); const s = sh(G, 0); s.ammo = 0;
-  plan(G, "ATK", "NAV", "ENG"); L.apply(G, "RLD"); assert.strictEqual(s.ammo, 2);
+test("dreadnought: two attack rolls make a clean miss rarer", () => {
+  let missOne = 0, missTwin = 0;
+  for (let seed = 1; seed <= 300; seed++) {
+    for (const c of ["SKIFF", "DREAD"]) {
+      const G = toAttack({ c1: c, seed }); L.apply(G, "TGT"); L.apply(G, "FIRE");
+      if (G.st !== "atk_dmg") { if (c === "DREAD") missTwin++; else missOne++; }
+    }
+  }
+  assert.ok(missTwin < missOne * 0.7, `twin misses ${missTwin} vs single ${missOne}`);
 });
-
-// ---------- computer opponent ----------
 test("computer: plays whole games with legal moves only", () => {
   for (let seed = 1; seed <= 40; seed++) {
     const G = L.newGame(seed * 101);

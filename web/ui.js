@@ -451,6 +451,7 @@ function undoLast(){
   if(!canUndo()) return;
   G=replay(G.seed,G.moves.slice(0,-1)); UI.pickCrew=[]; UI.handoff=false; save();
 }
+const isCapt=k=>/Captain/.test(CREW_BY[k].role);
 const facChip=f=>f?`<span class="fchip" style="--fc:${FACTIONS[f].color}">${FACTIONS[f].name.toUpperCase()}</span>`:"";
 function renderDraft(){
   const pi=actor(G), s=G.ships[pi], mine=myTurn();
@@ -471,9 +472,9 @@ function renderDraft(){
   } else {
     const slots=crewSlots(s), pk=(UI.pickCrew||[]).filter(k=>CREW_BY[k]).slice(0,slots);
     const kin=pk.filter(k=>CREW_BY[k].f===s.fac).length;
-    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR CREW<span class="sub">Pick ${slots} crew (${pk.length}/${slots} chosen). Your ${CLASSES[s.cls].name} sails with the ${FACTIONS[s.fac].name}: each of their crew adds +${KINDRED_HULL} hull (now ${kin}). Both players may take the same people.</span></div>
+    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR CREW<span class="sub">Pick ${slots} crew (${pk.length}/${slots} chosen), at most one captain. Your ${CLASSES[s.cls].name} sails with the ${FACTIONS[s.fac].name}: each of their crew adds +${KINDRED_HULL} hull (now ${kin}). Both players may take the same people.</span></div>
     ${Object.entries(FACTIONS).map(([fk,f])=>`<div class="facgroup" style="--fc:${f.color}"><div class="fachead">${f.name.toUpperCase()} <span class="dim">· ${esc(f.long)}${fk===s.fac?" · YOUR FACTION":""}</span></div>
-      <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const on=pk.includes(c.key), full=!on&&pk.length>=slots;
+      <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const on=pk.includes(c.key), capt=isCapt(c.key)&&pk.some(k=>k!==c.key&&isCapt(k)), full=!on&&(pk.length>=slots||capt);
       return `<button class="card ${on?"picked":""} ${full?"taken":""}" style="--st:${ST_COLOR[c.st]}" data-ui="selcrew" data-v="${c.key}" id="sel-${c.key}" ${full?"disabled":""} aria-pressed="${on}">
       ${faceCanvas(c.key)}<div class="nm">${on?"✓ ":""}${c.name}<em>${c.role.toUpperCase()} · ${c.st}</em></div>
       <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}${c.epic?` · <span style="color:var(--any)">EPIC: ${c.epic==="HIT"?"AFTER A HIT":"AFTER A STABLE DRIFT"}</span>`:""}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
@@ -618,7 +619,7 @@ function renderGame(){
       <li>Engineering: below half hull it repairs while it has parts, then powers up WPN, BST, DFT (escaping: ENGINE, BST, DFT).</li>
       <li>Its dice come from the game seed, so the same game always plays out the same way. You can run it with real dice using these rules.</li></ul></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
-      <li>Hauler: room for 4 crew. Dreadnought: twin guns, two shots per combat phase, each hit does half damage.</li>
+      <li>Hauler: room for 4 crew. Dreadnought: twin guns, every shot rolls to hit twice, each hit does half damage. One captain per crew.</li>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
       <li>Rocks and rams deal 3 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
@@ -660,7 +661,8 @@ app.addEventListener("click",async e=>{
       catch(err){ ta.focus(); ta.select(); msg.textContent="Press Ctrl+C (or ⌘C) to copy."; }
       return; }
     case "randpick": { const s=G.ships[actor(G)], pk=[...(UI.pickCrew||[])], rest=CREW.map(c=>c.key).filter(k=>!pk.includes(k)).sort(()=>Math.random()-.5);
-      UI.pickCrew=[...pk,...rest].slice(0,crewSlots(s)); break; }
+      for(const k of rest){ if(pk.length>=crewSlots(s)) break; if(isCapt(k)&&pk.some(isCapt)) continue; pk.push(k); }
+      UI.pickCrew=pk; break; }
     case "clearcrew": UI.pickCrew=[]; break;
     case "begin": UI.handoff=false; break;
     case "speed": UI.speed=+v; fixNavSide(); break;
