@@ -112,23 +112,23 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 
 ### Factions
 Every ship sails under a faction and every crew member belongs to one. Each crew member who shares
-your ship's faction adds **+2 hull** (kindred), so the draft is also about denying your opponent their faction.
+your ship's faction adds **+1 hull** (kindred), so the draft is also about denying your opponent their faction.
 The story text changes with your faction: Scrappers fire scrap-iron arrows and grieve for their engine,
 Nomads count heads after every hit, Drifters trust the wind.
 
 | Faction | From the setting | Perk |
 |---|---|---|
-| Scrappers | Followers of the Machine: the ship is the living body | Repairs heal +2 |
+| Scrappers | Followers of the Machine: the ship is the living body | Repairs heal +1 |
 | Nomads | Followers of the Heart: no one is left in the sand | Crew orders sit out only 1 turn (others 2) |
 | Drifters | Followers of the Wind: free and never lost | +1 to boost and drift rolls |
 
 ### Ship classes
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
-| Skiff | small twin-hull sand-catamaran | 24 | 3 | 2 | +1 boost and drift rolls |
-| Hauler | huge diesel barge with smokestacks | 25 | 3 | 3 | repairs +1, −1 boost rolls |
-| Dreadnought | riveted gunboat with a turret | 26 | 3 | 1 | +1 attack, +1 damage |
-| Construct | old-world relic with orbiting shards | 26 | 5 | 2 | repairs −1 |
+| Skiff | small twin-hull sand-catamaran | 15 | 3 | 2 | +1 boost and drift rolls |
+| Hauler | huge diesel barge with smokestacks | 15 | 3 | 3 | −1 boost rolls |
+| Dreadnought | riveted gunboat with a turret | 15 | 3 | 1 | +1 attack, +1 damage |
+| Construct | old-world relic with orbiting shards | 15 | 5 | 2 | repairs −1 |
 
 ### Crew (browser version)
 15 crew, 5 per faction, drafted 3 per ship (picks go 1-2-2-1-1-2). Click a card, then confirm; you can undo picks
@@ -139,21 +139,26 @@ your next 2 turns.
 |---|---|---|---|---|
 | Scrappers | VOSS, Iron Captain | ANY | +1 attack rolls | Scrap Fury: next hit this turn +4 damage |
 | | GRIT, Harpooner | ATK | +1 damage | Chain Shot: next hit also cripples a random system |
-| | BRAKK, Engineer | ENG | repairs +2 | Field Fix: all system damage −1 |
+| | BRAKK, Engineer | ENG | repairs +1 | Field Fix: all system damage −1 |
 | | IVO, Reactor Tech | ENG | +1 energy cap | Surge: next roll +5 |
 | | SAL, Scavenger | ENG | +1 part, reload gives 2 ammo | Salvage: +2 parts |
 | Nomads | RHO, Captain | ANY | +1 to all rolls | Battle Stations: repeat this phase |
 | | KAEL, Soldier | ATK | +2 attack rolls | Double Tap: +1 ammo, fire again |
 | | DOV, Bulwark | ATK | enemy attacks on you −1 | Brace: damage taken −3 until your next turn |
-| | FENN, Ecologist | NAV | rock crashes deal 2, not 5 | Sandstorm: enemy −2 to all rolls next turn |
-| | ANA, Medic | ENG | stunned crew recover at your turn start | Patch Up: heal 4 hull |
+| | FENN, Ecologist | NAV | rock crashes deal 1, not 3 | Sandstorm: enemy −2 to all rolls next turn |
+| | ANA, Medic | ENG | stunned crew recover at your turn start | Patch Up: heal 3 hull |
 | Drifters | SELA, Wind Captain | NAV | a failed drift still lets you set heading | Tailwind: next boost DC −4 |
 | | VEX, Ace Pilot | NAV | +2 boost rolls | Afterburn: next boost auto-succeeds |
 | | ORO, Wayfinder | NAV | +2 drift rolls | Evasive: enemy attacks −3 |
 | | NYX, Spotter | ATK | +3 lock rolls | Auto-Lock: lock with no roll |
 | | ZED, Jammer | ATK | enemy locks on you −2 | Jam Comms: enemy plans 2 phases next turn |
 
-Balance (2,000 bot games): factions win 49–55% against each other, ship classes 44–58%.
+### Fight length
+Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 8), ships have 15 hull
+(+1 per kindred crew), base armour class is 10 (+2/+4 at range 2/3), so a ship goes down after 2–3 hits.
+In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rocks and rams deal 3, repairs heal d4.
+
+Balance (2,000 bot games): factions win 44–56% against each other, ship classes 42–58%.
 
 ### The arena
 The two ships start in open flats in the middle. Rock gets denser the further out you drift, but winding
@@ -161,7 +166,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 47 rules tests (draft, factions, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 48 rules tests (draft, factions, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, phone width.
 
 ### Source

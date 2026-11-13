@@ -179,8 +179,8 @@ body.busy #console button,body.busy .cm button{cursor:wait}
 const R = {
   START_ENERGY:3, START_PARTS:2, START_AMMO:1,
   DC_BASE:8, DC_MOD_EASY:1, DC_MOD_HARD:2, ENG_DIST_BONUS:2, ENG_DC_MULT:0.5,
-  BASE_AC:12, AC_DIST:[0,2,4], DMG_BONUS:4, LOCK_DC:8, LOCK_BONUS:4,
-  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:5, REST:2,   // REST = own turns a crew member sits out after an order
+  BASE_AC:10, AC_DIST:[0,2,4], DMG_BONUS:4, LOCK_DC:8, LOCK_BONUS:4,
+  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:3, REST:2,   // REST = own turns a crew member sits out after an order
 };
 const DIRS = [[0,-1],[1,-1],[1,0],[0,1],[-1,1],[-1,0]];
 const DIR_NAMES = ["N","NE","SE","S","SW","NW"];
@@ -267,21 +267,21 @@ function angleDifficulty(dir,tq,tr,sq,sr){
 // Kindred: each crew member who shares the ship's faction adds +2 hull.
 const FACTIONS = {
   MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#d0743a",
-    perk:"Repairs heal +2",creed:"The ship is the living body. The crew are its servants."},
+    perk:"Repairs heal +1",creed:"The ship is the living body. The crew are its servants."},
   HEART:{name:"Nomads",long:"Followers of the Heart",color:"#e0607e",
     perk:"Crew orders rest only 1 turn",creed:"The crew is the heart. No one is left in the sand."},
   WIND:{name:"Drifters",long:"Followers of the Wind",color:"#7fd8c8",
     perk:"+1 to boost and drift rolls",creed:"Free as the wind, owned by no one, lost never."},
 };
-const KINDRED_HULL=2;
+const KINDRED_HULL=1;
 const CLASSES = {
-  SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:24,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:0,
+  SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:15,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:0,
     text:"Twin-hull racer. +1 to boost and drift rolls.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
-  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:25,energy:3,parts:3,bst:-1,dft:0,atk:0,dmg:0,rep:1,
-    text:"Mobile fortress. +1 part, repairs +1, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
-  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:26,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,
+  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:15,energy:3,parts:3,bst:-1,dft:0,atk:0,dmg:0,rep:0,
+    text:"Mobile fortress. +1 spare part, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
+  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:15,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,
     text:"Gunboat. +1 attack, +1 damage, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
-  RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:26,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:-1,
+  RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:-1,
     text:"Old-world tech. 5 energy, repairs −1.",lore:"Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
@@ -289,15 +289,15 @@ const CREW = [
   // Followers of the Machine — Scrappers
   {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ANY",passive:"+1 attack rolls",order:"Scrap Fury",text:"Your next hit this turn deals +4",pal:["#c89878","#303038","#4a3a30","#e86a20"]},
   {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",passive:"+1 damage on hits",order:"Chain Shot",text:"Your next hit this turn also cripples a random system",pal:["#a87050","#b84818","#5a4030","#d8d0c0"]},
-  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +2",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
+  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
   {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#28a0e8","#384048","#78e8f8"]},
   {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
   // Followers of the Heart — Nomads
   {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e8f0","#283878","#f8c828"]},
   {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#583820","#902828","#f87828"]},
   {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#d8c8a0","#6a4a3a","#c0a060"]},
-  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",passive:"Crashing into rock deals 2, not 5",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#5a8a3a","#3a5a3a","#c8e070"]},
-  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 4 hull, no parts needed",pal:["#f0c8a8","#2a2028","#e8e0d8","#e04848"]},
+  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#5a8a3a","#3a5a3a","#c8e070"]},
+  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#e8e0d8","#e04848"]},
   // Followers of the Wind — Drifters
   {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you choose a heading",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0f0e8","#2a6a7a","#9ae8f0"]},
   {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
@@ -664,7 +664,7 @@ function doBoost(G,speed,side){
   ev(G,{t:"move",pid:s.pid,from:{q:s.q,r:s.r},to:dest});
   s.q=dest.q; s.r=dest.r;
   const tt=terrain(s.q,s.r);
-  if(isObstacle(s.q,s.r)){ log(G,`${shipName(s)} crashed into ${TERRAIN_NAMES[tt].toLowerCase()}!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?2:R.CRASH_DMG); }
+  if(isObstacle(s.q,s.r)){ log(G,`${shipName(s)} crashed into ${TERRAIN_NAMES[tt].toLowerCase()}!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?1:R.CRASH_DMG); }
   const k=s.q+","+s.r;
   if(tt===4&&!G.looted.includes(k)){ G.looted.push(k); s.parts++; log(G,`${shipName(s)} salvages a wreck: +1 spare part.`,"ok"); tell(G,"wreck",{p:cname(s)},s.fac); }
   const o=other(G,s);
@@ -716,9 +716,9 @@ function doDamage(G){
 }
 function doRepair(G){
   const s=S(G);
-  const v=rnd(G,4), extra=(has(s,"MECHANIC")?2:0)+cls(s).rep+(s.fac==="MACHINE"?2:0), heal=Math.max(1,v+1+extra);
+  const v=rnd(G,4), extra=(has(s,"MECHANIC")?1:0)+cls(s).rep+(s.fac==="MACHINE"?1:0), heal=Math.max(1,v+extra);
   s.parts--; s.hp=Math.min(s.maxHp,s.hp+heal);
-  G.roll={label:"REPAIR",sides:4,die:v,mods:[[1,"base"],[extra,"crew/class"]].filter(x=>x[0]),total:heal,heal:true,pid:s.pid};
+  G.roll={label:"REPAIR",sides:4,die:v,mods:[[extra,"crew/class/faction"]].filter(x=>x[0]),total:heal,heal:true,pid:s.pid};
   ev(G,{t:"roll",roll:{...G.roll}});
   log(G,`Repaired ${heal} hull. Parts left: ${s.parts}.`,"ok"); tell(G,"repair",{p:cname(s)},s.fac); integrity(G,s);
 }
@@ -738,7 +738,7 @@ function useOrder(G,i){
     case "HARPOON": s.chain=true; break;
     case "BULWARK": s.brace=true; break;
     case "ECO": other(G,s).storm=true; break;
-    case "MEDIC": { const h=Math.min(4,s.maxHp-s.hp); s.hp+=h; log(G,`ANA patches ${h} hull.`,"ok"); integrity(G,s); break; }
+    case "MEDIC": { const h=Math.min(3,s.maxHp-s.hp); s.hp+=h; log(G,`ANA patches ${h} hull.`,"ok"); integrity(G,s); break; }
     case "WINDCAPT": s.tailwind=true; break;
   }
   // counts down at the start of each of your turns: rest n+1 now = sits out your next n turns
@@ -1151,11 +1151,11 @@ function header(){
   const seatChip=G&&MODE.mode==="online"&&MODE.seat!==null?`<span class="turnchip" style="color:${P_COLORS[MODE.seat]}">YOU ARE P${MODE.seat+1}</span>`:"";
   return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
-const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull and a faction, then draft 3 crew from 15 (picks go 1-2-2-1-1-2). Crew of your own faction add hull."],
+const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull and a faction, then draft 3 crew from 15 (picks go 1-2-2-1-1-2). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
   ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2 phases."],
   ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
   ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
-  ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts."],
+  ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts (d4 hull each)."],
   ["#c9a0ff","Online","Each turn becomes a short move code. Send it to your friend; their game replays your moves."]];
 function render(){
   if(UI.screen==="title"||!G) return renderTitle();
@@ -1346,12 +1346,12 @@ function renderGame(){
       <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
-      <li>Rocks and rams deal 5 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
+      <li>Rocks and rams deal 3 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
       <li>After an order, a crew member sits out your next 2 turns (Nomads: 1). Stunned crew lose their passive until the end of their next turn.</li>
-      <li>Factions: Scrappers repair +2, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +2 hull.</li></ul></details>
+      <li>Factions: Scrappers repair +1, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +1 hull.</li></ul></details>
       </div><div class="col" id="side"></div></div>`;
     initCanvas(document.getElementById("map"));
   }

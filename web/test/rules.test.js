@@ -117,13 +117,13 @@ test("nav: failed drift spins one step and blocks lock-on", () => {
   L.apply(G, "END"); L.apply(G, "TGT");
   assert.ok(!L.legal(G).includes("LOCK"));
 });
-test("nav: ramming the other ship costs both 5 hull", () => {
+test("nav: ramming the other ship costs both 3 hull", () => {
   const G = face(drafted()); plan(G, "NAV", "ATK", "ENG");
   const [a, b] = G.ships, opt = L.navOption(a, 1, 0);
   b.q = opt.q; b.r = opt.r;
   const ha = a.hp, hb = b.hp;
   force(G, 20, v => v >= 19); L.apply(G, "B:1:0");
-  assert.strictEqual(a.hp, ha - 5); assert.strictEqual(b.hp, hb - 5);
+  assert.strictEqual(a.hp, ha - L.R.CRASH_DMG); assert.strictEqual(b.hp, hb - L.R.CRASH_DMG); assert.strictEqual(L.R.CRASH_DMG, 3);
 });
 test("nav: pivot is offered only when rocks block every course", () => {
   const G = face(drafted()); plan(G, "NAV", "ATK", "ENG");
@@ -276,10 +276,10 @@ test("crew: orders only in their station's phase", () => {
 
 
 // ---------- factions ----------
-test("faction: kindred crew add +2 hull each", () => {
+test("faction: kindred crew add +1 hull each", () => {
   const G = drafted({ f1: "WIND", crew1: ["ACE", "DRIFTER", "MECHANIC"] });
   assert.strictEqual(L.kindred(sh(G, 0)), 2);
-  assert.strictEqual(sh(G, 0).maxHp, L.CLASSES.SKIFF.hull + 4); assert.strictEqual(sh(G, 0).hp, sh(G, 0).maxHp);
+  assert.strictEqual(sh(G, 0).maxHp, L.CLASSES.SKIFF.hull + 2); assert.strictEqual(sh(G, 0).hp, sh(G, 0).maxHp);
 });
 test("faction: every crew member and ship belongs to a faction", () => {
   assert.strictEqual(L.CREW.length, 15);
@@ -292,10 +292,10 @@ test("faction: Drifters get +1 to boost and drift", () => {
   forceVal(G, 20, 10); L.apply(G, "B:1:0");
   assert.ok(G.roll.mods.some(m => m[1] === "Drifters" && m[0] === 1));
 });
-test("faction: Scrappers repair +2", () => {
+test("faction: Scrappers repair +1 (d4 + 1)", () => {
   const G = face(drafted({ f1: "MACHINE", crew1: ["GUNNER", "ACE", "TECH"] })); const s = sh(G, 0); s.hp = 5;
   plan(G, "ENG", "NAV", "ATK"); forceVal(G, 4, 1); L.apply(G, "REP");
-  assert.strictEqual(s.hp, 5 + 1 + 1 + 2);
+  assert.strictEqual(s.hp, 5 + 1 + 1);
 });
 test("faction: Nomad orders rest only 1 turn", () => {
   const G = face(drafted({ f1: "HEART", crew1: ["QM", "GUNNER", "TECH"] })); plan(G, "ENG", "NAV", "ATK");
@@ -338,9 +338,9 @@ test("crew: FENN softens crashes; Sandstorm −2 to all enemy rolls next turn", 
   plan(G, "NAV", "ATK", "ENG"); forceVal(G, 20, 10); L.apply(G, L.legal(G).find(m => m.startsWith("B:")));
   assert.ok(G.roll.mods.some(m => m[1] === "sandstorm" && m[0] === -2));
 });
-test("crew: ANA Patch Up heals 4; stunned crew recover at turn start", () => {
+test("crew: ANA Patch Up heals 3; stunned crew recover at turn start", () => {
   const G = face(drafted({ crew1: ["MEDIC", "GUNNER", "TECH"] })); const s = sh(G, 0); s.hp -= 10;
-  plan(G, "ENG", "NAV", "ATK"); const hp = s.hp; L.apply(G, "O:1"); assert.strictEqual(s.hp, hp + 4);
+  plan(G, "ENG", "NAV", "ATK"); const hp = s.hp; L.apply(G, "O:1"); assert.strictEqual(s.hp, hp + 3);
   ["END", "END", "END"].forEach(m => L.apply(G, m));
   s.crew[1].stun = true;                                        // stunned during P2's turn
   plan(G, "NAV", "ATK", "ENG"); ["END", "END", "END"].forEach(m => L.apply(G, m));
@@ -352,6 +352,16 @@ test("crew: SELA Tailwind lowers boost DC by 4; failed drift still sets heading"
   assert.strictEqual(L.navOption(sh(G, 0), 1, 0).dc, dc - 4);
   force(G, 20, v => v >= 19); L.apply(G, "B:1:0"); forceVal(G, 20, 1); L.apply(G, "DRIFT");
   assert.strictEqual(G.st, "nav_heading"); assert.ok(!sh(G, 0).f.drift);
+});
+
+// ---------- fight length ----------
+test("fight length: every ship goes down to 2-3 average hits", () => {
+  const avgHit = 3.5 + L.R.DMG_BONUS, maxHit = 6 + L.R.DMG_BONUS + 1;   // d6 + 4 (+1 Dreadnought)
+  for (const [k, c] of Object.entries(L.CLASSES)) {
+    const toughest = c.hull + 3;                                          // three kindred crew
+    assert.ok(toughest / avgHit <= 3, `${k}: ${toughest} hull needs ${(toughest / avgHit).toFixed(1)} average hits`);
+    assert.ok(c.hull > maxHit, `${k}: one max hit (${maxHit}) must not kill a fresh ship`);
+  }
 });
 
 // ---------- terrain ----------

@@ -383,11 +383,11 @@ function header(){
   const seatChip=G&&MODE.mode==="online"&&MODE.seat!==null?`<span class="turnchip" style="color:${P_COLORS[MODE.seat]}">YOU ARE P${MODE.seat+1}</span>`:"";
   return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
-const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull and a faction, then draft 3 crew from 15 (picks go 1-2-2-1-1-2). Crew of your own faction add hull."],
+const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull and a faction, then draft 3 crew from 15 (picks go 1-2-2-1-1-2). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
   ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2 phases."],
   ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
   ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
-  ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts."],
+  ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts (d4 hull each)."],
   ["#c9a0ff","Online","Each turn becomes a short move code. Send it to your friend; their game replays your moves."]];
 function render(){
   if(UI.screen==="title"||!G) return renderTitle();
@@ -578,12 +578,12 @@ function renderGame(){
       <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
-      <li>Rocks and rams deal 5 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
+      <li>Rocks and rams deal 3 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
       <li>After an order, a crew member sits out your next 2 turns (Nomads: 1). Stunned crew lose their passive until the end of their next turn.</li>
-      <li>Factions: Scrappers repair +2, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +2 hull.</li></ul></details>
+      <li>Factions: Scrappers repair +1, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +1 hull.</li></ul></details>
       </div><div class="col" id="side"></div></div>`;
     initCanvas(document.getElementById("map"));
   }
