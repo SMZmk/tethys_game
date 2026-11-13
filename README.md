@@ -116,18 +116,20 @@ your ship's faction adds **+1 hull** (kindred), so the draft is also about denyi
 The story text changes with your faction: Scrappers fire scrap-iron arrows and grieve for their engine,
 Nomads count heads after every hit, Drifters trust the wind.
 
-| Faction | From the setting | Perk |
-|---|---|---|
-| Scrappers | Followers of the Machine: the ship is the living body, aggressive | +1 damage on hits |
-| Nomads | Followers of the Heart: no one is left in the sand | Crew orders sit out only 1 turn (others 2) |
-| Drifters | Followers of the Wind: free and never lost | +1 to boost and drift rolls |
+| Faction | From the setting | Perk | Orders |
+|---|---|---|---|
+| Scrappers | Followers of the Machine: aggressive, ruthless | +1 damage on hits | epic orders only after a hit; won't sail the Construct |
+| Nomads | Followers of the Heart: best when wind, crew and ship work as one | after a stable drift, +1 to all rolls | epic orders only after a stable drift |
+| Drifters | Followers of the Wind: born to fly and fight | +1 to boost and drift rolls | every order rests only 1 turn (others 2); won't sail the Hauler |
+
+See `ROADMAP.md` for the design behind this and what is planned next.
 
 ### Ship classes
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
 | Skiff | small twin-hull sand-catamaran | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
 | Hauler | huge diesel barge with smokestacks | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
-| Dreadnought | riveted gunboat with a turret | 15 | 3 | 1 | twin guns: 2 shots per combat phase, each hit half damage (+1 before halving); +1 attack; 2 ammo per reload |
+| Dreadnought | riveted gunboat with a turret | 17 | 3 | 1 | twin guns: 2 shots per combat phase, each hit half damage (+1 before halving); +1 attack; 2 ammo per reload |
 | Construct | old-world relic with orbiting shards | 15 | 5 | 2 | 5 energy |
 
 ### Crew (browser version)
@@ -138,28 +140,28 @@ your next 2 turns.
 
 | Faction | Crew | Station | Passive | Order |
 |---|---|---|---|---|
-| Scrappers | VOSS, Iron Captain | ANY | +1 attack rolls | Scrap Fury: next hit this turn +4 damage |
-| | GRIT, Harpooner | ATK | +1 damage | Chain Shot: next hit also cripples a random system |
+| Scrappers | VOSS, Iron Captain | ATK | +1 attack rolls | **Epic** Fire in the Engines!: after a hit, the enemy loses NAV or ENG (d6) next turn |
+| | GRIT, Harpooner | ATK | +1 damage | **Epic** Chain Shot: after a hit, cripple a random enemy system |
 | | BRAKK, Engineer | ENG | repairs +1 | Field Fix: all system damage −1 |
 | | IVO, Reactor Tech | ENG | +1 energy cap | Surge: next roll +5 |
 | | SAL, Scavenger | ENG | +1 part, reload gives 2 ammo | Salvage: +2 parts |
-| Nomads | RHO, Captain | ANY | +1 to all rolls | Battle Stations: repeat this phase |
+| Nomads | RHO, Captain | ANY | +1 to all rolls | **Epic** Battle Stations: repeat this phase |
 | | KAEL, Soldier | ATK | +2 attack rolls | Double Tap: +1 ammo, fire again |
 | | DOV, Bulwark | ATK | enemy attacks on you −1 | Brace: damage taken −3 until your next turn |
-| | FENN, Ecologist | NAV | rock crashes deal 1, not 3 | Sandstorm: enemy −2 to all rolls next turn |
-| | ANA, Medic | ENG | stunned crew recover at your turn start | Patch Up: heal 3 hull |
+| | FENN, Ecologist | NAV | rock crashes deal 1, not 3 | **Epic** Sandstorm: enemy −2 to all rolls next turn |
+| | ANA, Medic | ENG | stunned crew recover at your turn start | **Epic** Patch Up: heal 3 hull |
 | Drifters | SELA, Wind Captain | NAV | a failed drift still lets you set heading | Tailwind: next boost DC −4 |
 | | VEX, Ace Pilot | NAV | +2 boost rolls | Afterburn: next boost auto-succeeds |
 | | ORO, Wayfinder | NAV | +2 drift rolls | Evasive: enemy attacks −3 |
 | | NYX, Spotter | ATK | +3 lock rolls | Auto-Lock: lock with no roll |
-| | ZED, Jammer | ATK | enemy locks on you −2 | Jam Comms: enemy plans 2 phases next turn |
+| | ZED, Jammer | ATK | enemy locks on you −2 | Jam Weapons: enemy −2 to lock and attack next turn |
 
 ### Fight length
 Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 8), ships have 15 hull (Skiff 13)
 (+1 per kindred crew), base armour class is 10 (+2/+4 at range 2/3), so a ship goes down after 2–3 hits.
 In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rocks and rams deal 3, repairs heal d4.
 
-Balance (3,000 bot games with random crews): factions win 45–55% against each other, ship classes 44–54%.
+Balance (6,000 bot games with random builds): factions 49–52%, ship classes 47–55%, each crew member 46–56%.
 
 ### Playing against the computer
 Click **Play vs computer**. The computer follows a short rule card and rolls d6s, so it could also be
@@ -167,7 +169,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 
 | Step | Rule |
 |---|---|
-| Setup | Faction d6: 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6: 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff). Crew: a fixed list per faction. |
+| Setup | Faction d6: 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6: 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff); a ship its faction won't sail becomes its faction's ship. Crew: a fixed list per faction. |
 | Intent (d6 each turn) | Engage on 2+ while its hull is at least half, on 4+ when below half; otherwise escape. |
 | Style (d6 each turn) | 1–3 easy: always the lowest DC. 4–6 risky: always the highest DC. |
 | Plan | Engage: NAV → ATK → ENG. Escape: ENG → NAV → ATK. |
@@ -176,8 +178,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 | ATK | Target you if in arc, reload when empty, lock on, fire as often as allowed. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew. |
 | ENG | Below half hull: repair while parts last. Then power WPN, BST, DFT (escaping: ENGINE, BST, DFT). |
 
-The computer beats a player making random moves 84% of the time. Its strength depends on its faction:
-as Nomads it is the toughest (it wins about 60% against itself as Scrappers or Drifters), as Scrappers the easiest.
+The computer beats a player making random moves 84% of the time. Against itself, its three factions win 46–54%.
 
 ### The arena
 The two ships start in open flats in the middle. Rock gets denser the further out you drift, but winding
@@ -185,8 +186,8 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 56 rules tests (setup, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
-- `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, phone width.
+- `node web/test/rules.test.js`: 58 rules tests (setup, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online, phone width.
 
 ### Source
 `web/page.html` (styles), `web/logic.js` (rules, no DOM, runs in Node too) and `web/ui.js` (screen and online codes).

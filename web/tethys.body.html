@@ -271,19 +271,22 @@ function angleDifficulty(dir,tq,tr,sq,sr){
 // Kindred: each crew member who shares the ship's faction adds +2 hull.
 const FACTIONS = {
   MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#d0743a",
-    perk:"+1 damage on hits",creed:"The ship is the living body. The crew are its servants."},
+    perk:"+1 damage on hits. Epic orders after a hit",creed:"The ship is the living body. Mercy is for the weak."},
   HEART:{name:"Nomads",long:"Followers of the Heart",color:"#e0607e",
-    perk:"Crew orders rest only 1 turn",creed:"The crew is the heart. No one is left in the sand."},
+    perk:"After a stable drift: +1 to all rolls. Epic orders after a stable drift",creed:"When the wind is right, crew and ship move as one."},
   WIND:{name:"Drifters",long:"Followers of the Wind",color:"#7fd8c8",
-    perk:"+1 to boost and drift rolls",creed:"Free as the wind, owned by no one, lost never."},
+    perk:"+1 to boost and drift rolls. Every order rests only 1 turn",creed:"Born to fly and fight. Owned by no one, lost never."},
 };
 const KINDRED_HULL=1;
+// Hulls a faction will not sail: Scrappers distrust the old-world relic, Drifters scorn the slow fortress.
+const FORBIDDEN={MACHINE:["RELIC"],WIND:["HAULER"]};
+const shipAllowed=(cls,fac)=>!(FORBIDDEN[fac]||[]).includes(cls);
 const CLASSES = {
   SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:2,speed:4,salvage:2,
     text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
   HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:14,energy:3,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
     text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
-  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:15,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,shots:2,ammo:2,half:true,
+  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,shots:2,ammo:2,half:true,
     text:"Twin guns: fires twice per combat phase, each hit does half damage (+1 before halving). +1 attack, 2 ammo per reload, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
   RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
     text:"Old-world tech. 5 energy: power every system at once.",lore:"Nobody knows who built it. It hums when the wind dies."},
@@ -291,23 +294,23 @@ const CLASSES = {
 // f = faction, st = station (phase where the order works)
 const CREW = [
   // Followers of the Machine — Scrappers
-  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ANY",passive:"+1 attack rolls",order:"Scrap Fury",text:"Your next hit this turn deals +4",pal:["#c89878","#303038","#4a3a30","#e86a20"]},
-  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",passive:"+1 damage on hits",order:"Chain Shot",text:"Your next hit this turn also cripples a random system",pal:["#a87050","#b84818","#5a4030","#d8d0c0"]},
+  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Fire in the Engines!",text:"After a hit: the enemy loses NAV or ENG (d6) next turn",pal:["#c89878","#303038","#4a3a30","#e86a20"]},
+  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit: cripple a random enemy system",pal:["#a87050","#b84818","#5a4030","#d8d0c0"]},
   {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
   {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#28a0e8","#384048","#78e8f8"]},
   {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
   // Followers of the Heart — Nomads
-  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e8f0","#283878","#f8c828"]},
+  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",epic:"DRIFT",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e8f0","#283878","#f8c828"]},
   {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#583820","#902828","#f87828"]},
   {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#d8c8a0","#6a4a3a","#c0a060"]},
-  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#5a8a3a","#3a5a3a","#c8e070"]},
-  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#e8e0d8","#e04848"]},
+  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#5a8a3a","#3a5a3a","#c8e070"]},
+  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#e8e0d8","#e04848"]},
   // Followers of the Wind — Drifters
   {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you choose a heading",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0f0e8","#2a6a7a","#9ae8f0"]},
   {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
   {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#181820","#208878","#a0f8c8"]},
   {key:"SPOTTER",f:"WIND",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
-  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Comms",text:"Target plans only 2 phases next turn",pal:["#986848","#28c848","#202830","#40f860"]},
+  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Weapons",text:"Enemy −2 to lock and attack rolls on their next turn",pal:["#986848","#28c848","#202830","#40f860"]},
 ];
 const CREW_BY = Object.fromEntries(CREW.map(c=>[c.key,c]));
 
@@ -325,8 +328,8 @@ function newShip(pid,q,r,o){
   return {pid,cls:null,fac:null,q,r,o,hp:26,maxHp:26,baseEnergy:R.START_ENERGY,parts:R.START_PARTS,ammo:R.START_AMMO,
     sys:{eng:0,bst:0,dft:0,wpn:0},dmg:{SPEED:0,BOOST:0,DRIFT:0,WEAPONS:0},
     f:{targeted:false,reloaded:false,shots:0,drift:false,locked:false,debuff:null},
-    crew:[],evasive:false,jammed:false,surge:0,autoBoost:false,
-    fury:false,tailwind:false,chain:false,storm:false,brace:false};
+    crew:[],evasive:false,surge:0,autoBoost:false,
+    tailwind:false,storm:false,brace:false,jamW:false,lostPhase:null};
 }
 function newGame(seed){
   seed=(seed>>>0)||1; setTerrainSeed(seed);
@@ -367,6 +370,8 @@ function crewMods(s,kind,target,consume){
   if(has(s,"CAPTAIN")) m.push([1,"RHO"]);
   if(kind==="ATK"&&has(s,"IRONCAPT")) m.push([1,"VOSS"]);
   if((kind==="BOOST"||kind==="DRIFT")&&s.fac==="WIND") m.push([1,"Drifters"]);
+  if(s.fac==="HEART"&&s.f&&s.f.drift) m.push([1,"Nomads"]);
+  if((kind==="LOCK"||kind==="ATK")&&s.jamW) m.push([-2,"jammed"]);
   if(s.storm) m.push([-2,"sandstorm"]);
   if(kind==="BOOST"&&has(s,"ACE")) m.push([2,"VEX"]);
   if(kind==="DRIFT"&&has(s,"DRIFTER")) m.push([2,"ORO"]);
@@ -412,6 +417,7 @@ const TALES={
   repair:["{p}'s engineers weld scrap over the worst of the holes."],
   order:["{c} of {p}: \"{o}!\""],
   win:["{p} stands alone on the sand. The road to Europa is theirs, for now."],
+  fire:["Fire in the engines! Flames lick through {t}'s {s}."],
 };
 const FACTION_TALES={
   MACHINE:{
@@ -428,6 +434,7 @@ const FACTION_TALES={
     crit:["{t}'s Scrappers cry out as if wounded themselves: their {s} is hurt."],
     repair:["{p}'s Scrappers stitch the hull with scrap and sing to the engine while they work."],
     win:["{p} rolls over the wreck, already stripping it. The Machine is fed. Europa waits."],
+    fire:["\"Fire in the engines!\" {p}'s Scrappers howl as flames gut {t}'s {s}. They want it to burn."],
   },
   HEART:{
     turnFar:["{p}'s Nomads share the last of the water and watch the dunes together.","Around a small stove on {p}'s deck, the Nomads tell stories of Europa while the lookout watches."],
@@ -479,7 +486,8 @@ function startTurn(G,idx){
   if(has(s,"MEDIC")&&s.crew.some(c=>c.stun)){ s.crew.forEach(c=>c.stun=false); log(G,`ANA tends the wounded: ${shipName(s)} crew back on their feet.`,"ok"); }
   G.repeated=false; G.phase="CMD"; G.queue=[]; G.qi=0; G.st="cmd"; G.target=null; G.roll=null; G.aim=null;
   log(G,`— Turn ${G.turn}: Player ${s.pid} —`,"p"+s.pid);
-  if(s.jammed) log(G,`${shipName(s)} comms jammed: only 2 phases.`,"bad");
+  if(s.lostPhase) log(G,`Fire in the engines! ${shipName(s)} cannot use ${s.lostPhase} this turn.`,"bad");
+  if(s.jamW) log(G,`${shipName(s)} weapons jammed: −2 to lock and attack this turn.`,"bad");
   if(s.storm) log(G,`${shipName(s)} is caught in a sandstorm: −2 to all rolls this turn.`,"bad");
   integrity(G,s);
   const o=other(G,s);
@@ -488,10 +496,10 @@ function startTurn(G,idx){
 }
 function endTurn(G){
   const s=S(G);
-  s.jammed=false; s.surge=0; s.autoBoost=false; s.fury=false; s.tailwind=false; s.chain=false; s.storm=false; s.crew.forEach(c=>c.stun=false);
+  s.jamW=false; s.lostPhase=null; s.surge=0; s.autoBoost=false; s.tailwind=false; s.storm=false; s.crew.forEach(c=>c.stun=false);
   startTurn(G,G.ships.indexOf(other(G,s)));
 }
-const slotsAllowed=G=>S(G).jammed?2:3;
+const slotsAllowed=G=>S(G).lostPhase?2:3;
 function beginPhase(G,i){
   G.qi=i; G.phase=G.queue[i]; G.target=null; G.aim=null; const s=S(G);
   if(G.phase==="NAV") G.st="nav_pick";
@@ -545,6 +553,8 @@ function orderBlock(G,s,c){
   if(c.rest>0) return c.used===G.turn?"Order given this turn":`Resting: ready in ${c.rest} turn${c.rest>1?"s":""}`;
   if(G.phase==="CMD") return "Plan your phases first";
   if(d.st!=="ANY"&&d.st!==G.phase) return `Usable in the ${d.st} phase`;
+  if(d.epic==="HIT"&&!s.f.hit) return "Epic: hit the enemy first this turn";
+  if(d.epic==="DRIFT"&&!s.f.drift) return "Epic: needs a stable drift this turn";
   const t=tgt(G);
   switch(c.key){
     case "CAPTAIN": return G.repeated?"A phase was already repeated":null;
@@ -552,12 +562,12 @@ function orderBlock(G,s,c){
     case "DRIFTER": return s.evasive?"Already active":null;
     case "GUNNER": return null;
     case "SPOTTER": return G.st!=="atk_menu"?"Target an enemy first":s.f.targeted?"Lock already used":null;
-    case "JAMMER": return !t?"Target an enemy first":t.jammed?"Enemy already jammed":null;
+    case "JAMMER": return !t?"Target an enemy first":t.jamW?"Enemy already jammed":null;
     case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No system damage to fix";
     case "TECH": return s.surge?"Already active":null;
     case "QM": return null;
-    case "IRONCAPT": return s.fury?"Already active":null;
-    case "HARPOON": return s.chain?"Already active":null;
+    case "IRONCAPT": return other(G,s).lostPhase?"Enemy engines already burning":other(G,s).hp<=0?"No target":null;
+    case "HARPOON": return other(G,s).hp<=0?"No target":null;
     case "BULWARK": return s.brace?"Already active":null;
     case "ECO": { const o=other(G,s); return o.storm?"Already in a storm":null; }
     case "MEDIC": return s.hp>=s.maxHp?"Hull is full":null;
@@ -572,14 +582,14 @@ function legal(G){
   if(G.st==="over") return L;
   if(G.st==="draft"){
     const s=G.ships[actor(G)];
-    if(!s.cls) for(const k in CLASSES) for(const f in FACTIONS) L.push("C:"+k+":"+f);
-    else for(const f in FACTIONS) L.push(defaultCrewMove(s,f));   // examples; any valid crew is legal (see isLegal)
+    if(!s.cls){ for(const k in CLASSES) for(const f in FACTIONS) if(shipAllowed(k,f)) L.push("C:"+k+":"+f); }
+    else { for(const f in FACTIONS) L.push(defaultCrewMove(s,f)); }   // examples; any valid crew is legal (see isLegal)
     return L;
   }
   const s=S(G);
   if(G.phase!=="CMD") s.crew.forEach((c,i)=>{ if(!orderBlock(G,s,c)) L.push("O:"+(i+1)); });
   switch(G.st){
-    case "cmd": for(const p of ["NAV","ATK","ENG"]) if(!G.queue.includes(p)) L.push("Q:"+p); if(G.queue.length) L.push("Q-"); break;
+    case "cmd": for(const p of ["NAV","ATK","ENG"]) if(!G.queue.includes(p)&&p!==s.lostPhase) L.push("Q:"+p); if(G.queue.length) L.push("Q-"); break;
     case "nav_pick": {
       const opts=allNavOptions(s);
       for(const o of opts) L.push(`B:${o.speed}:${o.side>0?"+":""}${o.side}`);
@@ -716,15 +726,14 @@ function doFire(G){
 function doDamage(G){
   const s=S(G), t=tgt(G);
   const v=rnd(G,6), mods=[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[cls(s).dmg,"hull class"],[-s.dmg.WEAPONS,"dmg"],
-    [has(s,"HARPOON")?1:0,"GRIT"],[s.fac==="MACHINE"?1:0,"Scrappers"],[s.fury?4:0,"fury"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
-  s.fury=false;
+    [has(s,"HARPOON")?1:0,"GRIT"],[s.fac==="MACHINE"?1:0,"Scrappers"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
+  s.f.hit=true;
   const raw=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0)), n=cls(s).half?Math.ceil(raw/2):raw;
   if(cls(s).half) mods.push([n-raw,"twin guns ½"]);
   G.roll={label:"DAMAGE",sides:6,die:v,mods,total:n,dmg:true,pid:s.pid};
   ev(G,{t:"roll",roll:{...G.roll}});
   tell(G,"hit",{p:cname(s),t:cname(t)},s.fac);
   damage(G,t,n);
-  if(t.hp>0&&s.chain){ s.chain=false; const k=["SPEED","BOOST","DRIFT","WEAPONS"][rnd(G,4)-1]; t.dmg[k]++; log(G,`Chain shot: ${shipName(t)} ${k.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:k.toLowerCase()},t.fac); }
   if(t.hp>0&&s.f.debuff){
     if(s.f.debuff==="CREW") stunCrew(G,t,s);
     else { t.dmg[s.f.debuff]++; log(G,`Critical: ${shipName(t)} ${s.f.debuff.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:s.f.debuff.toLowerCase()},t.fac); }
@@ -749,19 +758,21 @@ function useOrder(G,i){
     case "DRIFTER": s.evasive=true; break;
     case "GUNNER": s.ammo++; s.f.shots=Math.max(0,s.f.shots-1); break;
     case "SPOTTER": s.f.locked=true; G.st="atk_debuff"; break;
-    case "JAMMER": tgt(G).jammed=true; break;
+    case "JAMMER": tgt(G).jamW=true; break;
     case "MECHANIC": for(const k in s.dmg) s.dmg[k]=Math.max(0,s.dmg[k]-1); break;
     case "TECH": s.surge=5; break;
     case "QM": s.parts+=2; break;
-    case "IRONCAPT": s.fury=true; break;
-    case "HARPOON": s.chain=true; break;
+    case "IRONCAPT": { const t=other(G,s), r=rnd(G,6); t.lostPhase=r<=3?"NAV":"ENG";
+      log(G,`Fire in the engines! d6 ${r}: ${shipName(t)} loses ${t.lostPhase} next turn.`,"bad"); tell(G,"fire",{p:cname(s),t:cname(t),s:t.lostPhase==="NAV"?"drive":"power plant"},s.fac); break; }
+    case "HARPOON": { const t=other(G,s), k=["SPEED","BOOST","DRIFT","WEAPONS"][rnd(G,4)-1]; t.dmg[k]++;
+      log(G,`Chain shot: ${shipName(t)} ${k.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:k.toLowerCase()},t.fac); break; }
     case "BULWARK": s.brace=true; break;
     case "ECO": other(G,s).storm=true; break;
     case "MEDIC": { const h=Math.min(3,s.maxHp-s.hp); s.hp+=h; log(G,`ANA patches ${h} hull.`,"ok"); integrity(G,s); break; }
     case "WINDCAPT": s.tailwind=true; break;
   }
   // counts down at the start of each of your turns: rest n+1 now = sits out your next n turns
-  c.rest=(s.fac==="HEART"?1:R.REST)+1; c.used=G.turn;
+  c.rest=(s.fac==="WIND"?1:R.REST)+1; c.used=G.turn;
   log(G,`Order: ${d.name} — ${d.order}. ${d.text}.`,"crew");
   tell(G,"order",{c:d.name,p:cname(s),o:d.order},s.fac);
   ev(G,{t:"order",pid:s.pid,text:d.order});
@@ -775,6 +786,7 @@ function useOrder(G,i){
 //  SETUP   Faction d6: 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters.
 //          Ship d6: 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct,
 //                   5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff).
+//                   A ship its faction won't sail (Scrappers: Construct, Drifters: Hauler) becomes its faction's ship.
 //          Crew: its faction's list (AI_CREW below), captain first; a Hauler takes 4.
 //  EACH TURN roll two d6:
 //          Intent: ENGAGE on 2+ while hull is at least half, on 4+ when below half; otherwise ESCAPE.
@@ -793,7 +805,9 @@ function aiD6(G,tag){ return 1+hashStr(G.seed+":"+G.turn+":"+tag)%6; }
 function aiSetup(G){
   const s=G.ships[actor(G)];
   const f=aiD6(G,"faction"+s.pid), fac=f<=2?"MACHINE":f<=4?"HEART":"WIND";
-  const c=aiD6(G,"ship"+s.pid), shipCls=c===1?"SKIFF":c===2?"HAULER":c===3?"DREAD":c===4?"RELIC":{MACHINE:"DREAD",HEART:"HAULER",WIND:"SKIFF"}[fac];
+  const own={MACHINE:"DREAD",HEART:"HAULER",WIND:"SKIFF"}[fac];
+  let c=aiD6(G,"ship"+s.pid), shipCls=c===1?"SKIFF":c===2?"HAULER":c===3?"DREAD":c===4?"RELIC":own;
+  if(!shipAllowed(shipCls,fac)) shipCls=own;                       // a ship the faction won't sail: take its own
   return {fac,cls:shipCls,rolls:[f,c]};
 }
 function aiPlan(G){
@@ -815,7 +829,7 @@ function aiMove(G){
   if(ord&&!["atk_debuff","atk_dmg","nav_drift"].includes(G.st)) return ord;
   const toward=aiDirToward(s,o.q,o.r), want=P.engage?toward:mod(toward+3,6);
   switch(G.st){
-    case "cmd": { const plan=P.engage?["NAV","ATK","ENG"]:["ENG","NAV","ATK"]; return "Q:"+plan.find(p=>!G.queue.includes(p)); }
+    case "cmd": { const plan=P.engage?["NAV","ATK","ENG"]:["ENG","NAV","ATK"]; return "Q:"+plan.find(p=>!G.queue.includes(p)&&p!==s.lostPhase); }
     case "nav_pick": {
       const opts=allNavOptions(s);
       if(!opts.length){ const d=mod(want-s.o,6); return d>=1&&d<=3?"PIVOT:R":"PIVOT:L"; }
@@ -860,7 +874,7 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
 </script>
 <script>
 // ======================================================================
@@ -1277,7 +1291,7 @@ function header(){
   return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
 const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull, a faction and your whole crew in one go (3 crew, Hauler 4). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
-  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2 phases."],
+  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A ship with fire in the engines loses NAV or ENG for a turn."],
   ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
   ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
   ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts (d4 hull each)."],
@@ -1325,14 +1339,14 @@ function renderDraft(){
   else if(!s.cls){
     const cl=UI.pickCls, fa=UI.pickFac;
     body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR SHIP<span class="sub">Pick a hull and the faction you sail under. You can change both until you confirm.</span></div>
-    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}">
+    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""} ${fa&&!shipAllowed(k,fa)?"taken":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}" ${fa&&!shipAllowed(k,fa)?"disabled":""}>
       <span class="clshead">${shipCanvas(k,s.pid,fa,"big")}<span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()} · ${c.size.toUpperCase()}</em></span></span>
       <span class="row"><span>HULL ${c.hull}</span><span>ENERGY ${c.energy}</span><span>PARTS ${c.parts}</span></span><span>${esc(c.text)}</span><span class="dim">${esc(c.lore)}</span></button>`).join("")}</div>
-    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull.</span></div>
-    <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}">
+    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull. Scrappers won't sail the Construct; Drifters won't sail the Hauler.</span></div>
+    <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""} ${cl&&!shipAllowed(cl,k)?"taken":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}" ${cl&&!shipAllowed(cl,k)?"disabled":""}>
       <span class="nm" style="color:${f.color}">${f.name.toUpperCase()}<em>${esc(f.long.toUpperCase())}</em></span><span>${esc(f.perk)}</span><span class="dim">“${esc(f.creed)}”</span>
       <span class="dim">Crew: ${CREW.filter(c=>c.f===k).map(c=>c.name).join(", ")}</span></button>`).join("")}</div>
-    <div class="btnrow">${cl&&fa?`<button class="go" data-m="C:${cl}:${fa}" id="m-confirm-ship">Confirm: ${CLASSES[cl].name} of the ${FACTIONS[fa].name} ▸</button>`:`<button class="go" disabled>Choose a ship and a faction</button>`}${undo}</div>`;
+    <div class="btnrow">${cl&&fa&&shipAllowed(cl,fa)?`<button class="go" data-m="C:${cl}:${fa}" id="m-confirm-ship">Confirm: ${CLASSES[cl].name} of the ${FACTIONS[fa].name} ▸</button>`:`<button class="go" disabled>Choose a ship and a faction</button>`}${undo}</div>`;
   } else {
     const slots=crewSlots(s), pk=(UI.pickCrew||[]).filter(k=>CREW_BY[k]).slice(0,slots);
     const kin=pk.filter(k=>CREW_BY[k].f===s.fac).length;
@@ -1341,7 +1355,7 @@ function renderDraft(){
       <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const on=pk.includes(c.key), full=!on&&pk.length>=slots;
       return `<button class="card ${on?"picked":""} ${full?"taken":""}" style="--st:${ST_COLOR[c.st]}" data-ui="selcrew" data-v="${c.key}" id="sel-${c.key}" ${full?"disabled":""} aria-pressed="${on}">
       ${faceCanvas(c.key)}<div class="nm">${on?"✓ ":""}${c.name}<em>${c.role.toUpperCase()} · ${c.st}</em></div>
-      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
+      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}${c.epic?` · <span style="color:var(--any)">EPIC: ${c.epic==="HIT"?"AFTER A HIT":"AFTER A STABLE DRIFT"}</span>`:""}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
     <div class="btnrow">${pk.length===slots?`<button class="go" data-m="CREW:${pk.join(",")}" id="m-confirm-crew">Sail with ${pk.map(k=>CREW_BY[k].name).join(", ")} ▸</button>`:`<button class="go" disabled>Choose ${slots-pk.length} more</button>`}<button data-ui="randpick" id="btn-rand">Fill randomly</button>${pk.length?`<button data-ui="clearcrew" id="btn-clear">Clear</button>`:""}${undo}</div>`;
   }
   app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">${storyHTML()}${body}
@@ -1355,8 +1369,8 @@ function storyHTML(){
 function paintStory(){ const el=document.getElementById("story"); if(el) el.outerHTML=storyHTML(); }
 function shipCard(s){
   const active=s===S(G)&&G.st!=="over", cap=energyCap(s), used=energyUsed(s), pct=s.hp/s.maxHp, c=CLASSES[s.cls];
-  const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jammed) flags.push(["JAMMED","red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
-  if(s.fury) flags.push(["SCRAP FURY",""]); if(s.chain) flags.push(["CHAIN SHOT",""]); if(s.tailwind) flags.push(["TAILWIND",""]); if(s.brace) flags.push(["BRACED",""]); if(s.storm) flags.push(["SANDSTORM −2","red"]);
+  const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jamW) flags.push(["WEAPONS JAMMED −2","red"]); if(s.lostPhase) flags.push([`FIRE: NO ${s.lostPhase}`,"red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
+  if(active&&s.f.hit&&s.fac==="MACHINE") flags.push(["HIT: EPIC ORDERS READY",""]); if(active&&s.f.drift&&s.fac==="HEART") flags.push(["STABLE DRIFT: +1, EPIC ORDERS READY",""]); if(s.tailwind) flags.push(["TAILWIND",""]); if(s.brace) flags.push(["BRACED",""]); if(s.storm) flags.push(["SANDSTORM −2","red"]);
   if(active&&G.phase==="ATK"&&s.f.locked) flags.push(["LOCKED",""]); if(active&&s.f.debuff) flags.push([`AIM ${s.f.debuff}`,"red"]);
   if(pct<R.HP_FAIL&&s.hp>0) flags.push(["HULL CRITICAL −1","red"]);
   const sysCell=([k,lab,dk])=>`<div class="stat"><span>${lab}</span>+${s.sys[k]}${s.dmg[dk]?` <span class="hurt" style="display:inline;font-family:var(--f-txt);font-size:18px">−${s.dmg[dk]}</span>`:""}</div>`;
@@ -1365,7 +1379,7 @@ function shipCard(s){
     const d=CREW_BY[cm.key], block=orderBlock(G,s,cm), stt=cm.stun?["STUNNED","bad"]:cm.rest>0?(cm.used===G.turn?["ORDER GIVEN","dim"]:[`REST ${cm.rest}`,"dim"]):["READY","ok"];
     const mineShip=active&&(MODE.mode==="local"||s.pid-1===MODE.seat), usable=L.includes("O:"+(i+1));
     return `<div class="cm ${cm.stun?"stun":""} ${usable?"usable":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
-      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div>
+      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}${d.epic?" (epic)":""}:</b> ${esc(d.text)}</div>
       ${mineShip&&!usable&&block&&!UI.busy?`<div class="why">${esc(block)}</div>`:""}</div>
       <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${usable?"":"disabled"} title="${esc(block||"Give order")}">${usable?"Give order":"Order"}</button>`:""}</div></div>`;
   }).join("");
@@ -1405,7 +1419,7 @@ function actionsHTML(){
   switch(G.st){
     case "cmd": {
       const n=slotsAllowed(G);
-      p="PLAN YOUR TURN"; sub=`Pick the order of ${n} phases.${s.jammed?" Your comms are jammed.":""} Chosen: ${G.queue.join(" → ")||"none"}`;
+      p="PLAN YOUR TURN"; sub=`Pick the order of ${n} phases.${s.lostPhase?` Fire in the engines: no ${s.lostPhase} this turn.`:""} Chosen: ${G.queue.join(" → ")||"none"}`;
       rows.push(`<div class="btnrow">${["NAV","ATK","ENG"].map(x=>btn("Q:"+x,x,x.toLowerCase(),L)).join("")}${btn("Q-","Undo","",L)}</div>`); break; }
     case "nav_pick": {
       fixNavSide();
@@ -1464,10 +1478,10 @@ function renderGame(){
       ${MODE.mode==="online"&&UI.share?`<p class="dim">Send the final move so your friend sees the end:</p><textarea id="share-code" class="code" readonly>${esc(UI.shareText)}</textarea><button class="go" data-ui="copy" id="btn-copy">Copy move</button><span class="msg" id="copy-msg"></span>`:""}
       <button data-ui="newgame" id="btn-new">New game</button></div></div>`;
   } else if(MODE.mode==="online"&&!myTurn()&&!UI.busy){
-    overlay=`<div class="overlay"><div class="box wide" style="--c:${P_COLORS[actor(G)]}">${waitingPanel()}</div></div>`;
+    overlay="";                                    // map stays visible while you wait; the panel is below it
   } else if(MODE.mode==="local"&&UI.handoff&&!UI.busy){
     overlay=`<div class="overlay"><div class="box" style="--c:${P_COLORS[s.pid-1]}"><h2>PLAYER ${s.pid}<br>TAKE THE HELM</h2>
-      <p class="dim">${s.jammed?"Your comms are jammed: plan only 2 phases.":"Plan NAV, ATK and ENG in any order."}</p><button class="go" data-ui="begin" id="btn-begin">Begin turn</button></div></div>`;
+      <p class="dim">${s.lostPhase?`Fire in the engines: no ${s.lostPhase} this turn.`:"Plan NAV, ATK and ENG in any order."}</p><button class="go" data-ui="begin" id="btn-begin">Begin turn</button></div></div>`;
   }
   if(!cv||!cv.isConnected){
     app.innerHTML=`<div id="hdr"></div><div class="main"><div class="col">
@@ -1489,15 +1503,16 @@ function renderGame(){
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
-      <li>After an order, a crew member sits out your next 2 turns (Nomads: 1). Stunned crew lose their passive until the end of their next turn.</li>
-      <li>Factions: Scrappers +1 damage, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +1 hull.</li></ul></details>
+      <li>After an order, a crew member sits out your next 2 turns (Drifters: 1). Stunned crew lose their passive until the end of their next turn.</li>
+      <li>Factions: Scrappers +1 damage, epic orders after a hit. Nomads +1 to all rolls after a stable drift, epic orders after a stable drift. Drifters +1 boost and drift, every order rests only 1 turn. Each crew member of your faction adds +1 hull.</li></ul></details>
       </div><div class="col" id="side"></div></div>`;
     initCanvas(document.getElementById("map"));
   }
   document.getElementById("hdr").innerHTML=header();
   document.getElementById("ovl").innerHTML=overlay;
   document.getElementById("storywrap").innerHTML=storyHTML();
-  document.getElementById("console").innerHTML=G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div><div class="dice" id="dicebox">${diceInner()}</div></div>`;
+  const waiting=MODE.mode==="online"&&!myTurn()&&!UI.busy&&G.st!=="over";
+  document.getElementById("console").innerHTML=waiting?waitingPanel():G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div><div class="dice" id="dicebox">${diceInner()}</div></div>`;
   document.getElementById("log").innerHTML=G.log.slice(0,40).map(l=>{
     const c=l.c==="ok"?"var(--good)":l.c==="bad"?"var(--bad)":l.c==="crew"?"var(--any)":l.c==="p1"?P_COLORS[0]:l.c==="p2"?P_COLORS[1]:"var(--ink)";
     return `<div style="color:${c}">${esc(l.t)}</div>`; }).join("");

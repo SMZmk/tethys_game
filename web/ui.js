@@ -412,7 +412,7 @@ function header(){
   return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
 const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull, a faction and your whole crew in one go (3 crew, Hauler 4). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
-  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2 phases."],
+  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A ship with fire in the engines loses NAV or ENG for a turn."],
   ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
   ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
   ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts (d4 hull each)."],
@@ -460,14 +460,14 @@ function renderDraft(){
   else if(!s.cls){
     const cl=UI.pickCls, fa=UI.pickFac;
     body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR SHIP<span class="sub">Pick a hull and the faction you sail under. You can change both until you confirm.</span></div>
-    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}">
+    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""} ${fa&&!shipAllowed(k,fa)?"taken":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}" ${fa&&!shipAllowed(k,fa)?"disabled":""}>
       <span class="clshead">${shipCanvas(k,s.pid,fa,"big")}<span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()} · ${c.size.toUpperCase()}</em></span></span>
       <span class="row"><span>HULL ${c.hull}</span><span>ENERGY ${c.energy}</span><span>PARTS ${c.parts}</span></span><span>${esc(c.text)}</span><span class="dim">${esc(c.lore)}</span></button>`).join("")}</div>
-    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull.</span></div>
-    <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}">
+    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull. Scrappers won't sail the Construct; Drifters won't sail the Hauler.</span></div>
+    <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""} ${cl&&!shipAllowed(cl,k)?"taken":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}" ${cl&&!shipAllowed(cl,k)?"disabled":""}>
       <span class="nm" style="color:${f.color}">${f.name.toUpperCase()}<em>${esc(f.long.toUpperCase())}</em></span><span>${esc(f.perk)}</span><span class="dim">“${esc(f.creed)}”</span>
       <span class="dim">Crew: ${CREW.filter(c=>c.f===k).map(c=>c.name).join(", ")}</span></button>`).join("")}</div>
-    <div class="btnrow">${cl&&fa?`<button class="go" data-m="C:${cl}:${fa}" id="m-confirm-ship">Confirm: ${CLASSES[cl].name} of the ${FACTIONS[fa].name} ▸</button>`:`<button class="go" disabled>Choose a ship and a faction</button>`}${undo}</div>`;
+    <div class="btnrow">${cl&&fa&&shipAllowed(cl,fa)?`<button class="go" data-m="C:${cl}:${fa}" id="m-confirm-ship">Confirm: ${CLASSES[cl].name} of the ${FACTIONS[fa].name} ▸</button>`:`<button class="go" disabled>Choose a ship and a faction</button>`}${undo}</div>`;
   } else {
     const slots=crewSlots(s), pk=(UI.pickCrew||[]).filter(k=>CREW_BY[k]).slice(0,slots);
     const kin=pk.filter(k=>CREW_BY[k].f===s.fac).length;
@@ -476,7 +476,7 @@ function renderDraft(){
       <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const on=pk.includes(c.key), full=!on&&pk.length>=slots;
       return `<button class="card ${on?"picked":""} ${full?"taken":""}" style="--st:${ST_COLOR[c.st]}" data-ui="selcrew" data-v="${c.key}" id="sel-${c.key}" ${full?"disabled":""} aria-pressed="${on}">
       ${faceCanvas(c.key)}<div class="nm">${on?"✓ ":""}${c.name}<em>${c.role.toUpperCase()} · ${c.st}</em></div>
-      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
+      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}${c.epic?` · <span style="color:var(--any)">EPIC: ${c.epic==="HIT"?"AFTER A HIT":"AFTER A STABLE DRIFT"}</span>`:""}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
     <div class="btnrow">${pk.length===slots?`<button class="go" data-m="CREW:${pk.join(",")}" id="m-confirm-crew">Sail with ${pk.map(k=>CREW_BY[k].name).join(", ")} ▸</button>`:`<button class="go" disabled>Choose ${slots-pk.length} more</button>`}<button data-ui="randpick" id="btn-rand">Fill randomly</button>${pk.length?`<button data-ui="clearcrew" id="btn-clear">Clear</button>`:""}${undo}</div>`;
   }
   app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">${storyHTML()}${body}
@@ -490,8 +490,8 @@ function storyHTML(){
 function paintStory(){ const el=document.getElementById("story"); if(el) el.outerHTML=storyHTML(); }
 function shipCard(s){
   const active=s===S(G)&&G.st!=="over", cap=energyCap(s), used=energyUsed(s), pct=s.hp/s.maxHp, c=CLASSES[s.cls];
-  const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jammed) flags.push(["JAMMED","red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
-  if(s.fury) flags.push(["SCRAP FURY",""]); if(s.chain) flags.push(["CHAIN SHOT",""]); if(s.tailwind) flags.push(["TAILWIND",""]); if(s.brace) flags.push(["BRACED",""]); if(s.storm) flags.push(["SANDSTORM −2","red"]);
+  const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jamW) flags.push(["WEAPONS JAMMED −2","red"]); if(s.lostPhase) flags.push([`FIRE: NO ${s.lostPhase}`,"red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
+  if(active&&s.f.hit&&s.fac==="MACHINE") flags.push(["HIT: EPIC ORDERS READY",""]); if(active&&s.f.drift&&s.fac==="HEART") flags.push(["STABLE DRIFT: +1, EPIC ORDERS READY",""]); if(s.tailwind) flags.push(["TAILWIND",""]); if(s.brace) flags.push(["BRACED",""]); if(s.storm) flags.push(["SANDSTORM −2","red"]);
   if(active&&G.phase==="ATK"&&s.f.locked) flags.push(["LOCKED",""]); if(active&&s.f.debuff) flags.push([`AIM ${s.f.debuff}`,"red"]);
   if(pct<R.HP_FAIL&&s.hp>0) flags.push(["HULL CRITICAL −1","red"]);
   const sysCell=([k,lab,dk])=>`<div class="stat"><span>${lab}</span>+${s.sys[k]}${s.dmg[dk]?` <span class="hurt" style="display:inline;font-family:var(--f-txt);font-size:18px">−${s.dmg[dk]}</span>`:""}</div>`;
@@ -500,7 +500,7 @@ function shipCard(s){
     const d=CREW_BY[cm.key], block=orderBlock(G,s,cm), stt=cm.stun?["STUNNED","bad"]:cm.rest>0?(cm.used===G.turn?["ORDER GIVEN","dim"]:[`REST ${cm.rest}`,"dim"]):["READY","ok"];
     const mineShip=active&&(MODE.mode==="local"||s.pid-1===MODE.seat), usable=L.includes("O:"+(i+1));
     return `<div class="cm ${cm.stun?"stun":""} ${usable?"usable":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
-      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div>
+      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}${d.epic?" (epic)":""}:</b> ${esc(d.text)}</div>
       ${mineShip&&!usable&&block&&!UI.busy?`<div class="why">${esc(block)}</div>`:""}</div>
       <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${usable?"":"disabled"} title="${esc(block||"Give order")}">${usable?"Give order":"Order"}</button>`:""}</div></div>`;
   }).join("");
@@ -540,7 +540,7 @@ function actionsHTML(){
   switch(G.st){
     case "cmd": {
       const n=slotsAllowed(G);
-      p="PLAN YOUR TURN"; sub=`Pick the order of ${n} phases.${s.jammed?" Your comms are jammed.":""} Chosen: ${G.queue.join(" → ")||"none"}`;
+      p="PLAN YOUR TURN"; sub=`Pick the order of ${n} phases.${s.lostPhase?` Fire in the engines: no ${s.lostPhase} this turn.`:""} Chosen: ${G.queue.join(" → ")||"none"}`;
       rows.push(`<div class="btnrow">${["NAV","ATK","ENG"].map(x=>btn("Q:"+x,x,x.toLowerCase(),L)).join("")}${btn("Q-","Undo","",L)}</div>`); break; }
     case "nav_pick": {
       fixNavSide();
@@ -599,10 +599,10 @@ function renderGame(){
       ${MODE.mode==="online"&&UI.share?`<p class="dim">Send the final move so your friend sees the end:</p><textarea id="share-code" class="code" readonly>${esc(UI.shareText)}</textarea><button class="go" data-ui="copy" id="btn-copy">Copy move</button><span class="msg" id="copy-msg"></span>`:""}
       <button data-ui="newgame" id="btn-new">New game</button></div></div>`;
   } else if(MODE.mode==="online"&&!myTurn()&&!UI.busy){
-    overlay=`<div class="overlay"><div class="box wide" style="--c:${P_COLORS[actor(G)]}">${waitingPanel()}</div></div>`;
+    overlay="";                                    // map stays visible while you wait; the panel is below it
   } else if(MODE.mode==="local"&&UI.handoff&&!UI.busy){
     overlay=`<div class="overlay"><div class="box" style="--c:${P_COLORS[s.pid-1]}"><h2>PLAYER ${s.pid}<br>TAKE THE HELM</h2>
-      <p class="dim">${s.jammed?"Your comms are jammed: plan only 2 phases.":"Plan NAV, ATK and ENG in any order."}</p><button class="go" data-ui="begin" id="btn-begin">Begin turn</button></div></div>`;
+      <p class="dim">${s.lostPhase?`Fire in the engines: no ${s.lostPhase} this turn.`:"Plan NAV, ATK and ENG in any order."}</p><button class="go" data-ui="begin" id="btn-begin">Begin turn</button></div></div>`;
   }
   if(!cv||!cv.isConnected){
     app.innerHTML=`<div id="hdr"></div><div class="main"><div class="col">
@@ -624,15 +624,16 @@ function renderGame(){
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
-      <li>After an order, a crew member sits out your next 2 turns (Nomads: 1). Stunned crew lose their passive until the end of their next turn.</li>
-      <li>Factions: Scrappers +1 damage, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +1 hull.</li></ul></details>
+      <li>After an order, a crew member sits out your next 2 turns (Drifters: 1). Stunned crew lose their passive until the end of their next turn.</li>
+      <li>Factions: Scrappers +1 damage, epic orders after a hit. Nomads +1 to all rolls after a stable drift, epic orders after a stable drift. Drifters +1 boost and drift, every order rests only 1 turn. Each crew member of your faction adds +1 hull.</li></ul></details>
       </div><div class="col" id="side"></div></div>`;
     initCanvas(document.getElementById("map"));
   }
   document.getElementById("hdr").innerHTML=header();
   document.getElementById("ovl").innerHTML=overlay;
   document.getElementById("storywrap").innerHTML=storyHTML();
-  document.getElementById("console").innerHTML=G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div><div class="dice" id="dicebox">${diceInner()}</div></div>`;
+  const waiting=MODE.mode==="online"&&!myTurn()&&!UI.busy&&G.st!=="over";
+  document.getElementById("console").innerHTML=waiting?waitingPanel():G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div><div class="dice" id="dicebox">${diceInner()}</div></div>`;
   document.getElementById("log").innerHTML=G.log.slice(0,40).map(l=>{
     const c=l.c==="ok"?"var(--good)":l.c==="bad"?"var(--bad)":l.c==="crew"?"var(--any)":l.c==="p1"?P_COLORS[0]:l.c==="p2"?P_COLORS[1]:"var(--ink)";
     return `<div style="color:${c}">${esc(l.t)}</div>`; }).join("");
