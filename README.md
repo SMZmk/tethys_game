@@ -3,6 +3,8 @@
 
 # Tethys: Desert Drifter
 
+**Play in your browser:** https://smzmk.github.io/tethys_game/
+
 Tethys: Desert Drifter is a turn-based, tactical vehicular combat game built in Pygame. You pilot a drift-ship on a procedural hex grid, managing power subsystems, hull integrity, and facing orientation through terminal-based commands and d20-style skill checks.
 
 ## How to Start
