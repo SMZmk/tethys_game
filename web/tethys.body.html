@@ -165,6 +165,10 @@ body.busy #console button,body.busy .cm button{cursor:wait}
 .fachead{font-family:var(--f-pix);font-size:9px;color:var(--fc)}
 .facs{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media (max-width:820px){.facs{grid-template-columns:minmax(0,1fr)}}
+.cm .why{font-size:16px;line-height:1.05;color:var(--any);margin-top:3px}
+.cm.usable{box-shadow:inset 0 0 0 2px var(--any)}
+.cm.usable button{background:#4a3f12;border-color:var(--any);color:var(--ink)}
+button.ord{border-color:var(--any);background:#3a3210}
 </style>
 
 <div class="app" id="app"></div>
@@ -536,26 +540,26 @@ function orderBlock(G,s,c){
   const d=CREW_BY[c.key];
   if(G.st==="over"||s!==S(G)||G.st==="draft") return "Not your turn";
   if(c.stun) return "Stunned";
-  if(c.rest>0) return `Resting ${c.rest}`;
-  if(G.phase==="CMD") return "Plan phases first";
-  if(d.st!=="ANY"&&d.st!==G.phase) return `${d.st} phase only`;
+  if(c.rest>0) return c.used===G.turn?"Order given this turn":`Resting: ready in ${c.rest} turn${c.rest>1?"s":""}`;
+  if(G.phase==="CMD") return "Plan your phases first";
+  if(d.st!=="ANY"&&d.st!==G.phase) return `Usable in the ${d.st} phase`;
   const t=tgt(G);
   switch(c.key){
-    case "CAPTAIN": return G.repeated?"Already repeated":null;
-    case "ACE": return G.st!=="nav_pick"?"Use before boost":s.autoBoost?"Primed":null;
-    case "DRIFTER": return s.evasive?"Active":null;
+    case "CAPTAIN": return G.repeated?"A phase was already repeated":null;
+    case "ACE": return G.st!=="nav_pick"?"Use before the boost roll":s.autoBoost?"Already active":null;
+    case "DRIFTER": return s.evasive?"Already active":null;
     case "GUNNER": return null;
-    case "SPOTTER": return G.st!=="atk_menu"?"Acquire target":s.f.targeted?"Lock spent":null;
-    case "JAMMER": return !t?"Acquire target":t.jammed?"Already jammed":null;
-    case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No damage";
-    case "TECH": return s.surge?"Primed":null;
+    case "SPOTTER": return G.st!=="atk_menu"?"Target an enemy first":s.f.targeted?"Lock already used":null;
+    case "JAMMER": return !t?"Target an enemy first":t.jammed?"Enemy already jammed":null;
+    case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No system damage to fix";
+    case "TECH": return s.surge?"Already active":null;
     case "QM": return null;
-    case "IRONCAPT": return s.fury?"Primed":null;
-    case "HARPOON": return s.chain?"Primed":null;
-    case "BULWARK": return s.brace?"Active":null;
+    case "IRONCAPT": return s.fury?"Already active":null;
+    case "HARPOON": return s.chain?"Already active":null;
+    case "BULWARK": return s.brace?"Already active":null;
     case "ECO": { const o=other(G,s); return o.storm?"Already in a storm":null; }
     case "MEDIC": return s.hp>=s.maxHp?"Hull is full":null;
-    case "WINDCAPT": return G.st!=="nav_pick"?"Use before boost":s.tailwind?"Primed":null;
+    case "WINDCAPT": return G.st!=="nav_pick"?"Use before the boost roll":s.tailwind?"Already active":null;
   }
   return null;
 }
@@ -1239,9 +1243,11 @@ function shipCard(s){
   const canAct=active&&myTurn()&&!UI.busy, L=canAct?legal(G):[];
   const crew=s.crew.map((cm,i)=>{
     const d=CREW_BY[cm.key], block=orderBlock(G,s,cm), stt=cm.stun?["STUNNED","bad"]:cm.rest>0?(cm.used===G.turn?["ORDER GIVEN","dim"]:[`REST ${cm.rest}`,"dim"]):["READY","ok"];
-    return `<div class="cm ${cm.stun?"stun":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
-      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div></div>
-      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${L.includes("O:"+(i+1))?"":"disabled"} title="${esc(block||"Give order")}">Order</button>`:""}</div></div>`;
+    const mineShip=active&&(MODE.mode==="local"||s.pid-1===MODE.seat), usable=L.includes("O:"+(i+1));
+    return `<div class="cm ${cm.stun?"stun":""} ${usable?"usable":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
+      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div>
+      ${mineShip&&!usable&&block&&!UI.busy?`<div class="why">${esc(block)}</div>`:""}</div>
+      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${usable?"":"disabled"} title="${esc(block||"Give order")}">${usable?"Give order":"Order"}</button>`:""}</div></div>`;
   }).join("");
   return `<section class="ship ${active?"active":""} ${s.hp<=0?"dead":""}" style="--c:${P_COLORS[s.pid-1]}">
     <h3><span class="shiphead">${shipCanvas(s.cls,s.pid,s.fac)}P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode==="online"&&MODE.seat===s.pid-1?" (YOU)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
@@ -1318,6 +1324,9 @@ function actionsHTML(){
       rows.push(`<div class="btnrow">${btn("REP",`Repair · ${s.parts} parts`,"eng",L)}${end()}</div>`); break; }
   }
   if(UI.busy) sub="…";
+  const orders=L.filter(m=>m.startsWith("O:")).map(m=>{ const c=s.crew[+m.slice(2)-1], d=CREW_BY[c.key];
+    return `<button class="ord" data-m="${m}" id="c-${m.replace(":","-")}" title="${esc(d.text)}">${d.name}: ${esc(d.order)}</button>`; });
+  if(orders.length) rows.push(`<div class="btnrow"><span class="lab">CREW ORDERS</span>${orders.join("")}</div>`);
   return `<div class="prompt">${p}${sub?`<span class="sub">${esc(sub)}</span>`:""}</div>${rows.join("")}`;
 }
 function recordHTML(){

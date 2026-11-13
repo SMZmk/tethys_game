@@ -470,9 +470,11 @@ function shipCard(s){
   const canAct=active&&myTurn()&&!UI.busy, L=canAct?legal(G):[];
   const crew=s.crew.map((cm,i)=>{
     const d=CREW_BY[cm.key], block=orderBlock(G,s,cm), stt=cm.stun?["STUNNED","bad"]:cm.rest>0?(cm.used===G.turn?["ORDER GIVEN","dim"]:[`REST ${cm.rest}`,"dim"]):["READY","ok"];
-    return `<div class="cm ${cm.stun?"stun":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
-      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div></div>
-      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${L.includes("O:"+(i+1))?"":"disabled"} title="${esc(block||"Give order")}">Order</button>`:""}</div></div>`;
+    const mineShip=active&&(MODE.mode==="local"||s.pid-1===MODE.seat), usable=L.includes("O:"+(i+1));
+    return `<div class="cm ${cm.stun?"stun":""} ${usable?"usable":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
+      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div>
+      ${mineShip&&!usable&&block&&!UI.busy?`<div class="why">${esc(block)}</div>`:""}</div>
+      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${usable?"":"disabled"} title="${esc(block||"Give order")}">${usable?"Give order":"Order"}</button>`:""}</div></div>`;
   }).join("");
   return `<section class="ship ${active?"active":""} ${s.hp<=0?"dead":""}" style="--c:${P_COLORS[s.pid-1]}">
     <h3><span class="shiphead">${shipCanvas(s.cls,s.pid,s.fac)}P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode==="online"&&MODE.seat===s.pid-1?" (YOU)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
@@ -549,6 +551,9 @@ function actionsHTML(){
       rows.push(`<div class="btnrow">${btn("REP",`Repair · ${s.parts} parts`,"eng",L)}${end()}</div>`); break; }
   }
   if(UI.busy) sub="…";
+  const orders=L.filter(m=>m.startsWith("O:")).map(m=>{ const c=s.crew[+m.slice(2)-1], d=CREW_BY[c.key];
+    return `<button class="ord" data-m="${m}" id="c-${m.replace(":","-")}" title="${esc(d.text)}">${d.name}: ${esc(d.order)}</button>`; });
+  if(orders.length) rows.push(`<div class="btnrow"><span class="lab">CREW ORDERS</span>${orders.join("")}</div>`);
   return `<div class="prompt">${p}${sub?`<span class="sub">${esc(sub)}</span>`:""}</div>${rows.join("")}`;
 }
 function recordHTML(){

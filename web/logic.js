@@ -364,26 +364,26 @@ function orderBlock(G,s,c){
   const d=CREW_BY[c.key];
   if(G.st==="over"||s!==S(G)||G.st==="draft") return "Not your turn";
   if(c.stun) return "Stunned";
-  if(c.rest>0) return `Resting ${c.rest}`;
-  if(G.phase==="CMD") return "Plan phases first";
-  if(d.st!=="ANY"&&d.st!==G.phase) return `${d.st} phase only`;
+  if(c.rest>0) return c.used===G.turn?"Order given this turn":`Resting: ready in ${c.rest} turn${c.rest>1?"s":""}`;
+  if(G.phase==="CMD") return "Plan your phases first";
+  if(d.st!=="ANY"&&d.st!==G.phase) return `Usable in the ${d.st} phase`;
   const t=tgt(G);
   switch(c.key){
-    case "CAPTAIN": return G.repeated?"Already repeated":null;
-    case "ACE": return G.st!=="nav_pick"?"Use before boost":s.autoBoost?"Primed":null;
-    case "DRIFTER": return s.evasive?"Active":null;
+    case "CAPTAIN": return G.repeated?"A phase was already repeated":null;
+    case "ACE": return G.st!=="nav_pick"?"Use before the boost roll":s.autoBoost?"Already active":null;
+    case "DRIFTER": return s.evasive?"Already active":null;
     case "GUNNER": return null;
-    case "SPOTTER": return G.st!=="atk_menu"?"Acquire target":s.f.targeted?"Lock spent":null;
-    case "JAMMER": return !t?"Acquire target":t.jammed?"Already jammed":null;
-    case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No damage";
-    case "TECH": return s.surge?"Primed":null;
+    case "SPOTTER": return G.st!=="atk_menu"?"Target an enemy first":s.f.targeted?"Lock already used":null;
+    case "JAMMER": return !t?"Target an enemy first":t.jammed?"Enemy already jammed":null;
+    case "MECHANIC": return Object.values(s.dmg).some(v=>v>0)?null:"No system damage to fix";
+    case "TECH": return s.surge?"Already active":null;
     case "QM": return null;
-    case "IRONCAPT": return s.fury?"Primed":null;
-    case "HARPOON": return s.chain?"Primed":null;
-    case "BULWARK": return s.brace?"Active":null;
+    case "IRONCAPT": return s.fury?"Already active":null;
+    case "HARPOON": return s.chain?"Already active":null;
+    case "BULWARK": return s.brace?"Already active":null;
     case "ECO": { const o=other(G,s); return o.storm?"Already in a storm":null; }
     case "MEDIC": return s.hp>=s.maxHp?"Hull is full":null;
-    case "WINDCAPT": return G.st!=="nav_pick"?"Use before boost":s.tailwind?"Primed":null;
+    case "WINDCAPT": return G.st!=="nav_pick"?"Use before the boost roll":s.tailwind?"Already active":null;
   }
   return null;
 }
