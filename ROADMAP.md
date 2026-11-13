@@ -12,18 +12,24 @@ Design notes for the browser game (`web/`). "Done" items are in the game; the re
 | Normal rest | 2 turns | 2 turns | 1 turn |
 | Won't sail | Construct (relic) | — | Hauler (fortress) |
 
-Epic orders:
-- Scrappers: **VOSS, Fire in the Engines!** (after a hit, the enemy loses NAV or ENG on its next turn: d6 1–3 NAV, 4–6 ENG) and **GRIT, Chain Shot** (after a hit, cripple a random enemy system).
+Epic orders (no lock-on needed for the Scrapper ones):
+- Scrappers: **VOSS, Knock Them Down!** (after a hit, stun a random enemy crew member) and **GRIT, Chain Shot**
+  (after a hit, d6: 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 *fire in the engines*: the enemy loses NAV or ENG
+  on its next turn, d6 1–3 NAV, 4–6 ENG).
 - Nomads: **RHO, Battle Stations** (repeat this phase), **FENN, Sandstorm** (enemy −2 to all rolls next turn), **ANA, Patch Up** (heal 3).
+- Drifters: **SELA, Song of the Wind** is a *passive* epic: below half hull, engine power no longer raises the DC
+  and boost rolls get +2. Lore: a wounded Drifter shakes off pursuers, especially in difficult terrain.
+
+Crew rules: at most **one captain** per crew (VOSS, RHO or SELA).
 
 Other changes made with this:
 - **ZED, Jam Weapons** affects only the enemy's weapons: −2 to their lock and attack rolls on their next turn (it no longer removes a phase).
-- Dreadnought hull 15 → 17 (its builds were below average).
+- Dreadnought: hull 17; twin guns roll to hit twice per shot, each hit half damage: steadier, fewer clean misses.
 - Online play: the map stays visible while you wait for your opponent.
 
 Why: the "Nomad sustain" build (RHO, FENN, ANA, DOV) won 77% against random builds. With epic orders tied
-to a stable drift it wins 60–62%, in line with good builds of the other factions (56–63%).
-Computer against computer, the factions now win 46–54% against each other (before 40–62%).
+to a stable drift it wins 60–61%, in line with good builds of the other factions (48–63%).
+Computer against computer, the factions win 44–56% against each other (before 40–62%).
 
 ## Maps (planned)
 
@@ -52,5 +58,5 @@ online play and replays keep working.
 
 Measured with bots (computer's rule card on both sides, random builds), see `web/test/` and the README.
 - Fights: once in range, a ship goes down after a median of 2.5 exchanges of fire.
-- Random builds: factions 49–52%, ships 47–55%, every crew member 46–56%; moving first gives no advantage.
-- Strongest single crew members: SAL, FENN, SELA (sustain and mobility). Weakest: ZED, BRAKK, GRIT.
+- Random builds: factions 49–52%, ships 46–53%, every crew member 45–57%; moving first gives no advantage.
+- Strongest single crew members: SAL, FENN, ANA (sustain). Weakest: ZED, GRIT, NYX.

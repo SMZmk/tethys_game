@@ -129,19 +129,19 @@ See `ROADMAP.md` for the design behind this and what is planned next.
 |---|---|---|---|---|---|
 | Skiff | small twin-hull sand-catamaran | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
 | Hauler | huge diesel barge with smokestacks | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
-| Dreadnought | riveted gunboat with a turret | 17 | 3 | 1 | twin guns: 2 shots per combat phase, each hit half damage (+1 before halving); +1 attack; 2 ammo per reload |
+| Dreadnought | riveted gunboat with a turret | 17 | 3 | 1 | twin guns: every shot rolls to hit twice, each hit half damage (+1 before halving); +1 attack |
 | Construct | old-world relic with orbiting shards | 15 | 5 | 2 | 5 energy |
 
 ### Crew (browser version)
-15 crew, 5 per faction. Each player picks ship, faction and the whole crew in one turn (3 crew, Hauler 4);
+15 crew, 5 per faction. Each player picks ship, faction and the whole crew in one turn (3 crew, Hauler 4; at most one captain);
 both players may take the same people. Click cards to select, then confirm; you can undo (on one device any
 time during setup, online or against the computer until your turn is done). After an order a crew member sits out
 your next 2 turns.
 
 | Faction | Crew | Station | Passive | Order |
 |---|---|---|---|---|
-| Scrappers | VOSS, Iron Captain | ATK | +1 attack rolls | **Epic** Fire in the Engines!: after a hit, the enemy loses NAV or ENG (d6) next turn |
-| | GRIT, Harpooner | ATK | +1 damage | **Epic** Chain Shot: after a hit, cripple a random enemy system |
+| Scrappers | VOSS, Iron Captain | ATK | +1 attack rolls | **Epic** Knock Them Down!: after a hit, stun a random enemy crew member (no lock) |
+| | GRIT, Harpooner | ATK | +1 damage | **Epic** Chain Shot: after a hit (no lock), d6: 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn) |
 | | BRAKK, Engineer | ENG | repairs +1 | Field Fix: all system damage −1 |
 | | IVO, Reactor Tech | ENG | +1 energy cap | Surge: next roll +5 |
 | | SAL, Scavenger | ENG | +1 part, reload gives 2 ammo | Salvage: +2 parts |
@@ -150,7 +150,7 @@ your next 2 turns.
 | | DOV, Bulwark | ATK | enemy attacks on you −1 | Brace: damage taken −3 until your next turn |
 | | FENN, Ecologist | NAV | rock crashes deal 1, not 3 | **Epic** Sandstorm: enemy −2 to all rolls next turn |
 | | ANA, Medic | ENG | stunned crew recover at your turn start | **Epic** Patch Up: heal 3 hull |
-| Drifters | SELA, Wind Captain | NAV | a failed drift still lets you set heading | Tailwind: next boost DC −4 |
+| Drifters | SELA, Wind Captain | NAV | **Epic** Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls | Tailwind: next boost DC −4 |
 | | VEX, Ace Pilot | NAV | +2 boost rolls | Afterburn: next boost auto-succeeds |
 | | ORO, Wayfinder | NAV | +2 drift rolls | Evasive: enemy attacks −3 |
 | | NYX, Spotter | ATK | +3 lock rolls | Auto-Lock: lock with no roll |
@@ -161,7 +161,7 @@ Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 
 (+1 per kindred crew), base armour class is 10 (+2/+4 at range 2/3), so a ship goes down after 2–3 hits.
 In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rocks and rams deal 3, repairs heal d4.
 
-Balance (6,000 bot games with random builds): factions 49–52%, ship classes 47–55%, each crew member 46–56%.
+Balance (8,000 bot games with random builds): factions 49–52%, ship classes 46–53%, each crew member 45–57%.
 
 ### Playing against the computer
 Click **Play vs computer**. The computer follows a short rule card and rolls d6s, so it could also be
@@ -178,7 +178,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 | ATK | Target you if in arc, reload when empty, lock on, fire as often as allowed. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew. |
 | ENG | Below half hull: repair while parts last. Then power WPN, BST, DFT (escaping: ENGINE, BST, DFT). |
 
-The computer beats a player making random moves 84% of the time. Against itself, its three factions win 46–54%.
+The computer beats a player making random moves 83% of the time. Against itself, its three factions win 44–56%.
 
 ### The arena
 The two ships start in open flats in the middle. Rock gets denser the further out you drift, but winding
@@ -186,7 +186,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 58 rules tests (setup, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 61 rules tests (setup, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online, phone width.
 
 ### Source
