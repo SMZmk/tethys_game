@@ -68,6 +68,9 @@ class Renderer:
         
         if game_state.state == settings.STATE_MENU:
             self._draw_menu(game_state)
+        elif game_state.state == settings.STATE_DRAFT:
+            self._draw_dust()
+            self.ui_manager.draw_draft(game_state)
         elif game_state.state == settings.STATE_GAME_OVER:
             self._draw_game_over(game_state)
         else:
@@ -80,7 +83,7 @@ class Renderer:
     def _draw_menu(self, gs):
         self._draw_dust()
         cx, cy = settings.WIDTH // 2, settings.HEIGHT // 2
-        title = self.font_title.render("THETIS: DESERT DRIFTER", True, settings.COLOR_PHASE_ENG)
+        title = self.font_title.render("TETHYS: DESERT DRIFTER", True, settings.COLOR_PHASE_ENG)
         sub = self.font_sub.render("SAND & CHROMIUM", True, settings.COLOR_PHASE_NAV)
         self.screen.blit(title, (cx - title.get_width()//2, cy - 100))
         self.screen.blit(sub, (cx - sub.get_width()//2, cy - 40))
@@ -103,8 +106,13 @@ class Renderer:
         overlay.fill((0, 0, 0))
         self.screen.blit(overlay, (0,0))
         
-        title = self.font_title.render("CRITICAL FAILURE", True, (255, 0, 0))
-        sub = self.font_sub.render(f"PLAYER {gs.player.pid} SHIP LOST", True, (200, 200, 200))
+        if gs.winner:
+            title = self.font_title.render(f"PLAYER {gs.winner.pid} WINS", True, gs.winner.color)
+            crew_names = ", ".join(c.d.name for c in gs.winner.crew)
+            sub = self.font_sub.render(f"CREW: {crew_names}", True, (200, 200, 200))
+        else:
+            title = self.font_title.render("CRITICAL FAILURE", True, (255, 0, 0))
+            sub = self.font_sub.render("ALL SHIPS LOST", True, (200, 200, 200))
         
         self.screen.blit(title, (cx - title.get_width()//2, cy - 50))
         self.screen.blit(sub, (cx - sub.get_width()//2, cy + 20))

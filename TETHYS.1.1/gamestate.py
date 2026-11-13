@@ -1,5 +1,6 @@
 # gamestate.py
 import settings
+import crew as crewmod
 
 class Player:
     """Represents a single ship/player in the game."""
@@ -31,12 +32,19 @@ class Player:
         self.target_locked = False
         self.selected_debuff = None
 
+        # Crew state
+        self.crew = []
+        self.evasive = False     # enemy attacks -3 until our next turn
+        self.jammed = False      # only 2 phases this turn
+        self.surge = 0           # bonus to next roll
+        self.auto_boost = False  # next boost auto-succeeds
+
     @property
     def energy_cap(self):
         pct = self.hp / self.max_hp
         if pct < settings.HP_THRESHOLD_FAIL: return 0
         if pct < settings.HP_THRESHOLD_CRIT: return 1
-        return self.base_energy
+        return self.base_energy + crewmod.energy_bonus(self)
 
     @property
     def current_energy_used(self):
@@ -98,9 +106,18 @@ class GameState:
         self.console_lines = []
         self.input_buffer = ""
 
+        # Crew draft
+        self.draft_pool = []
+        self.draft_order = []
+        self.draft_idx = 0
+        self.phase_repeated = False
+        self.winner = None
+        self.start_count = 1
+
     @property
     def player(self):
         if not self.players: return None
+        if self.active_idx >= len(self.players): self.active_idx = 0
         return self.players[self.active_idx]
 
     def log(self, text):
@@ -129,11 +146,43 @@ class GameState:
             elif q < -2: p.orientation = 1 
             self.players.append(p)
         self.active_idx = 0
+        # The training dummy only exists in solo play
+        if count > 1: self.enemy.hp = 0
+
+    # --- CREW DRAFT ---
+    def start_draft(self):
+        self.draft_pool = list(crewmod.ROSTER)
+        self.draft_order = crewmod.draft_order(len(self.players))
+        self.draft_idx = 0
+        self.active_idx = self.draft_order[0]
+        self.state = settings.STATE_DRAFT
+        self.phase = settings.PHASE_START
+
+    @property
+    def drafting_player(self):
+        if self.draft_idx >= len(self.draft_order): return None
+        return self.players[self.draft_order[self.draft_idx]]
+
+    def draft_pick(self, pool_idx):
+        """Returns True when the draft is complete."""
+        p = self.drafting_player
+        cdef = self.draft_pool.pop(pool_idx)
+        crewmod.on_recruit(p, cdef)
+        self.log(f"P{p.pid} RECRUITS {cdef.name} ({cdef.role})")
+        self.draft_idx += 1
+        if self.draft_idx >= len(self.draft_order):
+            self.active_idx = 0
+            return True
+        self.active_idx = self.draft_order[self.draft_idx]
+        return False
 
     def next_turn(self, increment=True):
         """Sets up the state for the next player."""
         if not self.players: return 
         
+        if increment and self.player:
+            crewmod.on_turn_end(self.player)
+
         if increment:
             self.active_idx = (self.active_idx + 1) % len(self.players)
         else:
@@ -149,6 +198,8 @@ class GameState:
         p.has_targeted = False; p.has_reloaded = False
         p.has_fired = False; p.drift_success = False
         p.target_locked = False; p.selected_debuff = None
+        crewmod.on_turn_start(p)
+        self.phase_repeated = False
         
         self.phase = settings.PHASE_CMD
         self.state = settings.STATE_CMD_INPUT
@@ -157,7 +208,13 @@ class GameState:
         self.active_target = None
         
         self.log(f"--- TURN START: PLAYER {p.pid} ---")
+        if p.jammed: self.log("!! COMMS JAMMED: ONLY 2 PHASES !!")
         p.check_system_integrity(self.log)
+
+    @property
+    def phases_allowed(self):
+        p = self.player
+        return 2 if (p and p.jammed) else 3
 
     def eliminate_dead_players(self):
         """Removes 0 HP players. Returns True if the ACTIVE player died."""

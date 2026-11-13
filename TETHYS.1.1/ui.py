@@ -3,6 +3,20 @@ import pygame
 import math
 import settings
 import mechanics
+import crew as crewmod
+
+STATION_COLORS = {"NAV": settings.COLOR_PHASE_NAV, "ATK": settings.COLOR_PHASE_COM,
+                  "ENG": settings.COLOR_PHASE_ENG, "ANY": (230, 200, 60)}
+
+
+def draw_portrait(screen, idx, x, y, scale=3, grey=False):
+    pygame.draw.rect(screen, (16, 20, 32), (x - scale, y - scale, 14 * scale, 14 * scale))
+    for px, py, col in crewmod.portrait_pixels(idx):
+        if grey:
+            g = sum(col) // 3 // 2
+            col = (g, g, g)
+        pygame.draw.rect(screen, col, (x + px * scale, y + py * scale, scale, scale))
+    pygame.draw.rect(screen, (90, 110, 150), (x - scale, y - scale, 14 * scale, 14 * scale), 1)
 
 class UIManager:
     def __init__(self, screen):
@@ -33,6 +47,78 @@ class UIManager:
         self._draw_stats_segment(gs, self.seg1_w + self.seg2_w, self.panel_y)
         self._draw_guide_segment(gs, self.seg1_w + self.seg2_w + self.seg3_w, self.panel_y)
         self._draw_phase_indicator(gs)
+        self._draw_crew_panel(gs)
+
+    # --- CREW PANEL (top right of the battlefield) ---
+    def _draw_crew_panel(self, gs):
+        p = gs.player
+        if not p or not p.crew: return
+        w = 310; x = settings.WIDTH - w - 10; y = 10
+        h = 30 + len(p.crew) * 52 + 22
+        panel = pygame.Surface((w, h), pygame.SRCALPHA)
+        panel.fill((5, 8, 15, 220))
+        self.screen.blit(panel, (x, y))
+        pygame.draw.rect(self.screen, p.color, (x, y, w, h), 2)
+        self.screen.blit(self.font_small.render(f"P{p.pid} CREW  [USE n]", True, p.color), (x + 8, y + 6))
+        cy = y + 28
+        for i, c in enumerate(p.crew):
+            draw_portrait(self.screen, c.d.sprite, x + 10, cy + 4, 3, grey=c.stunned)
+            st_col = STATION_COLORS.get(c.d.station, (200, 200, 200))
+            self.screen.blit(self.font_small.render(f"{i+1} {c.d.name}", True, (255, 255, 255)), (x + 54, cy))
+            self.screen.blit(self.font_micro.render(c.d.station, True, st_col), (x + 140, cy + 2))
+            status = c.status()
+            s_col = settings.COLOR_TEXT_SUCCESS if status == "READY" else settings.COLOR_TEXT_ALERT
+            lbl = self.font_micro.render(status, True, s_col)
+            self.screen.blit(lbl, (x + w - lbl.get_width() - 8, cy + 2))
+            self.screen.blit(self.font_micro.render(c.d.passive, True, (170, 200, 230)), (x + 54, cy + 17))
+            self.screen.blit(self.font_micro.render(f"> {c.d.order}: {c.d.order_txt}", True, (230, 200, 120)), (x + 54, cy + 31))
+            cy += 52
+        flags = []
+        if p.evasive: flags.append("EVASIVE")
+        if p.jammed: flags.append("JAMMED")
+        if p.surge: flags.append(f"SURGE +{p.surge}")
+        if p.auto_boost: flags.append("AFTERBURN")
+        self.screen.blit(self.font_micro.render("  ".join(flags) if flags else "", True, (255, 220, 80)), (x + 8, cy))
+
+        # Opponents: compact crew status
+        oy = y + h + 6
+        for o in gs.players:
+            if o is p or not o.crew: continue
+            txt = f"P{o.pid}: " + " ".join(f"{c.d.name}{'*' if c.stunned else ''}" for c in o.crew)
+            if o.evasive: txt += " [EVA]"
+            if o.jammed: txt += " [JAM]"
+            lbl = self.font_micro.render(txt, True, o.color)
+            bg = pygame.Surface((w, 16), pygame.SRCALPHA); bg.fill((5, 8, 15, 200))
+            self.screen.blit(bg, (x, oy)); self.screen.blit(lbl, (x + 8, oy + 2))
+            oy += 18
+
+    def draw_draft(self, gs):
+        p = gs.drafting_player
+        if not p: return
+        title = self.font.render(f"CREW DRAFT - PLAYER {p.pid} PICKS  (TYPE NUMBER OR A)", True, p.color)
+        self.screen.blit(title, (settings.WIDTH // 2 - title.get_width() // 2, 20))
+        cols = 3; cw = 340; ch = 150; gx = (settings.WIDTH - cols * cw - (cols - 1) * 15) // 2
+        for i, cd in enumerate(gs.draft_pool):
+            cx = gx + (i % cols) * (cw + 15); cy = 60 + (i // cols) * (ch + 12)
+            st_col = STATION_COLORS.get(cd.station, (200, 200, 200))
+            pygame.draw.rect(self.screen, (12, 16, 28), (cx, cy, cw, ch))
+            pygame.draw.rect(self.screen, st_col, (cx, cy, cw, ch), 2)
+            draw_portrait(self.screen, cd.sprite, cx + 14, cy + 14, 5)
+            self.screen.blit(self.font.render(f"[{i+1}] {cd.name}", True, (255, 255, 255)), (cx + 90, cy + 10))
+            self.screen.blit(self.font_small.render(f"{cd.role} - {cd.station}", True, st_col), (cx + 90, cy + 34))
+            self.screen.blit(self.font_micro.render("PASSIVE:", True, (120, 140, 170)), (cx + 90, cy + 58))
+            self.screen.blit(self.font_micro.render(cd.passive, True, (170, 210, 240)), (cx + 90, cy + 72))
+            self.screen.blit(self.font_micro.render(f"ORDER: {cd.order}", True, (230, 200, 120)), (cx + 14, cy + 96))
+            self.screen.blit(self.font_micro.render(cd.order_txt, True, (230, 220, 180)), (cx + 14, cy + 112))
+        # Picked so far
+        by = settings.HEIGHT - 110
+        for j, pl in enumerate(gs.players):
+            names = ", ".join(c.d.name for c in pl.crew) or "-"
+            self.screen.blit(self.font_small.render(f"P{pl.pid} CREW: {names}", True, pl.color), (40, by + j * 20))
+        for k, line in enumerate(gs.console_lines[-2:]):
+            self.screen.blit(self.font_micro.render(line, True, settings.COLOR_UI_TEXT), (40, by - 40 + k * 16))
+        cursor = "_" if (pygame.time.get_ticks() // 500) % 2 == 0 else ""
+        self.screen.blit(self.font.render(f"> {gs.input_buffer}{cursor}", True, (255, 255, 255)), (40, settings.HEIGHT - 30))
 
     def _draw_phase_indicator(self, gs):
         if not gs.phase_queue:
@@ -253,11 +339,21 @@ class UIManager:
             elif gs.state == settings.STATE_COM_MENU:
                 lines = ["- [T]arget (Lock On)", "- [R]eload", "- [F]ire (Attack)"]
             elif gs.state == settings.STATE_COM_DIST:
-                lines = ["- Locking System", "- Roll + WPN vs DC 14"]
+                lines = ["- Locking System", f"- Roll + WPN vs DC {settings.TARGETING_DC}"]
+            elif gs.state == settings.STATE_COM_TARGET_DEBUFF:
+                lines = ["- Pick system to cripple:", "- SPD BST DFT WPN", "- STN = stun enemy crew"]
             elif gs.state == settings.STATE_COM_FIRE:
                 lines = ["- Fire Main Battery", "- Roll + Lock + WPN"]
         elif gs.phase == settings.PHASE_ENG:
-            lines = ["- Assign Energy:", "- 'SPEED 1', 'BST 1'", "- 'DFT 1', 'WPN 1'", "- Or 'REPAIR'", "- Press [C] to Finish"]
+            lines = ["- Assign Energy:", "- 'SPEED 1', 'BST 1'", "- 'DFT 1', 'WPN 1'", "- Or 'REPAIR'", "- Press [X] to Finish"]
+
+        # Crew orders available in this phase
+        p = gs.player
+        ph = {settings.PHASE_NAV: "NAV", settings.PHASE_COM: "ATK", settings.PHASE_ENG: "ENG"}.get(gs.phase)
+        if p and ph:
+            avail = [f"USE {i+1}: {c.d.order}" for i, c in enumerate(p.crew)
+                     if c.ready and c.d.station in (ph, "ANY")]
+            if avail: lines = lines + ["CREW ORDERS:"] + avail
 
         for line in lines:
             self.screen.blit(self.font_micro.render(line, True, (200,200,200)), (px, py))

@@ -4,6 +4,7 @@ import random
 import settings
 import mechanics
 import traceback
+import crew as crewmod
 from graphics import Renderer
 from gamestate import GameState, Player, Enemy
 
@@ -21,7 +22,13 @@ def advance_phase(gs):
     if not gs.phase_queue: return
     gs.current_phase_idx += 1
     if gs.current_phase_idx < len(gs.phase_queue):
-        start_phase(gs, gs.phase_queue[gs.current_phase_idx])
+        nxt = gs.phase_queue[gs.current_phase_idx]
+        if nxt == settings.PHASE_COM and gs.player:
+            # Fresh weapon actions for a (repeated) combat phase
+            p = gs.player
+            p.has_targeted = False; p.has_reloaded = False
+            p.has_fired = False; p.target_locked = False
+        start_phase(gs, nxt)
     else:
         gs.next_turn()
         gs.log("ENTER PHASE 1: [NAV, ATK, ENG]")
@@ -33,6 +40,13 @@ def check_deaths(gs):
     if len(gs.players) == 0:
         gs.state = settings.STATE_GAME_OVER
         gs.log("FATAL: ALL SHIPS DESTROYED.")
+        return
+
+    if gs.start_count > 1 and len(gs.players) == 1:
+        gs.winner = gs.players[0]
+        gs.active_idx = 0
+        gs.state = settings.STATE_GAME_OVER
+        gs.log(f"PLAYER {gs.winner.pid} WINS!")
         return
     
     if active_died:
@@ -68,16 +82,35 @@ def handle_menu(gs, cmd):
     if 1 <= val <= 4:
         try:
             gs.init_players(val)
-            gs.phase = settings.PHASE_CMD
-            gs.state = settings.STATE_CMD_INPUT
-            gs.log("SYSTEMS ONLINE.")
-            gs.log(f"PLAYER 1 START.")
-            gs.log("ENTER PHASE 1: [NAV, ATK, ENG]")
+            gs.start_count = val
+            gs.start_draft()
+            gs.log("CREW DRAFT: PICK BY NUMBER OR [A]")
         except Exception:
             print("!!! ERROR STARTING GAME !!!")
             traceback.print_exc()
     else:
         gs.input_buffer = ""
+
+def handle_draft(gs, cmd):
+    try:
+        if cmd == "A": idx = random.randrange(len(gs.draft_pool))
+        else: idx = int(cmd) - 1
+        if not (0 <= idx < len(gs.draft_pool)): raise ValueError
+    except ValueError:
+        gs.log(f"!! PICK 1-{len(gs.draft_pool)} OR A !!")
+        return
+    if gs.draft_pick(idx):
+        gs.log("CREWS ASSEMBLED. SYSTEMS ONLINE.")
+        gs.next_turn(increment=False)
+        gs.log(f"ENTER PHASE 1: [NAV, ATK, ENG]")
+
+def handle_use(gs, cmd):
+    """'USE 2', 'U2', 'CREW 2' -> crew order."""
+    digits = "".join(ch for ch in cmd if ch.isdigit())
+    if not digits:
+        gs.log("USE 1/2/3 FOR CREW ORDERS")
+        return
+    crewmod.use_order(gs, int(digits))
 
 def handle_command(gs, cmd):
     if cmd in settings.PHASE_MAP:
@@ -86,7 +119,7 @@ def handle_command(gs, cmd):
             gs.log("PHASE ALREADY ASSIGNED!")
         else:
             gs.phase_queue.append(sel)
-            if len(gs.phase_queue) == 3:
+            if len(gs.phase_queue) == gs.phases_allowed:
                 gs.log("SEQUENCE LOCKED. EXECUTING...")
                 gs.current_phase_idx = 0
                 start_phase(gs, gs.phase_queue[0])
@@ -144,16 +177,23 @@ def handle_nav(gs, cmd):
 
     elif gs.state == settings.STATE_INPUT_BOOST:
         try:
-            roll = random.randint(1,20) if cmd=="A" else int(cmd)
-            h_pen = mechanics.get_hull_penalty(p.hp, p.max_hp)
-            d_pen = p.debuffs["BOOST"]
-            total = roll + p.sys_boost + h_pen - d_pen
-            
-            log_str = f"BOOST: {roll} +{p.sys_boost}sys"
-            if h_pen != 0: log_str += f" {h_pen}hull"
-            if d_pen > 0:  log_str += f" -{d_pen}pen"
-            log_str += f" = {total} (DC {gs.current_dc})"
-            gs.log(log_str)
+            if p.auto_boost:
+                p.auto_boost = False
+                gs.log("AFTERBURN! BOOST AUTO-SUCCESS.")
+                total = gs.current_dc
+            else:
+                roll = random.randint(1,20) if cmd=="A" else int(cmd)
+                h_pen = mechanics.get_hull_penalty(p.hp, p.max_hp)
+                d_pen = p.debuffs["BOOST"]
+                c_mod, c_lbl = crewmod.roll_mods(p, "BOOST")
+                total = roll + p.sys_boost + h_pen - d_pen + c_mod
+                
+                log_str = f"BOOST: {roll} +{p.sys_boost}sys"
+                if h_pen != 0: log_str += f" {h_pen}hull"
+                if d_pen > 0:  log_str += f" -{d_pen}pen"
+                log_str += c_lbl
+                log_str += f" = {total} (DC {gs.current_dc})"
+                gs.log(log_str)
             
             if total >= gs.current_dc:
                 gs.log("SUCCESS. INITIATING MANEUVER.")
@@ -173,11 +213,13 @@ def handle_nav(gs, cmd):
             roll = random.randint(1,20) if cmd=="A" else int(cmd)
             h_pen = mechanics.get_hull_penalty(p.hp, p.max_hp)
             d_pen = p.debuffs["DRIFT"]
-            total = roll + p.sys_drift + h_pen - d_pen
+            c_mod, c_lbl = crewmod.roll_mods(p, "DRIFT")
+            total = roll + p.sys_drift + h_pen - d_pen + c_mod
             
             log_str = f"DRIFT: {roll} +{p.sys_drift}sys"
             if h_pen != 0: log_str += f" {h_pen}hull"
             if d_pen > 0:  log_str += f" -{d_pen}pen"
+            log_str += c_lbl
             log_str += f" = {total} (DC {gs.current_dc})"
             gs.log(log_str)
             
@@ -206,7 +248,7 @@ def handle_combat(gs, cmd):
         if cmd == "R":
             if p.has_reloaded: gs.log("ALREADY RELOADED.")
             else:
-                p.ammo = 1
+                p.ammo = max(p.ammo, crewmod.reload_amount(p))
                 p.has_reloaded = True
                 gs.log("RELOAD COMPLETE. PRESS [X] TO END.")
             return
@@ -257,7 +299,7 @@ def handle_combat(gs, cmd):
         elif cmd.startswith("R"):
             if p.has_targeted or p.has_reloaded: gs.log("ACTION SPENT.")
             else:
-                p.ammo = 1
+                p.ammo = max(p.ammo, crewmod.reload_amount(p))
                 p.has_reloaded = True
                 gs.log("RELOAD COMPLETE.")
         elif cmd.startswith("F"):
@@ -271,15 +313,17 @@ def handle_combat(gs, cmd):
         try:
             roll = random.randint(1,20) if cmd=="A" else int(cmd)
             d_pen = p.debuffs["WEAPONS"]
-            total = roll + p.sys_weapon - d_pen
+            c_mod, c_lbl = crewmod.roll_mods(p, "LOCK", gs.active_target)
+            total = roll + p.sys_weapon - d_pen + c_mod
             log_str = f"LOCK: {roll} +{p.sys_weapon}sys"
             if d_pen > 0: log_str += f" -{d_pen}pen"
+            log_str += c_lbl
             log_str += f" = {total} (DC {settings.TARGETING_DC})"
             gs.log(log_str)
             if total >= settings.TARGETING_DC:
                 p.target_locked = True
                 gs.log("LOCK CONFIRMED. SELECT DEBUFF:")
-                gs.log("SPD, BST, DFT, WPN")
+                gs.log("SPD, BST, DFT, WPN, STN(CREW)")
                 gs.state = settings.STATE_COM_TARGET_DEBUFF
             else:
                 gs.log("LOCK FAILED.")
@@ -288,15 +332,17 @@ def handle_combat(gs, cmd):
         except: gs.log("!! NUMBER/A !!")
 
     elif gs.state == settings.STATE_COM_TARGET_DEBUFF:
-        valid = {"SPD":"SPEED", "BST":"BOOST", "DFT":"DRIFT", "WPN":"WEAPONS"}
+        valid = {"SPD":"SPEED", "BST":"BOOST", "DFT":"DRIFT", "WPN":"WEAPONS", "STN":"CREW"}
         k = cmd[:3]
-        if k in valid:
+        if k == "STN" and not hasattr(gs.active_target, "crew"):
+            gs.log("!! TARGET HAS NO CREW !!")
+        elif k in valid:
             p.selected_debuff = valid[k]
             p.has_targeted = True
             gs.log(f"AIMING SYSTEM: {p.selected_debuff}")
             gs.log("[F]IRE OR [C]ANCEL")
             gs.state = settings.STATE_COM_MENU
-        else: gs.log("!! SPD / BST / DFT / WPN !!")
+        else: gs.log("!! SPD / BST / DFT / WPN / STN !!")
 
     elif gs.state == settings.STATE_COM_FIRE:
         try:
@@ -307,11 +353,13 @@ def handle_combat(gs, cmd):
             bonus = (4 if p.target_locked else 0) + p.sys_weapon
             h_pen = mechanics.get_hull_penalty(p.hp, p.max_hp)
             d_pen = p.debuffs["WEAPONS"]
-            total = roll + bonus + h_pen - d_pen
+            c_mod, c_lbl = crewmod.roll_mods(p, "ATK", gs.active_target)
+            total = roll + bonus + h_pen - d_pen + c_mod
             
             log_str = f"ATK: {roll} +{bonus}bon"
             if h_pen != 0: log_str += f" {h_pen}hull"
             if d_pen > 0:  log_str += f" -{d_pen}pen"
+            log_str += c_lbl
             log_str += f" = {total} (AC {ac})"
             gs.log(log_str)
             p.ammo -= 1; p.has_fired = True
@@ -330,7 +378,7 @@ def handle_combat(gs, cmd):
         try:
             base = random.randint(1,6)
             dmg_pen = p.debuffs["WEAPONS"]
-            total = base + settings.PLAYER_DMG_BONUS + p.sys_weapon - dmg_pen
+            total = max(1, base + settings.PLAYER_DMG_BONUS + p.sys_weapon - dmg_pen)
             if cmd != "A": total = int(cmd) 
             
             if gs.active_target:
@@ -342,7 +390,10 @@ def handle_combat(gs, cmd):
                 log_msg += f" = {total}"
                 gs.log(log_msg)
                 
-                if p.selected_debuff:
+                if p.selected_debuff == "CREW":
+                    crewmod.stun_random(gs.active_target, gs.log)
+                    p.selected_debuff = None
+                elif p.selected_debuff:
                     gs.active_target.debuffs[p.selected_debuff] += 1
                     name = "ENEMY" if isinstance(gs.active_target, Enemy) else f"P{gs.active_target.pid}"
                     gs.log(f"CRITICAL HIT: {name} {p.selected_debuff} DOWN")
@@ -362,7 +413,7 @@ def handle_eng(gs, cmd):
     parts = cmd.split()
     if cmd == "REPAIR":
         if p.spare_parts > 0:
-            heal = random.randint(1,4) + 1
+            heal = random.randint(1,4) + 1 + crewmod.repair_bonus(p)
             p.hp = min(p.max_hp, p.hp + heal)
             p.spare_parts -= 1
             gs.log(f"REPAIRED {heal} HP. PARTS: {p.spare_parts}")
@@ -400,7 +451,7 @@ def handle_eng(gs, cmd):
 def main():
     pygame.init()
     screen = pygame.display.set_mode((settings.WIDTH, settings.HEIGHT))
-    pygame.display.set_caption("Thetis: Desert Drifter v4.6 (Permadeath)")
+    pygame.display.set_caption("Tethys: Desert Drifter v5.0 (Crew)")
     clock = pygame.time.Clock()
     
     gs = GameState()
@@ -422,6 +473,11 @@ def main():
                     if gs.state == settings.STATE_GAME_OVER:
                         pass # Lock input
                     elif gs.state == settings.STATE_MENU: handle_menu(gs, cmd)
+                    elif gs.state == settings.STATE_DRAFT: handle_draft(gs, cmd)
+                    elif gs.state == settings.STATE_MOVING: pass
+                    elif (cmd.startswith("USE") or (cmd[:1] == "U" and cmd[1:].strip().isdigit())) \
+                            and gs.phase in (settings.PHASE_NAV, settings.PHASE_COM, settings.PHASE_ENG):
+                        handle_use(gs, cmd)
                     elif gs.phase == settings.PHASE_CMD: handle_command(gs, cmd)
                     elif gs.phase == settings.PHASE_NAV: handle_nav(gs, cmd)
                     elif gs.phase == settings.PHASE_COM: handle_combat(gs, cmd)
@@ -429,12 +485,13 @@ def main():
                     gs.input_buffer = ""
 
                 elif event.key == pygame.K_c:
-                    if gs.state == settings.STATE_MENU: gs.input_buffer += "C"
-                    else: reset_current_phase(gs)
+                    if gs.state in (settings.STATE_MENU, settings.STATE_DRAFT, settings.STATE_GAME_OVER): pass
+                    elif gs.input_buffer: gs.input_buffer += "C"
+                    elif gs.state != settings.STATE_MOVING: reset_current_phase(gs)
                 
                 elif event.key == pygame.K_x:
-                    if gs.state == settings.STATE_MENU: gs.input_buffer += "X"
-                    else: advance_phase(gs)
+                    if gs.state in (settings.STATE_MENU, settings.STATE_DRAFT, settings.STATE_GAME_OVER): pass
+                    elif gs.state != settings.STATE_MOVING: advance_phase(gs)
 
                 elif event.key == pygame.K_BACKSPACE: 
                     gs.input_buffer = gs.input_buffer[:-1]
