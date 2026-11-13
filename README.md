@@ -77,10 +77,50 @@ If the shot hits, a random enemy crew member is **stunned**: no passive and no o
 
 The last ship flying wins.
 
-## Browser Demo
+## Browser Game (online play)
 
-`web/index.html` is a self-contained browser version of the 2-player game (same rules, including the crew),
-with a pixel-art map and buttons instead of typed commands. Open it in any browser, or serve it with GitHub Pages.
-No install needed.
+`web/index.html` is a self-contained browser version for 2 players: same d20 hex combat and crew,
+plus ship classes, a storyteller, and **online play by move codes**. Open it in any browser or serve it with
+GitHub Pages; no install needed.
 
-The source is `web/tethys.body.html`; run `web/build.sh` to regenerate `index.html` after editing it.
+### Playing a friend online
+1. Click **Start online game**. You are Player 1: pick your ship and first crew member.
+2. The game shows a short message with a move code, like
+   `Tethys · move 1 · P1: C:SKIFF R:CAPTAIN` followed by `TETHYS-…`. Send it to your friend (chat, mail, anything).
+3. Your friend clicks **Load code** on the title screen and pastes it. Their game replays your moves, then it is their turn.
+4. They send their code back, you paste it under **Load their move**, and so on, like correspondence chess.
+
+Every code holds the whole game (a shared random seed plus every move), so dice rolls come out the same
+on both screens and any code resyncs a game. The game also autosaves in the browser.
+Codes trust both players: someone could peek at upcoming rolls by reloading, so play with friends.
+
+### Move notation
+| Move | Meaning |
+|---|---|
+| `C:SKIFF` | choose ship class (SKIFF, HAULER, DREAD, RELIC) |
+| `R:CAPTAIN` | recruit a crew member |
+| `Q:NAV,ATK,ENG` | plan the phase order |
+| `B:2:+1` | boost at speed 2, turn +1 (rolls d20) |
+| `DRIFT`, `H:NE` | drift roll, then set heading |
+| `PIVOT:L` / `PIVOT:R` | turn in place (only when rocks block every course) |
+| `TGT`, `RLD`, `LOCK`, `AIM:WEAPONS`, `FIRE`, `DMG` | combat |
+| `+WPN`, `-ENG`, `REP` | engineering: power up/down a system, repair |
+| `O:2` | give an order to crew member 2 |
+| `END` | end the phase |
+
+### Ship classes
+| Ship | Role | Hull | Energy | Parts | Trait |
+|---|---|---|---|---|---|
+| Skiff | Runner | 22 | 3 | 2 | +1 boost and drift rolls |
+| Hauler | Fortress | 28 | 3 | 3 | repairs +1, −1 boost rolls |
+| Dreadnought | Ripper | 26 | 3 | 1 | +1 attack, +1 damage |
+| Construct | Relic | 26 | 5 | 2 | repairs −1 |
+
+### The arena
+The two ships start in open flats in the middle. Rock gets denser the further out you drift, but winding
+canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in the flats.
+You can leave, but the desert makes coming back the easy way.
+
+### Source
+`web/page.html` (styles), `web/logic.js` (rules, no DOM, runs in Node too) and `web/ui.js` (screen and online codes).
+Run `web/build.sh` to rebuild `index.html`.

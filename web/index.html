@@ -136,17 +136,42 @@ details.help{background:var(--panel);border:2px solid var(--line);padding:8px 10
 details.help summary{font-family:var(--f-pix);font-size:9px;cursor:pointer;color:var(--sand)}
 details.help ul{margin:8px 0 0;padding-left:20px;font-size:18px;color:var(--dim)}
 @media (prefers-reduced-motion:reduce){.die.rolling{animation:none}}
+.story{background:linear-gradient(180deg,#1d1626,#15111d);border:2px solid #4a3a5e;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.story h4{margin:0;font-family:var(--f-pix);font-size:8px;color:#c9a0ff;letter-spacing:.12em}
+.story p{margin:0;font-size:20px;line-height:1.15;color:#e8dcc0;max-width:70ch}
+.story p.old{color:var(--dim);font-size:18px}
+.code{width:100%;min-height:72px;resize:vertical;background:#09080e;color:var(--sand);border:2px solid var(--line-hi);font-family:ui-monospace,monospace;font-size:12px;line-height:1.3;padding:6px;overflow-wrap:anywhere}
+.code:focus-visible{outline:2px solid var(--any)}
+.notation{font-family:ui-monospace,monospace;font-size:13px;line-height:1.4;color:var(--ink);background:#09080e;border:2px solid var(--line);padding:6px 8px;overflow-wrap:anywhere}
+.record{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;margin-top:8px}
+.record div{font-family:ui-monospace,monospace;font-size:12px;line-height:1.35;color:var(--dim);overflow-wrap:anywhere}
+.record div b{color:var(--ink);font-weight:normal}
+.overlay .box.wide{max-width:560px;width:100%;text-align:left;align-items:stretch}
+.overlay .box p{margin:0}
+.msg{font-size:18px;color:var(--dim)}
+.msg.err{color:var(--bad)}
+.classes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:620px){.classes{grid-template-columns:minmax(0,1fr)}}
+.cls{background:var(--panel2);border:2px solid var(--line-hi);padding:10px;display:flex;flex-direction:column;gap:6px;text-align:left;font-family:var(--f-txt);font-size:18px;text-transform:none;letter-spacing:0;line-height:1.1}
+.cls .nm{font-family:var(--f-pix);font-size:10px;color:var(--sand)}
+.cls .nm em{font-style:normal;color:var(--dim);font-size:8px;margin-left:6px}
+.cls .row{display:flex;flex-wrap:wrap;gap:4px}
+.cls .row span{background:#0d0b14;padding:2px 6px;font-size:16px}
+.join{display:flex;flex-direction:column;gap:8px;max-width:640px}
+body.busy #console button,body.busy .cm button{cursor:wait}
 </style>
 
 <div class="app" id="app"></div>
 
 <script>
+// ======================================================================
+// TETHYS RULES CORE  — pure and deterministic, no DOM.
+// The whole game is  newGame(seed)  +  apply(G, move)  for every move.
+// Two players with the same seed and the same move list see the same game.
+// ======================================================================
 "use strict";
-// ======================================================================
-// RULES (port of settings.py / mechanics.py / crew.py)
-// ======================================================================
 const R = {
-  MAX_HP:26, START_ENERGY:3, START_PARTS:2, START_AMMO:1,
+  START_ENERGY:3, START_PARTS:2, START_AMMO:1,
   DC_BASE:8, DC_MOD_EASY:1, DC_MOD_HARD:2, ENG_DIST_BONUS:2, ENG_DC_MULT:0.5,
   BASE_AC:12, AC_DIST:[0,2,4], DMG_BONUS:4, LOCK_DC:8, LOCK_BONUS:4,
   HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:5, REST:2,
@@ -154,9 +179,11 @@ const R = {
 const DIRS = [[0,-1],[1,-1],[1,0],[0,1],[-1,1],[-1,0]];
 const DIR_NAMES = ["N","NE","SE","S","SW","NW"];
 const SYS = [["eng","ENGINE","SPEED"],["bst","BOOST","BOOST"],["dft","DRIFT","DRIFT"],["wpn","WEAPONS","WEAPONS"]];
+const SYS_KEYS = {ENG:"eng",BST:"bst",DFT:"dft",WPN:"wpn"};
 const DEBUFFS = [["SPEED","SPD"],["BOOST","BST"],["DRIFT","DFT"],["WEAPONS","WPN"],["CREW","CREW"]];
 const mod = (a,n)=>((a%n)+n)%n;
 
+// ---------------- HEX MATH ----------------
 const hexDist = (q,r)=>(Math.abs(q)+Math.abs(q+r)+Math.abs(r))/2;
 function hexRound(q,r){
   const x=q,z=r,y=-x-z; let rx=Math.round(x),ry=Math.round(y),rz=Math.round(z);
@@ -164,11 +191,13 @@ function hexRound(q,r){
   if(dx>dy&&dx>dz) rx=-ry-rz; else if(dy>dz) ry=-rx-rz; else rz=-rx-ry;
   return [rx,rz];
 }
+const RING_CACHE={};
 function ring(radius){
-  if(radius===0) return [[0,0]];
+  if(RING_CACHE[radius]) return RING_CACHE[radius];
+  if(radius===0) return RING_CACHE[0]=[[0,0]];
   let q=DIRS[4][0]*radius, r=DIRS[4][1]*radius; const out=[];
   for(let i=0;i<6;i++) for(let j=0;j<radius;j++){ out.push([q,r]); q+=DIRS[i][0]; r+=DIRS[i][1]; }
-  return out;
+  return RING_CACHE[radius]=out;
 }
 const idxOf=(rg,q,r)=>rg.findIndex(c=>c[0]===q&&c[1]===r);
 function navToCoords(dir,side,speed){
@@ -183,18 +212,40 @@ function relInfo(q,r,dir){
   if(diff>n/2) diff-=n; else if(diff<-n/2) diff+=n;
   return [diff,d-1];
 }
+
+// ---------------- TERRAIN ----------------
+// The arena is centred between the two spawns. Open flats in the middle;
+// rock gets denser the further out you drift, but six winding canyons run
+// back toward the centre. Salvage wrecks lie in the flats. Nothing stops you
+// leaving — the desert just makes coming back the easy way.
+const SPAWNS=[[0,5,0],[0,-5,3]];
+let T_SEED=1, T_CACHE=new Map(), T_PULL=true;
+function setPull(v){ T_PULL=v; T_CACHE=new Map(); }
+function setTerrainSeed(seed){ if(seed!==T_SEED){ T_SEED=seed; T_CACHE=new Map(); } }
 function noise(q,r,scale,seed){ const v=Math.sin((q/scale)*12.9898+(r/scale)*78.233+seed)*43758.5453; return Math.abs(v-Math.trunc(v)); }
-const obsCache=new Map();
-function obstacleType(q,r){
-  const k=(q+4096)*8192+(r+4096); let v=obsCache.get(k); if(v!==undefined) return v;
-  v=0;
-  if(!(q===0&&r===0)){
-    const c=noise(q,r,5,0.123)*0.7+noise(q,r,1.5,9.876)*0.3;
-    if(c>0.72){ const b=noise(q,r,15,42.1337); v=b<0.33?1:b<0.66?2:3; }
-  }
-  obsCache.set(k,v); return v;
+const TERRAIN_NAMES=["Open sand","Slate rock","Rust mesa","Tar pit","Old-world wreck"];
+function terrain(q,r){
+  const k=(q+4096)*8192+(r+4096); let v=T_CACHE.get(k); if(v!==undefined) return v;
+  v=computeTerrain(q,r); T_CACHE.set(k,v); return v;
 }
-const isObstacle=(q,r)=>obstacleType(q,r)>0;
+function computeTerrain(q,r){
+  const so=(T_SEED%9973)/131.7, d=hexDist(q,r);
+  if(d<=2) return 0;
+  for(const [sq,sr] of SPAWNS) if(hexDist(q-sq,r-sr)<=1) return 0;
+  if(T_PULL&&d>=3&&d<=8&&noise(q,r,1,77.7+so)>0.955) return 4;
+  let th=T_PULL?0.72-Math.min(0.40,Math.max(0,(d-8)*0.05)):0.72;
+  if(T_PULL&&d>=5&&d<=16){
+    const x=1.5*q, y=Math.sqrt(3)/2*q+Math.sqrt(3)*r;
+    const rot=(T_SEED%360)*Math.PI/180, a=Math.atan2(y,x)-rot;
+    const wiggle=Math.sin(d*0.7+so)*0.18;
+    const gap=Math.abs(mod(a+wiggle+Math.PI/6,Math.PI/3)-Math.PI/6);
+    if(gap*d<1.1) th=0.97;
+  }
+  const c=noise(q,r,5,0.123+so)*0.7+noise(q,r,1.5,9.876+so)*0.3;
+  if(c<=th) return 0;
+  const b=noise(q,r,15,42.1337+so); return b<0.33?1:b<0.66?2:3;
+}
+const isObstacle=(q,r)=>{ const t=terrain(q,r); return t>=1&&t<=3; };
 function angleDifficulty(dir,tq,tr,sq,sr){
   if(isObstacle(sq+tq,sr+tr)) return [0,false];
   const [side,speed]=relInfo(tq,tr,dir);
@@ -205,58 +256,75 @@ function angleDifficulty(dir,tq,tr,sq,sr){
   return [0,false];
 }
 
-// ---------------- CREW ----------------
+// ---------------- SHIPS & CREW ----------------
+const CLASSES = {
+  SKIFF:{name:"Skiff",role:"Runner",hull:22,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:0,
+    text:"Fast raider. +1 to boost and drift rolls.",lore:"Common, light, and quick to vanish into the dunes."},
+  HAULER:{name:"Hauler",role:"Fortress",hull:28,energy:3,parts:3,bst:-1,dft:0,atk:0,dmg:0,rep:1,
+    text:"Mobile fortress. 28 hull, +1 part, repairs +1, −1 to boost rolls.",lore:"A slow cargo-hulk that carries a whole camp on its back."},
+  DREAD:{name:"Dreadnought",role:"Ripper",hull:26,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,
+    text:"Built to fight. +1 attack, +1 damage, one fewer part.",lore:"Bristling with guns and always hungry for spare parts."},
+  RELIC:{name:"Construct",role:"Relic",hull:26,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:-1,
+    text:"Old-world tech. 5 energy, 26 hull, repairs −1.",lore:"Nobody knows who built it. It hums when the wind dies."},
+};
 const CREW = [
   {key:"CAPTAIN",name:"RHO",role:"Captain",st:"ANY",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e8f0","#283878","#f8c828"]},
   {key:"ACE",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
-  {key:"DRIFTER",name:"ORO",role:"Navigator",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#181820","#208878","#a0f8c8"]},
-  {key:"GUNNER",name:"KAEL",role:"Gunner",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#583820","#902828","#f87828"]},
+  {key:"DRIFTER",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#181820","#208878","#a0f8c8"]},
+  {key:"GUNNER",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#583820","#902828","#f87828"]},
   {key:"SPOTTER",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
   {key:"JAMMER",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Comms",text:"Target plans only 2 phases next turn",pal:["#986848","#28c848","#202830","#40f860"]},
-  {key:"MECHANIC",name:"BRAKK",role:"Mechanic",st:"ENG",passive:"Repair heals +2",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
+  {key:"MECHANIC",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +2",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e87800","#785828","#f8c850"]},
   {key:"TECH",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#28a0e8","#384048","#78e8f8"]},
-  {key:"QM",name:"SAL",role:"Quartermaster",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
+  {key:"QM",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#888888","#586838","#e8d878"]},
 ];
 const CREW_BY = Object.fromEntries(CREW.map(c=>[c.key,c]));
-const ST_COLOR = {NAV:"var(--nav)",ATK:"var(--atk)",ENG:"var(--eng)",ANY:"var(--any)"};
-const PORTRAIT = ["...hhhhhh...","..hhhhhhhh..",".hhhsssshhh.",".hhssssssh..","..sesssesa..","..ssssssss..",
-  "...ssaass...","....ssss....","..uuuaauuu..",".uuuuaauuuu.","uuuauuuuauuu","uuuuuuuuuuuu"];
 
-// ======================================================================
-// STATE
-// ======================================================================
-let G;
+// ---------------- RNG (seeded, part of the game state) ----------------
+function rnd(G,n){
+  let t=(G.rng=(G.rng+0x6D2B79F5)>>>0);
+  t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61);
+  const u=((t^(t>>>14))>>>0)/4294967296;
+  return 1+Math.floor(u*n);
+}
+function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return h; }
+
+// ---------------- STATE ----------------
 function newShip(pid,q,r,o){
-  return {pid,q,r,o,hp:R.MAX_HP,maxHp:R.MAX_HP,baseEnergy:R.START_ENERGY,parts:R.START_PARTS,ammo:R.START_AMMO,
+  return {pid,cls:null,q,r,o,hp:26,maxHp:26,baseEnergy:R.START_ENERGY,parts:R.START_PARTS,ammo:R.START_AMMO,
     sys:{eng:0,bst:0,dft:0,wpn:0},dmg:{SPEED:0,BOOST:0,DRIFT:0,WEAPONS:0},
     f:{targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null},
     crew:[],evasive:false,jammed:false,surge:0,autoBoost:false};
 }
-function newGame(){
-  G={screen:"draft",ships:[newShip(1,0,5,0),newShip(2,0,-5,3)],active:0,
+function newGame(seed){
+  seed=(seed>>>0)||1; setTerrainSeed(seed);
+  const G={v:2,seed,rng:seed,moves:[],ships:SPAWNS.map((s,i)=>newShip(i+1,s[0],s[1],s[2])),active:0,
     draft:{pool:CREW.map(c=>c.key),order:[0,1,1,0,0,1],idx:0},
-    phase:"CMD",queue:[],qi:0,repeated:false,st:"cmd",
-    nav:{speed:1,side:0},target:null,dc:0,dest:null,
-    log:[],handoff:false,roll:null,winner:null};
-  log("Crew draft. Player 1 picks first.");
+    phase:"DRAFT",queue:[],qi:0,repeated:false,st:"draft",target:null,dc:0,aim:null,
+    roll:null,winner:null,looted:[],turn:0,log:[],story:[],ev:[]};
+  tell(G,"open",{});
+  return G;
 }
-const S = ()=>G.ships[G.active];
-const other = s=>G.ships.find(x=>x!==s);
-function log(t,c=""){ G.log.unshift({t,c}); if(G.log.length>60) G.log.pop(); }
-const shipName = s=>"P"+s.pid;
+const S=G=>G.ships[G.active];
+const other=(G,s)=>G.ships.find(x=>x!==s);
+const tgt=G=>G.ships.find(x=>x.pid===G.target)||null;
+const shipName=s=>"P"+s.pid;
+function actor(G){ if(G.st==="over") return -1; return G.st==="draft"?G.draft.order[G.draft.idx]:G.active; }
+function log(G,t,c=""){ G.log.unshift({t,c}); if(G.log.length>80) G.log.pop(); }
+function ev(G,e){ G.ev.push(e); }
 
-// ---- derived values ----
+const cls=s=>CLASSES[s.cls]||{bst:0,dft:0,atk:0,dmg:0,rep:0};
 const has=(s,key)=>s.crew.some(c=>c.key===key&&!c.stun);
 function energyCap(s){ const p=s.hp/s.maxHp; if(p<R.HP_FAIL) return 0; if(p<R.HP_CRIT) return 1; return s.baseEnergy+(has(s,"TECH")?1:0); }
 const energyUsed=s=>s.sys.eng+s.sys.bst+s.sys.dft+s.sys.wpn;
 const hullPen=s=>(s.hp/s.maxHp<R.HP_FAIL?-1:0);
 const effEngine=s=>Math.max(0,s.sys.eng-s.dmg.SPEED);
-function integrity(s){
+function integrity(G,s){
   const cap=energyCap(s);
   if(energyUsed(s)>cap){
-    log(`${shipName(s)} power failure! Cap dropped to ${cap}.`,"bad");
+    log(G,`${shipName(s)} power failure! Cap dropped to ${cap}.`,"bad");
     s.sys={eng:0,bst:0,dft:0,wpn:0};
-    if(cap===1){ s.sys.eng=1; log("Emergency power to engines."); }
+    if(cap===1){ s.sys.eng=1; log(G,"Emergency power to engines."); }
   }
 }
 function crewMods(s,kind,target,consume){
@@ -273,42 +341,74 @@ function crewMods(s,kind,target,consume){
   }
   return m;
 }
+function rollCheck(G,label,sides,mods,vs,vsLabel,pid){
+  const v=rnd(G,sides), m=mods.filter(x=>x[0]!==0), total=v+m.reduce((a,x)=>a+x[0],0), ok=total>=vs;
+  G.roll={label,sides,die:v,mods:m,total,vs:`${vsLabel} ${vs}`,ok,pid};
+  log(G,`${label}: d${sides} ${v}${m.map(x=>` ${x[0]>0?"+":""}${x[0]} ${x[1]}`).join("")} = ${total} vs ${vsLabel} ${vs}`,ok?"ok":"bad");
+  ev(G,{t:"roll",roll:{...G.roll}});
+  return ok;
+}
 
-// ======================================================================
-// TURN FLOW
-// ======================================================================
-function startTurn(idx){
-  G.active=idx; const s=S();
+// ---------------- STORYTELLER ----------------
+// Deterministic: both players read the same chronicle.
+const TALES={
+  open:["The bazaar burns behind you. Somewhere past the dunes lies Europa, and only one of these ships will carry the tale.",
+        "Two hulls drift across the salt-flats of Tethys. The old roads to Europa are wide enough for one.",
+        "Wind scours the bones of the old world. Two crews have heard the same rumour of a relic, and neither will share it."],
+  turnFar:["{p} scans the horizon. A dust plume, far off, betrays the enemy.","The badlands swallow sound. {p}'s lookout swears the enemy is still out there.","{p}'s compass needle twitches toward the open flats, where old roads meet."],
+  turnNear:["{p} can see the enemy's crew on deck now. Nobody speaks.","Close enough to hear their engines. {p}'s gunners wipe sand from the sights.","{p} watches the enemy hull glint between the dunes."],
+  boostOk:["{p}'s engines roar and the hull leaps across the sand.","Sails snap, turbines scream, and {p} drives clean to the mark."],
+  boostFail:["{p}'s boost kicks too hard. The ship skates far past the mark.","A gust catches {p} broadside and flings it beyond its course."],
+  driftOk:["{p} carves a perfect arc through the dust.","The pilot of {p} leans into the drift and the ship obeys."],
+  driftFail:["{p} spins out in a spray of sand.","The rudders of {p} bite wrong and the ship slews sideways."],
+  crash:["{p} grinds into the rocks. Metal shrieks.","A ridge of old-world slag tears into {p}'s hull."],
+  ram:["The two hulls slam together. Crews are thrown across the decks."],
+  wreck:["{p} finds an old-world wreck half-buried in the dunes and strips it for parts.","Under the sand, {p}'s scavengers find the ribs of a dead machine. Useful bits come aboard."],
+  hit:["{p}'s shot finds its mark. Fire blooms on {t}'s hull.","A round from {p} punches through {t}'s plating."],
+  miss:["{p}'s shot kicks up a fountain of sand beside {t}.","The shell from {p} whistles past {t} and into the dunes."],
+  stun:["Shrapnel sweeps {t}'s deck. {c} goes down hard."],
+  crit:["{t}'s {s} sputters and smokes."],
+  repair:["{p}'s engineers weld scrap over the worst of the holes."],
+  order:["{c} of {p}: \"{o}!\""],
+  win:["{p} stands alone on the sand. The road to Europa is theirs, for now.","The dust settles. Only {p} still flies, and the Immortals will hear of it."],
+};
+function tell(G,key,vars){
+  const opts=TALES[key]; if(!opts) return;
+  const h=hashStr(G.seed+":"+G.moves.length+":"+G.story.length+":"+key);
+  let t=opts[h%opts.length];
+  for(const k in vars) t=t.split("{"+k+"}").join(vars[k]);
+  G.story.unshift(t); if(G.story.length>40) G.story.pop();
+  ev(G,{t:"story",text:t});
+}
+const cname=s=>s.cls?`P${s.pid}'s ${CLASSES[s.cls].name.toLowerCase()}`:`P${s.pid}`;
+
+// ---------------- TURN FLOW ----------------
+function startTurn(G,idx){
+  G.active=idx; const s=S(G); G.turn++;
   s.f={targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null};
   s.evasive=false; s.crew.forEach(c=>{ if(c.rest>0) c.rest--; });
-  G.repeated=false; G.phase="CMD"; G.queue=[]; G.qi=0; G.st="cmd"; G.target=null; G.roll=null;
-  log(`— Turn: Player ${s.pid} —`,"p"+s.pid);
-  if(s.jammed) log(`${shipName(s)} comms jammed: only 2 phases.`,"bad");
-  integrity(s);
-  G.handoff=true;
+  G.repeated=false; G.phase="CMD"; G.queue=[]; G.qi=0; G.st="cmd"; G.target=null; G.roll=null; G.aim=null;
+  log(G,`— Turn ${G.turn}: Player ${s.pid} —`,"p"+s.pid);
+  if(s.jammed) log(G,`${shipName(s)} comms jammed: only 2 phases.`,"bad");
+  integrity(G,s);
+  const o=other(G,s);
+  tell(G,hexDist(o.q-s.q,o.r-s.r)<=4?"turnNear":"turnFar",{p:cname(s)});
+  ev(G,{t:"turn",pid:s.pid});
 }
-function endTurn(){
-  const s=S();
+function endTurn(G){
+  const s=S(G);
   s.jammed=false; s.surge=0; s.autoBoost=false; s.crew.forEach(c=>c.stun=false);
-  startTurn(G.ships.indexOf(other(s)));
+  startTurn(G,G.ships.indexOf(other(G,s)));
 }
-const slotsAllowed=()=>S().jammed?2:3;
-function pickPhase(p){
-  if(G.queue.includes(p)) return;
-  G.queue.push(p);
-  if(G.queue.length===slotsAllowed()){ log("Sequence locked: "+G.queue.join(" → ")); beginPhase(0); }
-}
-function beginPhase(i){
-  G.qi=i; G.phase=G.queue[i]; G.target=null; const s=S();
-  if(G.phase==="NAV"){ G.st="nav_pick"; G.nav={speed:1,side:0}; fixNavSide(); }
+const slotsAllowed=G=>S(G).jammed?2:3;
+function beginPhase(G,i){
+  G.qi=i; G.phase=G.queue[i]; G.target=null; G.aim=null; const s=S(G);
+  if(G.phase==="NAV") G.st="nav_pick";
   if(G.phase==="ATK"){ Object.assign(s.f,{targeted:false,reloaded:false,fired:false,locked:false,debuff:null}); G.st="atk_acquire"; }
-  if(G.phase==="ENG"){ G.st="eng"; }
+  if(G.phase==="ENG") G.st="eng";
 }
-function endPhase(){
-  if(G.qi+1<G.queue.length) beginPhase(G.qi+1); else endTurn();
-}
+function endPhase(G){ if(G.qi+1<G.queue.length) beginPhase(G,G.qi+1); else endTurn(G); }
 
-// ---------------- NAV ----------------
 function navOption(s,speed,side){
   const ee=effEngine(s), total=speed+ee*R.ENG_DIST_BONUS;
   const [rq,rr]=navToCoords(s.o,side,total-1);
@@ -317,132 +417,44 @@ function navOption(s,speed,side){
   return {speed,side,q:s.q+rq,r:s.r+rr,dc:Math.trunc((R.DC_BASE+total+m)*(1+ee*R.ENG_DC_MULT))};
 }
 function allNavOptions(s){ const o=[]; for(let sp=1;sp<=3;sp++) for(let sd=-3;sd<=3;sd++){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
-function fixNavSide(){
-  const s=S(); if(navOption(s,G.nav.speed,G.nav.side)) return;
-  for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,G.nav.speed,d)){ G.nav.side=d; return; }
-}
-function doBoost(){
-  const s=S(), opt=navOption(s,G.nav.speed,G.nav.side); if(!opt) return;
-  G.dc=opt.dc; G.aim={q:opt.q,r:opt.r};
-  const finish=ok=>{
-    if(ok){ log("Boost success. Maneuvering.","ok"); G.dest={q:opt.q,r:opt.r}; }
-    else {
-      log("Boost failed! Overshooting +50%.","bad");
-      const [q,r]=hexRound(s.q+(opt.q-s.q)*1.5, s.r+(opt.r-s.r)*1.5); G.dest={q,r};
-    }
-    startMove();
-  };
-  if(s.autoBoost){ s.autoBoost=false; G.roll={label:"BOOST",sides:20,auto:true,ok:true,vs:"DC "+opt.dc}; log("Afterburn! Boost auto-succeeds.","ok"); finish(true); render(); return; }
-  rollCheck("BOOST",20,[[s.sys.bst,"BST"],[hullPen(s),"hull"],[-s.dmg.BOOST,"dmg"],...crewMods(s,"BOOST",null,true)],opt.dc,"DC",finish);
-}
-let anim=null;
-function startMove(){
-  const s=S(); G.st="moving";
-  anim={from:{q:s.q,r:s.r},to:G.dest,t0:performance.now(),dur:650+180*hexDist(G.dest.q-s.q,G.dest.r-s.r)};
-  render();
-}
-function arrive(){
-  const s=S(); s.q=G.dest.q; s.r=G.dest.r; anim=null;
-  if(isObstacle(s.q,s.r)){ log(`${shipName(s)} crashed into rock!`,"bad"); damage(s,R.CRASH_DMG); }
-  const o=other(s);
-  if(o.hp>0&&o.q===s.q&&o.r===s.r){ log("Collision! Both ships rammed.","bad"); damage(s,R.CRASH_DMG); damage(o,R.CRASH_DMG); }
-  if(checkWin()) return;
-  G.st="nav_drift"; render();
-}
-function doDrift(){
-  const s=S();
-  rollCheck("DRIFT",20,[[s.sys.dft,"DFT"],[hullPen(s),"hull"],[-s.dmg.DRIFT,"dmg"],...crewMods(s,"DRIFT",null,true)],G.dc,"DC",ok=>{
-    s.f.drift=ok;
-    if(ok){ log("Drift stable. Set your heading.","ok"); G.st="nav_heading"; }
-    else { s.o=mod(s.o+(Math.random()<.5?-1:1),6); log(`Drift failed — spun out to ${DIR_NAMES[s.o]}.`,"bad"); G.st="done"; }
-  });
-}
-
-// ---------------- ATK ----------------
 function arcInfo(s,t){
   if(!t||t.hp<=0) return null;
-  const [side,sp]=relInfo(Math.round(t.q)-Math.round(s.q),Math.round(t.r)-Math.round(s.r),s.o);
+  const [side,sp]=relInfo(t.q-s.q,t.r-s.r,s.o);
   if(side===null||sp<0||sp>2||Math.abs(side)>3) return null;
   return {range:sp+1,side};
 }
 function arcHexes(s){ const h=[]; for(let d=1;d<=3;d++) for(let sd=-3;sd<=3;sd++){ const [q,r]=navToCoords(s.o,sd,d-1); h.push([s.q+q,s.r+r]); } return h; }
-function acquire(){ const s=S(), t=other(s); if(!arcInfo(s,t)) return; G.target=t.pid; G.st="atk_menu"; log(`Target acquired: ${shipName(t)}.`,"ok"); }
-const tgt=()=>G.ships.find(x=>x.pid===G.target)||null;
-function doReload(){ const s=S(); s.ammo=Math.max(s.ammo,has(s,"QM")?2:1); s.f.reloaded=true; log(`Reloaded. Ammo ${s.ammo}.`); }
-function doLock(){
-  const s=S(), t=tgt();
-  rollCheck("LOCK",20,[[s.sys.wpn,"WPN"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"LOCK",t,true)],R.LOCK_DC,"DC",ok=>{
-    if(ok){ s.f.locked=true; log("Lock confirmed. Pick a system to cripple.","ok"); G.st="atk_debuff"; }
-    else { s.f.targeted=true; log("Lock failed.","bad"); G.st="atk_menu"; }
-  });
+
+function damage(G,s,n){
+  s.hp=Math.max(0,s.hp-n); ev(G,{t:"hit",pid:s.pid,n});
+  if(s.hp===0) log(G,`${shipName(s)} hull breached — ship lost!`,"bad");
+  else { log(G,`${shipName(s)} takes ${n} damage (${s.hp} left).`,"bad"); integrity(G,s); }
 }
-function chooseDebuff(k){ const s=S(); s.f.debuff=k; s.f.targeted=true; log(`Aiming at enemy ${k.toLowerCase()}.`); G.st="atk_menu"; }
-function doFire(){
-  const s=S(), t=tgt(), ai=arcInfo(s,t); if(!ai) return;
-  const ac=R.BASE_AC+R.AC_DIST[ai.range-1];
-  s.ammo--; s.f.fired=true;
-  fx.shot(s,t);
-  rollCheck("ATTACK",20,[[s.f.locked?R.LOCK_BONUS:0,"lock"],[s.sys.wpn,"WPN"],[hullPen(s),"hull"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"ATK",t,true)],ac,"AC",ok=>{
-    if(ok){ log("Hit! Roll damage.","ok"); G.st="atk_dmg"; }
-    else { log("Shot missed.","bad"); fx.miss(t); s.f.locked=false; s.f.debuff=null; G.st="atk_menu"; }
-  });
-}
-function doDamage(){
-  const s=S(), t=tgt();
-  rollDie(6,v=>{
-    const n=Math.max(1,v+R.DMG_BONUS+s.sys.wpn-s.dmg.WEAPONS);
-    G.roll={label:"DAMAGE",sides:6,die:v,mods:[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[-s.dmg.WEAPONS,"dmg"]],total:n,dmg:true};
-    damage(t,n);
-    if(t.hp>0&&s.f.debuff){
-      if(s.f.debuff==="CREW") stunCrew(t);
-      else { t.dmg[s.f.debuff]++; log(`Critical: ${shipName(t)} ${s.f.debuff.toLowerCase()} −1.`,"bad"); }
-    }
-    s.f.debuff=null; s.f.locked=false;
-    if(checkWin()) return;
-    G.st="atk_menu";
-  });
-}
-function stunCrew(t){
-  const pool=t.crew.filter(c=>!c.stun);
-  if(!pool.length){ log("No crew left to stun."); return; }
-  const c=pool[Math.floor(Math.random()*pool.length)]; c.stun=true;
-  log(`Crew hit: ${shipName(t)} ${CREW_BY[c.key].name} stunned!`,"bad");
-}
-function damage(s,n){
-  s.hp=Math.max(0,s.hp-n); fx.hit(s,n);
-  if(s.hp===0) log(`${shipName(s)} hull breached — ship lost!`,"bad");
-  else { log(`${shipName(s)} takes ${n} damage (${s.hp} left).`,"bad"); integrity(s); }
-}
-function checkWin(){
+function checkWin(G){
   const alive=G.ships.filter(s=>s.hp>0);
-  if(alive.length<=1){ G.winner=alive[0]||null; G.st="over"; render(); return true; }
+  if(alive.length<=1){
+    G.winner=alive[0]?alive[0].pid:0; G.st="over"; G.phase="OVER";
+    if(alive[0]) tell(G,"win",{p:cname(alive[0])});
+    return true;
+  }
   return false;
 }
-
-// ---------------- ENG ----------------
-function sysAdd(k,dir){
-  const s=S();
-  if(dir>0){ if(energyUsed(s)>=energyCap(s)) return; if(k==="eng"&&s.sys.eng>=2) return; s.sys[k]++; }
-  else if(s.sys[k]>0) s.sys[k]--;
-}
-function doRepair(){
-  const s=S(); if(s.parts<=0) return;
-  const v=1+Math.floor(Math.random()*4), heal=v+1+(has(s,"MECHANIC")?2:0);
-  s.parts--; s.hp=Math.min(s.maxHp,s.hp+heal);
-  G.roll={label:"REPAIR",sides:4,die:v,mods:[[1,"base"],...(has(s,"MECHANIC")?[[2,"BRAKK"]]:[])],total:heal,heal:true};
-  log(`Repaired ${heal} hull. Parts left: ${s.parts}.`,"ok"); integrity(s);
+function stunCrew(G,t){
+  const pool=t.crew.filter(c=>!c.stun);
+  if(!pool.length){ log(G,"No crew left to stun."); return; }
+  const c=pool[rnd(G,pool.length)-1]; c.stun=true;
+  log(G,`Crew hit: ${shipName(t)} ${CREW_BY[c.key].name} stunned!`,"bad");
+  tell(G,"stun",{t:cname(t),c:CREW_BY[c.key].name});
 }
 
-// ---------------- CREW ORDERS ----------------
-function orderBlock(s,c){
+function orderBlock(G,s,c){
   const d=CREW_BY[c.key];
-  if(G.st==="over"||s!==S()||G.handoff) return "Not your turn";
+  if(G.st==="over"||s!==S(G)||G.st==="draft") return "Not your turn";
   if(c.stun) return "Stunned";
   if(c.rest>0) return `Resting ${c.rest}`;
   if(G.phase==="CMD") return "Plan phases first";
   if(d.st!=="ANY"&&d.st!==G.phase) return `${d.st} phase only`;
-  if(G.st==="moving"||G.roll&&G.roll.rolling) return "Wait";
-  const t=tgt();
+  const t=tgt(G);
   switch(c.key){
     case "CAPTAIN": return G.repeated?"Already repeated":null;
     case "ACE": return G.st!=="nav_pick"?"Use before boost":s.autoBoost?"Primed":null;
@@ -456,45 +468,320 @@ function orderBlock(s,c){
   }
   return null;
 }
-function useOrder(i){
-  const s=S(), c=s.crew[i]; if(!c||orderBlock(s,c)) return;
-  const d=CREW_BY[c.key];
+
+// ---------------- LEGAL MOVES ----------------
+function legal(G){
+  const L=[];
+  if(G.st==="over") return L;
+  if(G.st==="draft"){
+    const s=G.ships[actor(G)];
+    if(!s.cls) for(const k in CLASSES) L.push("C:"+k);
+    else for(const k of G.draft.pool) L.push("R:"+k);
+    return L;
+  }
+  const s=S(G);
+  if(G.phase!=="CMD") s.crew.forEach((c,i)=>{ if(!orderBlock(G,s,c)) L.push("O:"+(i+1)); });
+  switch(G.st){
+    case "cmd": for(const p of ["NAV","ATK","ENG"]) if(!G.queue.includes(p)) L.push("Q:"+p); if(G.queue.length) L.push("Q-"); break;
+    case "nav_pick": {
+      const opts=allNavOptions(s);
+      for(const o of opts) L.push(`B:${o.speed}:${o.side>0?"+":""}${o.side}`);
+      if(!opts.length) L.push("PIVOT:L","PIVOT:R");
+      L.push("END"); break; }
+    case "nav_drift": L.push("DRIFT"); break;
+    case "nav_heading": for(const d of DIR_NAMES) L.push("H:"+d); break;
+    case "done": L.push("END"); break;
+    case "atk_acquire": if(arcInfo(s,other(G,s))) L.push("TGT"); if(!s.f.reloaded) L.push("RLD"); L.push("END"); break;
+    case "atk_menu": {
+      const t=tgt(G);
+      if(!s.f.targeted&&!s.f.reloaded&&s.f.drift) L.push("LOCK");
+      if(!s.f.targeted&&!s.f.reloaded) L.push("RLD");
+      if(!s.f.fired&&s.ammo>0&&arcInfo(s,t)) L.push("FIRE");
+      L.push("END"); break; }
+    case "atk_debuff": for(const [k] of DEBUFFS) L.push("AIM:"+k); break;
+    case "atk_dmg": L.push("DMG"); break;
+    case "eng": {
+      const cap=energyCap(s), used=energyUsed(s);
+      for(const [k,lab] of SYS){ const K=Object.keys(SYS_KEYS).find(x=>SYS_KEYS[x]===k);
+        if(used<cap&&!(k==="eng"&&s.sys.eng>=2)) L.push("+"+K);
+        if(s.sys[k]>0) L.push("-"+K); }
+      if(s.parts>0&&s.hp<s.maxHp) L.push("REP");
+      L.push("END"); break; }
+  }
+  return L;
+}
+
+// ---------------- APPLY ----------------
+function apply(G,a){
+  if(!legal(G).includes(a)) throw new Error("Illegal move: "+a+" (state "+G.st+")");
+  G.moves.push(a); G.ev=[];
+  if(a.startsWith("O:")) { useOrder(G,+a.slice(2)-1); return G; }
+  const [head,arg,arg2]=a.split(":");
+  switch(G.st){
+    case "draft": draftMove(G,head,arg); break;
+    case "cmd":
+      if(a==="Q-") G.queue.pop();
+      else { G.queue.push(arg); if(G.queue.length===slotsAllowed(G)){ log(G,"Plan: "+G.queue.join(" → ")); beginPhase(G,0); } }
+      break;
+    case "nav_pick":
+      if(a==="END"){ endPhase(G); break; }
+      if(head==="PIVOT"){ const s=S(G); s.o=mod(s.o+(arg==="L"?-1:1),6); log(G,`Pivot in place to ${DIR_NAMES[s.o]}.`); G.st="done"; break; }
+      doBoost(G,+arg,+arg2); break;
+    case "nav_drift": doDrift(G); break;
+    case "nav_heading": S(G).o=DIR_NAMES.indexOf(arg); log(G,`Heading locked: ${arg}.`); G.st="done"; break;
+    case "done": endPhase(G); break;
+    case "atk_acquire": case "atk_menu":
+      if(a==="END"){ endPhase(G); break; }
+      if(a==="TGT"){ const t=other(G,S(G)); G.target=t.pid; G.st="atk_menu"; log(G,`Target acquired: ${shipName(t)}.`,"ok"); break; }
+      if(a==="RLD"){ const s=S(G); s.ammo=Math.max(s.ammo,has(s,"QM")?2:1); s.f.reloaded=true; log(G,`Reloaded. Ammo ${s.ammo}.`); break; }
+      if(a==="LOCK"){ doLock(G); break; }
+      if(a==="FIRE"){ doFire(G); break; }
+      break;
+    case "atk_debuff": { const s=S(G); s.f.debuff=arg; s.f.targeted=true; log(G,`Aiming at enemy ${arg.toLowerCase()}.`); G.st="atk_menu"; break; }
+    case "atk_dmg": doDamage(G); break;
+    case "eng": {
+      const s=S(G);
+      if(a==="END"){ endPhase(G); break; }
+      if(a==="REP"){ doRepair(G); break; }
+      const k=SYS_KEYS[a.slice(1)]; s.sys[k]+=a[0]==="+"?1:-1; break; }
+  }
+  return G;
+}
+function draftMove(G,head,key){
+  const s=G.ships[actor(G)];
+  if(head==="C"){
+    const c=CLASSES[key]; s.cls=key; s.maxHp=s.hp=c.hull; s.baseEnergy=c.energy; s.parts=c.parts;
+    log(G,`P${s.pid} takes the ${c.name}.`,"p"+s.pid); return;
+  }
+  G.draft.pool=G.draft.pool.filter(k=>k!==key); s.crew.push({key,rest:0,stun:false});
+  if(key==="QM") s.parts++;
+  log(G,`P${s.pid} recruits ${CREW_BY[key].name} (${CREW_BY[key].role}).`,"p"+s.pid);
+  G.draft.idx++;
+  if(G.draft.idx>=G.draft.order.length) startTurn(G,0);
+}
+function doBoost(G,speed,side){
+  const s=S(G), opt=navOption(s,speed,side);
+  G.dc=opt.dc; G.aim={q:opt.q,r:opt.r};
+  let ok;
+  if(s.autoBoost){ s.autoBoost=false; ok=true; G.roll={label:"BOOST",sides:20,auto:true,ok:true,vs:"DC "+opt.dc,pid:s.pid}; ev(G,{t:"roll",roll:{...G.roll}}); log(G,"Afterburn! Boost auto-succeeds.","ok"); }
+  else ok=rollCheck(G,"BOOST",20,[[s.sys.bst,"BST"],[cls(s).bst,"hull class"],[hullPen(s),"hull"],[-s.dmg.BOOST,"dmg"],...crewMods(s,"BOOST",null,true)],opt.dc,"DC",s.pid);
+  let dest;
+  if(ok){ log(G,"Boost success.","ok"); dest={q:opt.q,r:opt.r}; tell(G,"boostOk",{p:cname(s)}); }
+  else { log(G,"Boost failed! Overshooting +50%.","bad"); const [q,r]=hexRound(s.q+(opt.q-s.q)*1.5, s.r+(opt.r-s.r)*1.5); dest={q,r}; tell(G,"boostFail",{p:cname(s)}); }
+  ev(G,{t:"move",pid:s.pid,from:{q:s.q,r:s.r},to:dest});
+  s.q=dest.q; s.r=dest.r;
+  const tt=terrain(s.q,s.r);
+  if(isObstacle(s.q,s.r)){ log(G,`${shipName(s)} crashed into ${TERRAIN_NAMES[tt].toLowerCase()}!`,"bad"); tell(G,"crash",{p:cname(s)}); damage(G,s,R.CRASH_DMG); }
+  const k=s.q+","+s.r;
+  if(tt===4&&!G.looted.includes(k)){ G.looted.push(k); s.parts++; log(G,`${shipName(s)} salvages a wreck: +1 spare part.`,"ok"); tell(G,"wreck",{p:cname(s)}); }
+  const o=other(G,s);
+  if(o.hp>0&&o.q===s.q&&o.r===s.r){ log(G,"Collision! Both ships rammed.","bad"); tell(G,"ram",{}); damage(G,s,R.CRASH_DMG); damage(G,o,R.CRASH_DMG); }
+  if(checkWin(G)) return;
+  G.st="nav_drift";
+}
+function doDrift(G){
+  const s=S(G);
+  const ok=rollCheck(G,"DRIFT",20,[[s.sys.dft,"DFT"],[cls(s).dft,"hull class"],[hullPen(s),"hull"],[-s.dmg.DRIFT,"dmg"],...crewMods(s,"DRIFT",null,true)],G.dc,"DC",s.pid);
+  s.f.drift=ok;
+  if(ok){ log(G,"Drift stable. Set your heading.","ok"); G.st="nav_heading"; tell(G,"driftOk",{p:cname(s)}); }
+  else { s.o=mod(s.o+(rnd(G,2)===1?-1:1),6); log(G,`Drift failed — spun out to ${DIR_NAMES[s.o]}.`,"bad"); tell(G,"driftFail",{p:cname(s)}); G.st="done"; }
+}
+function doLock(G){
+  const s=S(G), t=tgt(G);
+  const ok=rollCheck(G,"LOCK",20,[[s.sys.wpn,"WPN"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"LOCK",t,true)],R.LOCK_DC,"DC",s.pid);
+  if(ok){ s.f.locked=true; log(G,"Lock confirmed. Pick a system to cripple.","ok"); G.st="atk_debuff"; }
+  else { s.f.targeted=true; log(G,"Lock failed.","bad"); G.st="atk_menu"; }
+}
+function doFire(G){
+  const s=S(G), t=tgt(G), ai=arcInfo(s,t);
+  const ac=R.BASE_AC+R.AC_DIST[ai.range-1];
+  s.ammo--; s.f.fired=true;
+  const ok=rollCheck(G,"ATTACK",20,[[s.f.locked?R.LOCK_BONUS:0,"lock"],[s.sys.wpn,"WPN"],[cls(s).atk,"hull class"],[hullPen(s),"hull"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"ATK",t,true)],ac,"AC",s.pid);
+  ev(G,{t:"shot",from:s.pid,to:t.pid,hit:ok});
+  if(ok){ log(G,"Hit! Roll damage.","ok"); G.st="atk_dmg"; }
+  else { log(G,"Shot missed.","bad"); tell(G,"miss",{p:cname(s),t:cname(t)}); ev(G,{t:"miss",pid:t.pid}); s.f.locked=false; s.f.debuff=null; G.st="atk_menu"; }
+}
+function doDamage(G){
+  const s=S(G), t=tgt(G);
+  const v=rnd(G,6), mods=[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[cls(s).dmg,"hull class"],[-s.dmg.WEAPONS,"dmg"]].filter(x=>x[0]!==0);
+  const n=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0));
+  G.roll={label:"DAMAGE",sides:6,die:v,mods,total:n,dmg:true,pid:s.pid};
+  ev(G,{t:"roll",roll:{...G.roll}});
+  tell(G,"hit",{p:cname(s),t:cname(t)});
+  damage(G,t,n);
+  if(t.hp>0&&s.f.debuff){
+    if(s.f.debuff==="CREW") stunCrew(G,t);
+    else { t.dmg[s.f.debuff]++; log(G,`Critical: ${shipName(t)} ${s.f.debuff.toLowerCase()} −1.`,"bad"); tell(G,"crit",{t:cname(t),s:s.f.debuff.toLowerCase()}); }
+  }
+  s.f.debuff=null; s.f.locked=false;
+  if(checkWin(G)) return;
+  G.st="atk_menu";
+}
+function doRepair(G){
+  const s=S(G);
+  const v=rnd(G,4), extra=(has(s,"MECHANIC")?2:0)+cls(s).rep, heal=Math.max(1,v+1+extra);
+  s.parts--; s.hp=Math.min(s.maxHp,s.hp+heal);
+  G.roll={label:"REPAIR",sides:4,die:v,mods:[[1,"base"],[extra,"crew/class"]].filter(x=>x[0]),total:heal,heal:true,pid:s.pid};
+  ev(G,{t:"roll",roll:{...G.roll}});
+  log(G,`Repaired ${heal} hull. Parts left: ${s.parts}.`,"ok"); tell(G,"repair",{p:cname(s)}); integrity(G,s);
+}
+function useOrder(G,i){
+  const s=S(G), c=s.crew[i], d=CREW_BY[c.key];
   switch(c.key){
-    case "CAPTAIN": G.queue.splice(G.qi+1,0,G.phase); G.repeated=true; log(`${G.phase} phase will repeat.`); break;
+    case "CAPTAIN": G.queue.splice(G.qi+1,0,G.phase); G.repeated=true; log(G,`${G.phase} phase will repeat.`); break;
     case "ACE": s.autoBoost=true; break;
     case "DRIFTER": s.evasive=true; break;
     case "GUNNER": s.ammo++; s.f.fired=false; break;
     case "SPOTTER": s.f.locked=true; G.st="atk_debuff"; break;
-    case "JAMMER": tgt().jammed=true; break;
+    case "JAMMER": tgt(G).jammed=true; break;
     case "MECHANIC": for(const k in s.dmg) s.dmg[k]=Math.max(0,s.dmg[k]-1); break;
     case "TECH": s.surge=5; break;
     case "QM": s.parts+=2; break;
   }
   c.rest=R.REST;
-  log(`Order: ${d.name} — ${d.order}. ${d.text}.`,"crew");
-  fx.order(s,d);
-  render();
+  log(G,`Order: ${d.name} — ${d.order}. ${d.text}.`,"crew");
+  tell(G,"order",{c:d.name,p:cname(s),o:d.order});
+  ev(G,{t:"order",pid:s.pid,text:d.order});
 }
 
-// ---------------- DICE ----------------
-function rollDie(sides,cb){
-  G.roll={sides,rolling:true,shown:1};
-  const t0=performance.now(), reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const tick=()=>{
-    if(!G.roll||!G.roll.rolling) return;
-    G.roll.shown=1+Math.floor(Math.random()*sides); paintDie();
-    if(performance.now()-t0<(reduce?50:520)) setTimeout(tick,60);
-    else { const v=1+Math.floor(Math.random()*sides); G.roll.rolling=false; cb(v); render(); }
-  };
-  render(); tick();
+// ---------------- RECORD / NOTATION ----------------
+// Moves are grouped into "plies": consecutive moves by the same player.
+function replay(seed,moves){ const G=newGame(seed); for(const m of moves) apply(G,m); G.ev=[]; return G; }
+function plies(seed,moves){
+  const G=newGame(seed), out=[]; let cur=null;
+  for(const m of moves){
+    const who=actor(G);
+    if(!cur||cur.who!==who){ cur={who,moves:[]}; out.push(cur); }
+    cur.moves.push(m); apply(G,m);
+  }
+  return out;
 }
-function rollCheck(label,sides,mods,vs,vsLabel,cb){
-  rollDie(sides,v=>{
-    const m=mods.filter(x=>x[0]!==0), total=v+m.reduce((a,x)=>a+x[0],0), ok=total>=vs;
-    G.roll={label,sides,die:v,mods:m,total,vs:`${vsLabel} ${vs}`,ok};
-    log(`${label}: d${sides} ${v}${m.map(x=>` ${x[0]>0?"+":""}${x[0]} ${x[1]}`).join("")} = ${total} vs ${vsLabel} ${vs}`,ok?"ok":"bad");
-    cb(ok);
-  });
+function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
+function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
+
+if(typeof module!=="undefined") module.exports={setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+</script>
+<script>
+// ======================================================================
+// TETHYS UI — rendering, input, online move codes. Game rules live in logic.js.
+// ======================================================================
+"use strict";
+let G=null;
+let MODE={mode:"local",seat:0};                 // local hotseat, or online with my seat (0/1)
+const UI={screen:"title",speed:1,side:0,handoff:false,busy:false,rolling:null,shown:null,
+  focus:null,share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
+const SAVE_KEY="tethys.v2";
+const P_COLORS=["#ffcf4a","#5fd0ff"];
+const ST_COLOR={NAV:"var(--nav)",ATK:"var(--atk)",ENG:"var(--eng)",ANY:"var(--any)"};
+const PORTRAIT=["...hhhhhh...","..hhhhhhhh..",".hhhsssshhh.",".hhssssssh..","..sesssesa..","..ssssssss..",
+  "...ssaass...","....ssss....","..uuuaauuu..",".uuuuaauuuu.","uuuauuuuauuu","uuuuuuuuuuuu"];
+const HP_LOW=0.4;
+const reduceMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sleep=ms=>new Promise(r=>setTimeout(r,reduceMotion()?Math.min(ms,60):ms));
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const myTurn=()=>G&&G.st!=="over"&&(MODE.mode==="local"||actor(G)===MODE.seat);
+
+// ---------------- SAVE / LOAD ----------------
+function save(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify({seed:G.seed,moves:G.moves,mode:MODE.mode,seat:MODE.seat,share:UI.share,shareText:UI.shareText})); }catch(e){} }
+function loadSave(){ try{ const d=JSON.parse(localStorage.getItem(SAVE_KEY)||"null"); return d&&d.seed?d:null; }catch(e){ return null; } }
+function restore(d){
+  try{ G=replay(d.seed,d.moves); }catch(e){ G=null; return false; }
+  MODE={mode:d.mode||"local",seat:d.seat||0}; UI.share=d.share||null; UI.shareText=d.shareText||"";
+  UI.screen="game"; UI.handoff=false; UI.lastSeenTurn=G.turn; return true;
+}
+
+// ---------------- MOVE CODES ----------------
+// A code holds the seed and the whole move list, so it always resyncs both games.
+const b64u={enc:b=>{ let s=""; for(const x of b) s+=String.fromCharCode(x); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); },
+  dec:s=>{ s=s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="="; const t=atob(s); return Uint8Array.from(t,c=>c.charCodeAt(0)); }};
+async function pipe(bytes,stream){ const r=new Response(new Blob([bytes]).stream().pipeThrough(stream)); return new Uint8Array(await r.arrayBuffer()); }
+async function encodeGame(seed,moves){
+  const raw=new TextEncoder().encode(seed+"|"+moves.join(" "));
+  try{ if(typeof CompressionStream!=="undefined") return "TETHYS-"+b64u.enc(await pipe(raw,new CompressionStream("deflate-raw"))); }catch(e){}
+  return "TETHYS0-"+b64u.enc(raw);
+}
+async function decodeGame(text){
+  const m=String(text).match(/TETHYS(0?)-([A-Za-z0-9_-]+)/);
+  if(!m) throw new Error("No move code found. Paste the whole message your friend sent.");
+  let bytes=b64u.dec(m[2]);
+  if(!m[1]) bytes=await pipe(bytes,new DecompressionStream("deflate-raw"));
+  const s=new TextDecoder().decode(bytes), i=s.indexOf("|");
+  const seed=+s.slice(0,i), moves=s.slice(i+1).split(" ").filter(Boolean);
+  if(!seed) throw new Error("This code is damaged.");
+  return {seed,moves};
+}
+async function makeShare(){
+  const ps=plies(G.seed,G.moves), last=ps[ps.length-1];
+  UI.share=await encodeGame(G.seed,G.moves); UI.msg=""; UI.msgErr=false;
+  UI.shareText=`Tethys · move ${ps.length} · P${last.who+1}: ${plyText(last)}\n${UI.share}`;
+  save(); render();
+}
+
+// ---------------- PLAYING MOVES ----------------
+async function act(m){
+  if(UI.busy||!myTurn()) return;
+  if(!legal(G).includes(m)) return;
+  const before=actor(G);
+  apply(G,m); const evs=G.ev; G.ev=[];
+  save();
+  await present(evs);
+  if(MODE.mode==="online"&&before===MODE.seat&&actor(G)!==MODE.seat) await makeShare();
+  render();
+}
+async function present(evs){
+  if(!evs.length){ return; }
+  UI.busy=true; document.body.classList.add("busy");
+  for(const e of evs){
+    if(e.t==="move"){ disp[e.pid]={q:e.from.q,r:e.from.r}; }
+  }
+  for(const e of evs){
+    switch(e.t){
+      case "roll":
+        UI.focus=e.roll.pid||UI.focus; UI.rolling={sides:e.roll.sides,shown:1}; paintDice();
+        { const t0=performance.now(); while(performance.now()-t0<(reduceMotion()?60:480)){ UI.rolling.shown=1+Math.floor(Math.random()*e.roll.sides); paintDice(); await new Promise(r=>setTimeout(r,60)); } }
+        UI.rolling=null; UI.shown=e.roll; paintDice(); await sleep(260); break;
+      case "move": {
+        UI.focus=e.pid; const dur=reduceMotion()?80:600+160*hexDist(e.to.q-e.from.q,e.to.r-e.from.r);
+        disp[e.pid]={anim:{from:e.from,to:e.to,t0:performance.now(),dur}}; await new Promise(r=>setTimeout(r,dur));
+        delete disp[e.pid]; break; }
+      case "shot": UI.focus=e.from; fx.shot(e.from,e.to); await sleep(340); break;
+      case "hit": fx.hit(e.pid,e.n); await sleep(260); break;
+      case "miss": fx.text(e.pid,"MISS","#d8d0f0"); break;
+      case "order": fx.text(e.pid,e.text.toUpperCase(),"#ffe066"); await sleep(200); break;
+      case "story": paintStory(e.text); await sleep(120); break;
+      case "turn": if(MODE.mode==="local") UI.handoff=true; UI.focus=null; break;
+    }
+  }
+  for(const k in disp) delete disp[k];
+  UI.busy=false; document.body.classList.remove("busy"); UI.focus=null;
+}
+async function importCode(text){
+  UI.msg=""; UI.msgErr=false; UI.joinMsg="";
+  let d;
+  try{ d=await decodeGame(text); }catch(e){ return fail(e.message); }
+  let tail;
+  if(!G||G.seed!==d.seed){
+    // new game from a friend's code: catch up silently, then watch their latest move
+    const ps=plies(d.seed,d.moves), last=ps.length?ps[ps.length-1].moves.length:0;
+    try{ G=replay(d.seed,d.moves.slice(0,d.moves.length-last)); }catch(e){ return fail("This code contains an illegal move."); }
+    tail=d.moves.slice(d.moves.length-last);
+    MODE={mode:"online",seat:null}; UI.share=null; UI.shareText="";
+  } else {
+    const n=G.moves.length;
+    const prefix=d.moves.slice(0,n).every((m,i)=>m===G.moves[i]);
+    if(!prefix) return fail("This code doesn't continue your game. It may be from an older turn, or from a different game.");
+    if(d.moves.length<=n) return fail(d.moves.length===n?"You already have this move.":"This code is older than your game. You already have these moves.");
+    tail=d.moves.slice(n);
+  }
+  UI.screen="game"; UI.handoff=false; render();
+  for(const m of tail){
+    try{ apply(G,m); }catch(e){ return fail("This code contains an illegal move. Ask your friend to send it again."); }
+    const evs=G.ev; G.ev=[]; await present(evs);
+  }
+  if(MODE.seat===null) MODE.seat=Math.max(0,actor(G));
+  UI.msg=G.st==="over"?"Game over.":"Their move is in. Your turn.";
+  UI.share=null; save(); render();
+  function fail(t){ UI.msg=t; UI.msgErr=true; UI.joinMsg=t; render(); }
 }
 
 // ======================================================================
@@ -502,18 +789,13 @@ function rollCheck(label,sides,mods,vs,vsLabel,cb){
 // ======================================================================
 const W=384,H=264,HS=11,SQ3=Math.sqrt(3);
 const hexPx=(q,r)=>[HS*1.5*q, HS*(SQ3/2*q+SQ3*r)];
-let cv,ctx,img,qBuf,rBuf,cam={x:0,y:0},hover=null,dust=[],parts=[],floats=[],shake=0,shots=[];
+let cv,ctx,img,qBuf,rBuf,cam={x:0,y:0},hover=null,dust=[],parts=[],floats=[],shake=0,shots=[],disp={},terrainKey="";
 const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>v/16);
 function hash2(x,y){ let h=(x*374761393+y*668265263)|0; h=(h^(h>>>13))*1274126177|0; return ((h^(h>>>16))>>>0)/4294967295; }
-const PAL={
-  sandA:[196,170,118],sandB:[180,154,104],
-  o1:[[62,68,84],[92,100,118],[40,44,56]],
-  o2:[[132,76,44],[170,106,64],[92,50,30]],
-  o3:[[26,24,34],[52,48,72],[12,10,16]],
-  fog:[13,11,20],
-};
+const PAL={sandA:[196,170,118],sandB:[180,154,104],
+  o1:[[62,68,84],[92,100,118],[40,44,56]],o2:[[132,76,44],[170,106,64],[92,50,30]],o3:[[26,24,34],[52,48,72],[12,10,16]],fog:[13,11,20]};
 function initCanvas(el){
-  cv=el; ctx=cv.getContext("2d"); terrainKey=""; ctx.imageSmoothingEnabled=false;
+  cv=el; ctx=cv.getContext("2d"); ctx.imageSmoothingEnabled=false; terrainKey="";
   img=ctx.createImageData(W,H); qBuf=new Int32Array(W*H); rBuf=new Int32Array(W*H);
   if(!dust.length) for(let i=0;i<70;i++) dust.push({x:Math.random()*W,y:Math.random()*H,s:.2+Math.random()*.5,c:Math.random()});
   cv.addEventListener("pointermove",e=>{ hover=screenToHex(e); });
@@ -526,135 +808,126 @@ function screenToHex(e){
   return hexRound((2/3*wx)/HS,(-wx/3+SQ3/3*wy)/HS);
 }
 function shipPos(s){
-  if(anim&&s===S()){
-    const t=Math.min(1,(performance.now()-anim.t0)/anim.dur), e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
-    return {q:anim.from.q+(anim.to.q-anim.from.q)*e, r:anim.from.r+(anim.to.r-anim.from.r)*e};
-  }
+  const d=disp[s.pid];
+  if(d&&d.anim){ const a=d.anim, t=Math.min(1,(performance.now()-a.t0)/a.dur), e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    return {q:a.from.q+(a.to.q-a.from.q)*e, r:a.from.r+(a.to.r-a.from.r)*e}; }
+  if(d) return {q:d.q,r:d.r};
   return {q:s.q,r:s.r};
 }
+function focusShip(){
+  if(UI.focus) return G.ships[UI.focus-1];
+  if(G.st==="over") return G.ships.find(s=>s.pid===G.winner)||G.ships[0];
+  if(MODE.mode==="online"&&!myTurn()) return G.ships[MODE.seat]||G.ships[0];
+  return G.ships[Math.max(0,actor(G))];
+}
+function showHints(){ return myTurn()&&!UI.busy&&!UI.handoff; }
 function highlights(){
-  const hl=new Map(), s=S(); if(!s||G.handoff) return hl;
-  const key=(q,r)=>q*10007+r;
+  const hl=new Map(), s=S(G); if(!showHints()) return hl;
   if(G.st==="nav_pick"){
     for(const o of allNavOptions(s)){
-      const sel=o.speed===G.nav.speed&&o.side===G.nav.side;
+      const sel=o.speed===UI.speed&&o.side===UI.side;
       const c=o.dc<=12?[64,220,220]:o.dc<=15?[48,120,255]:[170,60,255];
-      hl.set(key(o.q,o.r),{c,a:sel?.75:.38,sel});
+      hl.set(o.q*10007+o.r,{c,a:sel?.75:.38,sel});
     }
   } else if(G.st==="atk_acquire"||G.st==="atk_menu"||G.st==="atk_debuff"){
-    for(const [q,r] of arcHexes(s)) hl.set(key(q,r),{c:[240,60,50],a:.28});
+    for(const [q,r] of arcHexes(s)) hl.set(q*10007+r,{c:[240,60,50],a:.28});
   }
   return hl;
 }
-let terrainKey="";
 function drawTerrain(cs){
-  const s0=S(), key=[cam.x.toFixed(2),cam.y.toFixed(2),hover&&hover.join(","),G.st,G.nav&&G.nav.speed,G.nav&&G.nav.side,G.active,G.handoff,s0.o,s0.q,s0.r,s0.sys.eng,s0.dmg.SPEED,cs.q.toFixed(2),cs.r.toFixed(2)].join("|");
+  setTerrainSeed(G.seed);
+  const key=[G.seed,cam.x.toFixed(2),cam.y.toFixed(2),hover&&hover.join(","),G.st,UI.speed,UI.side,G.moves.length,showHints(),cs.q.toFixed(2),cs.r.toFixed(2)].join("|");
   if(key===terrainKey){ ctx.putImageData(img,0,0); return; }
   terrainKey=key;
-  const d=img.data, hl=highlights(), hv=hover?hover[0]*10007+hover[1]:null;
-  const ox=cam.x-W/2, oy=cam.y-H/2;
-  const ar=Math.round(cs.q), arr=Math.round(cs.r);
-  for(let y=0;y<H;y++){
-    const wy=y+oy;
-    for(let x=0;x<W;x++){
-      const wx=x+ox, i=y*W+x;
+  const d=img.data, hl=highlights(), hv=hover&&showHints()?hover[0]*10007+hover[1]:null;
+  const looted=new Set(G.looted), ox=cam.x-W/2, oy=cam.y-H/2, ar=Math.round(cs.q), arr=Math.round(cs.r);
+  for(let y=0;y<H;y++){ const wy=y+oy;
+    for(let x=0;x<W;x++){ const wx=x+ox, i=y*W+x;
       const fq=(2/3*wx)/HS, fr=(-wx/3+SQ3/3*wy)/HS, fy=-fq-fr;
       let rx=Math.round(fq), ry=Math.round(fy), rz=Math.round(fr);
       const ex=Math.abs(rx-fq), ey=Math.abs(ry-fy), ez=Math.abs(rz-fr);
       if(ex>ey&&ex>ez) rx=-ry-rz; else if(ey>ez) ry=-rx-rz; else rz=-rx-ry;
-      qBuf[i]=rx; rBuf[i]=rz;
-    }
-  }
-  for(let y=0;y<H;y++){
-    const wy=Math.floor(y+oy);
+      qBuf[i]=rx; rBuf[i]=rz; } }
+  for(let y=0;y<H;y++){ const wy=Math.floor(y+oy);
     for(let x=0;x<W;x++){
       const i=y*W+x, q=qBuf[i], r=rBuf[i], wx=Math.floor(x+ox);
-      const t=obstacleType(q,r), b=BAYER[(wy&3)*4+(wx&3)], n=hash2(wx,wy);
+      const t=terrain(q,r), b=BAYER[(wy&3)*4+(wx&3)], n=hash2(wx,wy);
       let c;
-      if(t>0){
-        const p=t===1?PAL.o1:t===2?PAL.o2:PAL.o3;
-        const [hx,hy]=hexPx(q,r), dy=wy-hy, dx=wx-hx;
-        c = dy<-HS*0.45 ? p[1] : (dy>HS*0.55 || dx>HS*0.75) ? p[2] : p[0];
+      if(t>=1&&t<=3){
+        const p=t===1?PAL.o1:t===2?PAL.o2:PAL.o3, [hx,hy]=hexPx(q,r), dy=wy-hy, dx=wx-hx;
+        c=dy<-HS*0.45?p[1]:(dy>HS*0.55||dx>HS*0.75)?p[2]:p[0];
         if(n>0.86) c=c===p[1]?p[0]:p[1];
       } else {
         c=((q+r)&1)===0?PAL.sandA:PAL.sandB;
         const rip=Math.sin(wx*0.35+wy*0.9+((q*7+r*13)%5))*0.5+0.5;
         if(rip>0.82&&b<0.5) c=[c[0]+12,c[1]+10,c[2]+8];
         else if(n>0.93) c=[c[0]-22,c[1]-22,c[2]-20];
+        if(t===4){ const [hx,hy]=hexPx(q,r), dd=Math.hypot(wx-hx,wy-hy);
+          if(!looted.has(q+","+r)){ if(dd<6&&n>0.45) c=n>0.8?[200,120,60]:n>0.62?[120,110,104]:[70,58,52]; }
+          else if(dd<6&&n>0.88) c=[96,84,70]; }
       }
       let R0=c[0],G0=c[1],B0=c[2];
       const h=hl.get(q*10007+r);
       if(h){ const a=h.a; R0=R0*(1-a)+h.c[0]*a; G0=G0*(1-a)+h.c[1]*a; B0=B0*(1-a)+h.c[2]*a; }
-      if(hv!==null&&q*10007+r===hv&&!G.handoff){ R0+=26; G0+=26; B0+=26; }
-      // hex border
+      if(hv!==null&&q*10007+r===hv){ R0+=26; G0+=26; B0+=26; }
       const edge=(x>0&&(qBuf[i-1]!==q||rBuf[i-1]!==r))||(y>0&&(qBuf[i-W]!==q||rBuf[i-W]!==r));
-      if(edge){ const sel=h&&h.sel; if(sel){R0=255;G0=255;B0=255;} else {R0*=.62;G0*=.62;B0*=.66;} }
-      // dithered distance fog
+      if(edge){ if(h&&h.sel){R0=255;G0=255;B0=255;} else {R0*=.62;G0*=.62;B0*=.66;} }
       const dist=hexDist(q-ar,r-arr);
-      if(dist>5){
-        const f=Math.min(1,(dist-5)/4.5), lv=Math.floor(f*4+b)/4;
-        R0=R0*(1-lv)+PAL.fog[0]*lv; G0=G0*(1-lv)+PAL.fog[1]*lv; B0=B0*(1-lv)+PAL.fog[2]*lv;
-      }
+      if(dist>5){ const f=Math.min(1,(dist-5)/4.5), lv=Math.floor(f*4+b)/4;
+        R0=R0*(1-lv)+PAL.fog[0]*lv; G0=G0*(1-lv)+PAL.fog[1]*lv; B0=B0*(1-lv)+PAL.fog[2]*lv; }
       const k=i*4; d[k]=R0; d[k+1]=G0; d[k+2]=B0; d[k+3]=255;
-    }
-  }
+    } }
   ctx.putImageData(img,0,0);
 }
 const SHIP_ART=["......oo......",".....oAAo.....",".....oAAo.....","....oAccAo....","....oAccAo....","...oAAAAAAo...",
   "..oAAsAAsAAo..",".oAAssAAssAAo.","oAAso.AA.osAAo","oAso..oo..osAo","oso...ff...oso","oo....ff....oo"];
 const shipSprites={};
+function shade(hex,amt){ const n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*(1+amt)))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; }
 function shipSprite(color,frame){
   const k=color+frame; if(shipSprites[k]) return shipSprites[k];
   const c=document.createElement("canvas"); c.width=14; c.height=12; const x=c.getContext("2d");
-  const dark=shade(color,-0.45), map={o:"#120e18",A:color,s:dark,c:"#7fe8ff",f:frame?"#ffffff":"#3fd8ff"};
+  const map={o:"#120e18",A:color,s:shade(color,-0.45),c:"#7fe8ff",f:frame?"#ffffff":"#3fd8ff"};
   SHIP_ART.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(map[ch]){ x.fillStyle=map[ch]; x.fillRect(xx,yy,1,1);} }));
   return shipSprites[k]=c;
 }
-function shade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=n>>16,g=n>>8&255,b=n&255; const f=v=>Math.max(0,Math.min(255,Math.round(v*(1+amt)))); return `rgb(${f(r)},${f(g)},${f(b)})`; }
-const P_COLORS=["#ffcf4a","#5fd0ff"];
 function toScreen(q,r){ const [x,y]=hexPx(q,r); return [Math.round(x-cam.x+W/2),Math.round(y-cam.y+H/2)]; }
-
 const fx={
-  shot(a,b){ const pa=shipPos(a),pb=shipPos(b); shots.push({a:hexPx(pa.q,pa.r),b:hexPx(pb.q,pb.r),t0:performance.now(),col:P_COLORS[a.pid-1]}); },
-  hit(s,n){ const [x,y]=hexPx(s.q,s.r); for(let i=0;i<26;i++){ const a=Math.random()*6.28,v=.4+Math.random()*1.6; parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:30+Math.random()*30,c:["#fff3b0","#ffb030","#ff5a2a","#5a5060"][i%4]}); }
-    floats.push({x,y:y-8,t:`-${n}`,c:"#ff5a5a",l:60}); shake=8; },
-  miss(s){ const [x,y]=hexPx(s.q,s.r); floats.push({x,y:y-8,t:"MISS",c:"#d8d0f0",l:50}); },
-  order(s,d){ const [x,y]=hexPx(s.q,s.r); floats.push({x,y:y-10,t:d.order.toUpperCase(),c:"#ffe066",l:70}); },
+  shot(a,b){ const pa=shipPos(G.ships[a-1]),pb=shipPos(G.ships[b-1]); shots.push({a:hexPx(pa.q,pa.r),b:hexPx(pb.q,pb.r),t0:performance.now(),col:P_COLORS[a-1]}); },
+  hit(pid,n){ const s=G.ships[pid-1], p=shipPos(s), [x,y]=hexPx(p.q,p.r);
+    for(let i=0;i<26;i++){ const a=Math.random()*6.28,v=.4+Math.random()*1.6; parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:30+Math.random()*30,c:["#fff3b0","#ffb030","#ff5a2a","#5a5060"][i%4]}); }
+    floats.push({x,y:y-8,t:`-${n}`,c:"#ff5a5a",l:60}); shake=reduceMotion()?0:8; },
+  text(pid,t,c){ const p=shipPos(G.ships[pid-1]), [x,y]=hexPx(p.q,p.r); floats.push({x,y:y-10,t,c,l:70}); },
 };
+function drawX(x,y,c){ ctx.fillStyle=c; for(let k=-4;k<=4;k++){ ctx.fillRect(x+k,y+k,1,1); ctx.fillRect(x+k,y-k,1,1);} }
+function hexOutline(x,y,s){ ctx.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/3*i; const px=x+s*Math.cos(a)+.5, py=y+s*Math.sin(a)+.5; i?ctx.lineTo(px,py):ctx.moveTo(px,py);} ctx.closePath(); ctx.stroke(); }
 function frame(now){
   requestAnimationFrame(frame);
-  if(!cv||!document.body.contains(cv)||G.screen!=="game") return;
-  const s=S(); const sp=shipPos(s);
-  const [tx,ty]=hexPx(sp.q,sp.r);
+  if(!cv||!cv.isConnected||!G||UI.screen!=="game"||G.st==="draft") return;
+  const fs=focusShip(), sp=shipPos(fs), [tx,ty]=hexPx(sp.q,sp.r);
   cam.x+=(tx-cam.x)*.18; cam.y+=(ty-cam.y)*.18;
   if(Math.abs(tx-cam.x)<.3) cam.x=tx; if(Math.abs(ty-cam.y)<.3) cam.y=ty;
-  if(anim&&now-anim.t0>=anim.dur) arrive();
   const sx=shake>0?Math.round((Math.random()-.5)*shake):0, sy=shake>0?Math.round((Math.random()-.5)*shake):0;
   shake=Math.max(0,shake-.6);
   const saved={...cam}; cam.x-=sx; cam.y-=sy;
   drawTerrain(sp);
-  // aim marker
-  if(G.st==="nav_pick"&&!G.handoff){ const o=navOption(s,G.nav.speed,G.nav.side); if(o) drawX(...toScreen(o.q,o.r),"#ff2a6a"); }
-  if((G.st==="moving"||G.st==="nav_drift")&&G.aim) drawX(...toScreen(G.aim.q,G.aim.r),"#ff2a6a");
-  // ships
+  const s=S(G);
+  if(G.st==="nav_pick"&&showHints()){ const o=navOption(s,UI.speed,UI.side); if(o) drawX(...toScreen(o.q,o.r),"#ff2a6a"); }
+  if(G.st==="nav_drift"&&G.aim) drawX(...toScreen(G.aim.q,G.aim.r),"#ff2a6a");
   const fr=(now/120|0)%2;
   for(const sh of G.ships){
-    if(sh.hp<=0) continue;
-    const p=sh===s?sp:{q:sh.q,r:sh.r}, [x,y]=toScreen(p.q,p.r);
-    if(sh===s){ ctx.strokeStyle=fr?"#ffffff":P_COLORS[sh.pid-1]; ctx.lineWidth=1; hexOutline(x,y,HS-1); }
-    if(G.target===sh.pid&&G.phase==="ATK"){ ctx.strokeStyle=S().f.locked?"#3dff6a":"#ff4040"; hexOutline(x,y,HS-1); hexOutline(x,y,HS-3); }
-    let ang=sh.o*Math.PI/3;
-    ctx.save(); ctx.translate(x,y); ctx.rotate(ang); ctx.drawImage(shipSprite(P_COLORS[sh.pid-1],fr),-7,-6); ctx.restore();
-    // hp pips
+    if(sh.hp<=0&&!disp[sh.pid]) continue;
+    const p=shipPos(sh), [x,y]=toScreen(p.q,p.r);
+    if(sh===s&&G.st!=="over"){ ctx.strokeStyle=fr?"#ffffff":P_COLORS[sh.pid-1]; ctx.lineWidth=1; hexOutline(x,y,HS-1); }
+    if(G.target===sh.pid&&G.phase==="ATK"){ ctx.strokeStyle=s.f.locked?"#3dff6a":"#ff4040"; hexOutline(x,y,HS-1); hexOutline(x,y,HS-3); }
+    ctx.save(); ctx.translate(x,y); ctx.rotate(sh.o*Math.PI/3); ctx.drawImage(shipSprite(P_COLORS[sh.pid-1],fr),-7,-6); ctx.restore();
     const w=16, f=Math.ceil(w*sh.hp/sh.maxHp);
     ctx.fillStyle="#000"; ctx.fillRect(x-w/2-1,y-14,w+2,4);
     ctx.fillStyle=sh.hp/sh.maxHp<HP_LOW?"#ff4d5e":"#5be37a"; ctx.fillRect(x-w/2,y-13,f,2);
     if(sh.evasive){ ctx.fillStyle="#7fe8ff"; ctx.fillRect(x+9,y-13,2,2); }
   }
-  // off-screen pointer
-  const o=other(s);
+  const o=other(G,fs);
   if(o&&o.hp>0){
-    const [x,y]=toScreen(o.q,o.r);
+    const op=shipPos(o), [x,y]=toScreen(op.q,op.r);
     if(x<6||x>W-6||y<6||y>H-6){
       const cx=W/2,cy=H/2,a=Math.atan2(y-cy,x-cx);
       const k=Math.min((W/2-12)/Math.abs(Math.cos(a)||1e-6),(H/2-12)/Math.abs(Math.sin(a)||1e-6));
@@ -662,58 +935,48 @@ function frame(now){
       ctx.save(); ctx.translate(Math.round(px),Math.round(py)); ctx.rotate(a);
       ctx.fillStyle=P_COLORS[o.pid-1]; ctx.beginPath(); ctx.moveTo(6,0); ctx.lineTo(-4,-5); ctx.lineTo(-4,5); ctx.fill(); ctx.restore();
       ctx.font='8px "Press Start 2P"'; ctx.fillStyle=P_COLORS[o.pid-1];
-      const dtx=`P${o.pid} ${hexDist(o.q-s.q,o.r-s.r)}`; const tw=ctx.measureText(dtx).width;
+      const dtx=`P${o.pid} ${hexDist(o.q-fs.q,o.r-fs.r)}`, tw=ctx.measureText(dtx).width;
       ctx.fillText(dtx,Math.max(2,Math.min(W-tw-2,Math.round(px-Math.cos(a)*14-tw/2))),Math.max(10,Math.min(H-3,Math.round(py-Math.sin(a)*14+4))));
     }
   }
-  // shots
   shots=shots.filter(sh=>{
     const t=(now-sh.t0)/320; if(t>1.3) return false;
-    const tt=Math.min(1,t), x=sh.a[0]+(sh.b[0]-sh.a[0])*tt, y=sh.a[1]+(sh.b[1]-sh.a[1])*tt;
-    const [px,py]=[Math.round(x-cam.x+W/2),Math.round(y-cam.y+H/2)];
-    ctx.fillStyle="#fff"; ctx.fillRect(px-1,py-1,3,3); ctx.fillStyle=sh.col;
+    const tt=Math.min(1,t);
+    ctx.fillStyle="#fff"; ctx.fillRect(Math.round(sh.a[0]+(sh.b[0]-sh.a[0])*tt-cam.x+W/2)-1,Math.round(sh.a[1]+(sh.b[1]-sh.a[1])*tt-cam.y+H/2)-1,3,3); ctx.fillStyle=sh.col;
     for(let k=1;k<5;k++){ const t2=Math.max(0,tt-k*.05); ctx.fillRect(Math.round(sh.a[0]+(sh.b[0]-sh.a[0])*t2-cam.x+W/2),Math.round(sh.a[1]+(sh.b[1]-sh.a[1])*t2-cam.y+H/2),2,2); }
-    return true;
-  });
+    return true; });
   parts=parts.filter(p=>{ p.x+=p.vx; p.y+=p.vy; p.vx*=.95; p.vy*=.95; p.l--; ctx.fillStyle=p.c; ctx.fillRect(Math.round(p.x-cam.x+W/2),Math.round(p.y-cam.y+H/2),2,2); return p.l>0; });
   ctx.font='8px "Press Start 2P"'; ctx.textBaseline="alphabetic";
   floats=floats.filter(f=>{ f.l--; f.y-=.35; const tw=ctx.measureText(f.t).width, x=Math.round(f.x-cam.x+W/2-tw/2), y=Math.round(f.y-cam.y+H/2);
     ctx.fillStyle="#000"; ctx.fillText(f.t,x+1,y+1); ctx.fillStyle=f.c; ctx.fillText(f.t,x,y); return f.l>0; });
-  // dust
-  const moving=G.st==="moving";
+  const moving=Object.values(disp).some(d=>d.anim);
   for(const p of dust){ p.x+=p.s*(moving?6:1); p.y+=p.s*(moving?6:1)*.6; if(p.x>W) p.x-=W; if(p.y>H) p.y-=H;
     ctx.fillStyle=p.c<.33?"#8a7a5a":p.c<.66?"#b8a078":"#e0caa0"; ctx.fillRect(p.x|0,p.y|0,1,1); }
   cam.x=saved.x; cam.y=saved.y;
-  // hover tooltip
   const hud=document.getElementById("hud");
   if(hud){
     let t="";
-    if(hover&&!G.handoff){
-      const [q,r]=hover, dq=q-s.q, dr=r-s.r, ob=obstacleType(q,r);
-      if(G.st==="nav_pick"){ const o=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(o) t=`SPEED ${o.speed} · TURN ${o.side>0?"+":""}${o.side} · DC ${o.dc}`; }
-      if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r&&x!==s); if(sh){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(dq,dr)} HEX · ${ai?"IN ARC, RANGE "+ai.range:"OUT OF ARC"}`; } }
-      if(!t&&ob) t=["","SLATE ROCK","RUST MESA","TAR PIT"][ob]+" · 5 DMG";
+    if(hover){
+      const [q,r]=hover, ob=terrain(q,r);
+      if(G.st==="nav_pick"&&showHints()){ const op=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(op) t=`SPEED ${op.speed} · TURN ${op.side>0?"+":""}${op.side} · DC ${op.dc}`; }
+      if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r); if(sh&&sh!==s){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(q-s.q,r-s.r)} HEX · ${ai?"IN ARC, RANGE "+ai.range:"OUT OF ARC"}`; } }
+      if(!t&&ob) t=ob===4?(G.looted.includes(q+","+r)?"PICKED-CLEAN WRECK":"OLD-WORLD WRECK · +1 PART"):TERRAIN_NAMES[ob].toUpperCase()+" · 5 DMG";
     }
     if(hud.textContent!==t) hud.textContent=t;
   }
 }
-const HP_LOW=0.4;
-function drawX(x,y,c){ ctx.fillStyle=c; for(let k=-4;k<=4;k++){ ctx.fillRect(x+k,y+k,1,1); ctx.fillRect(x+k,y-k,1,1);} }
-function hexOutline(x,y,s){ ctx.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/3*i; const px=x+s*Math.cos(a)+.5, py=y+s*Math.sin(a)+.5; i?ctx.lineTo(px,py):ctx.moveTo(px,py);} ctx.closePath(); ctx.stroke(); }
-
 function onHexClick(q,r){
-  if(G.handoff||(G.roll&&G.roll.rolling)) return;
-  const s=S();
-  if(G.st==="nav_pick"){ const o=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(o){ G.nav.speed=o.speed; G.nav.side=o.side; render(); } }
-  else if(G.st==="atk_acquire"){ const t=other(s); if(t.q===q&&t.r===r&&arcInfo(s,t)){ acquire(); render(); } }
+  if(!showHints()) return;
+  const s=S(G);
+  if(G.st==="nav_pick"){ const o=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(o){ UI.speed=o.speed; UI.side=o.side; render(); } }
+  else if(G.st==="atk_acquire"){ const t=other(G,s); if(t.q===q&&t.r===r&&legal(G).includes("TGT")) act("TGT"); }
 }
 
 // ======================================================================
-// UI
+// HTML UI
 // ======================================================================
 const app=document.getElementById("app");
-const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-function faceCanvas(key){ return `<canvas width="12" height="12" data-face="${key}"></canvas>`; }
+const faceCanvas=key=>`<canvas width="12" height="12" data-face="${key}"></canvas>`;
 function paintFaces(){
   document.querySelectorAll("canvas[data-face]").forEach(c=>{
     const d=CREW_BY[c.dataset.face], x=c.getContext("2d"); x.clearRect(0,0,12,12);
@@ -723,156 +986,183 @@ function paintFaces(){
 }
 function header(){
   let track="";
-  if(G.screen==="game"){
-    const s=S(), slots=["CMD",...G.queue]; while(slots.length<1+slotsAllowed()) slots.push("···");
-    track=slots.map((p,i)=>{ const on=G.phase==="CMD"?i===0:i===G.qi+1; const col=p==="NAV"?"var(--nav)":p==="ATK"?"var(--atk)":p==="ENG"?"var(--eng)":"var(--dim)";
-      return `<span class="slot ${on?"on":""}" style="border-color:${col};${on?`background:${col}`:""}">${p}</span>`; }).join("");
-    track=`<div class="track" aria-label="Phase sequence">${track}</div><span class="turnchip" style="color:${P_COLORS[s.pid-1]}">PLAYER ${s.pid}</span>`;
+  if(G&&UI.screen==="game"&&G.st!=="draft"){
+    const s=S(G), slots=["CMD",...G.queue]; while(slots.length<1+slotsAllowed(G)) slots.push("···");
+    track=`<div class="track" aria-label="Phase plan">`+slots.map((p,i)=>{ const on=G.phase==="CMD"?i===0:i===G.qi+1; const col=p==="NAV"?"var(--nav)":p==="ATK"?"var(--atk)":p==="ENG"?"var(--eng)":"var(--dim)";
+      return `<span class="slot ${on?"on":""}" style="border-color:${col};${on?`background:${col}`:""}">${p}</span>`; }).join("")+`</div>`;
+    const who=MODE.mode==="online"?(myTurn()?"YOUR TURN":`WAITING · P${s.pid}`):`PLAYER ${s.pid}`;
+    track+=`<span class="turnchip" style="color:${P_COLORS[s.pid-1]}">${G.st==="over"?"GAME OVER":who}</span>`;
   }
-  return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · CREW WARS</small></div>${track}</div>`;
+  const seatChip=G&&MODE.mode==="online"&&MODE.seat!==null?`<span class="turnchip" style="color:${P_COLORS[MODE.seat]}">YOU ARE P${MODE.seat+1}</span>`:"";
+  return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
-function rulesHTML(){
-  const r=[["var(--sand)","1 · Draft a crew","Players take turns picking 3 crew from 9. Picks snake: 1-2-2-1-1-2."],
-    ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2."],
-    ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
-    ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
-    ["var(--eng)","ENG","Spend energy on ENG, BST, DFT, WPN. Repair with spare parts."],
-    ["#c9a0ff","Crew","Each crew member gives a passive bonus and one order. After an order they rest 2 turns."]];
-  return `<div class="rules">${r.map(x=>`<div class="rule" style="--c:${x[0]}"><h4>${x[1]}</h4><p>${x[2]}</p></div>`).join("")}</div>`;
-}
+const RULES=[["var(--sand)","1 · Ships & crew","Each player picks a ship class, then drafts 3 crew from 9 (picks go 1-2-2-1-1-2)."],
+  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2 phases."],
+  ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
+  ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
+  ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts."],
+  ["#c9a0ff","Online","Each turn becomes a short move code. Send it to your friend; their game replays your moves."]];
 function render(){
-  if(G.screen==="title") return renderTitle();
-  if(G.screen==="draft") return renderDraft();
+  if(UI.screen==="title"||!G) return renderTitle();
+  if(G.st==="draft") return renderDraft();
   renderGame();
 }
 function renderTitle(){
+  const sv=loadSave();
   app.innerHTML=header()+`<section class="full"><div class="hero"><div><h1>TETHYS<small>DESERT DRIFTER</small></h1></div>
-  <div style="display:flex;flex-direction:column;gap:14px"><p>Two drift-ships, one hex desert, and the crews that keep them flying. A hotseat tactics duel: plan your phases, roll the d20, and let your crew bend the rules.</p>
-  <div class="btnrow"><button class="go" data-act="start" id="btn-start">New 2-player game</button></div></div></div>${rulesHTML()}</section>`;
+  <div style="display:flex;flex-direction:column;gap:14px"><p>The old world is sand and scrap. Somewhere beyond the dunes lies Europa. Two ships have heard the same rumour of a relic that points the way, and only one will carry it home.</p>
+  <div class="btnrow"><button class="go" data-ui="local" id="btn-local">Play on this device</button><button data-ui="online" id="btn-online">Start online game</button>${sv?`<button data-ui="continue" id="btn-continue">Continue saved game</button>`:""}</div>
+  <div class="join"><label class="prompt" for="join-code">JOIN A FRIEND'S GAME<span class="sub">Paste the move code your friend sent you.</span></label>
+  <textarea id="join-code" class="code" placeholder="TETHYS-…"></textarea>
+  <div class="btnrow"><button data-ui="join" id="btn-join">Load code</button><span class="msg ${UI.joinMsg?"err":""}">${esc(UI.joinMsg)}</span></div></div>
+  </div></div><div class="rules">${RULES.map(x=>`<div class="rule" style="--c:${x[0]}"><h4>${x[1]}</h4><p>${x[2]}</p></div>`).join("")}</div></section>`;
 }
-function crewCard(key,taken){
-  const d=CREW_BY[key];
-  return `<button class="card ${taken?"taken":""}" style="--st:${ST_COLOR[d.st]}" data-act="pick" data-v="${key}" ${taken?"disabled":""} id="pick-${key}">
-    ${faceCanvas(key)}<div class="nm">${d.name}<em>${d.role.toUpperCase()} · ${d.st}</em></div>
-    <div class="full2"><span class="k">PASSIVE</span><span>${esc(d.passive)}</span><span class="k">ORDER · ${esc(d.order.toUpperCase())}</span><span>${esc(d.text)}</span></div></button>`;
+function waitingPanel(){
+  const s=G.ships[actor(G)];
+  return `<div class="join"><div class="prompt">WAITING FOR PLAYER ${s.pid}<span class="sub">${UI.share?"Send this to your friend, then paste their reply below.":"Paste your friend's latest move code."}</span></div>
+    ${UI.share?`<textarea id="share-code" class="code" readonly>${esc(UI.shareText)}</textarea><div class="btnrow"><button class="go" data-ui="copy" id="btn-copy">Copy move</button><span class="msg" id="copy-msg"></span></div>`:""}
+    <textarea id="reply-code" class="code" placeholder="Paste their move code here"></textarea>
+    <div class="btnrow"><button data-ui="reply" id="btn-reply">Load their move</button><span class="msg ${UI.msgErr?"err":""}">${esc(UI.msg)}</span></div></div>`;
 }
 function renderDraft(){
-  const dr=G.draft, pi=dr.order[dr.idx], s=G.ships[pi];
-  app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">
-    <div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: RECRUIT A CREW MEMBER<span class="sub">Pick ${dr.idx+1} of ${dr.order.length}. Each ship gets 3 crew. Station shows the phase where their order works.</span></div>
-    <div class="cards">${CREW.map(c=>crewCard(c.key,!dr.pool.includes(c.key))).join("")}</div>
-    <div class="picks">${G.ships.map(sh=>`<div style="color:${P_COLORS[sh.pid-1]}">P${sh.pid} CREW: ${sh.crew.map(c=>CREW_BY[c.key].name).join(", ")||"—"}</div>`).join("")}
-    <button data-act="randpick" id="btn-rand">Random pick</button></div></section>`;
+  const pi=actor(G), s=G.ships[pi], mine=myTurn();
+  let body;
+  if(!mine) body=waitingPanel();
+  else if(!s.cls){
+    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR SHIP<span class="sub">The ship is your body in the desert. Crew come next.</span></div>
+    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls" data-m="C:${k}" id="m-C-${k}"><span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()}</em></span>
+      <span class="row"><span>HULL ${c.hull}</span><span>ENERGY ${c.energy}</span><span>PARTS ${c.parts}</span></span><span>${esc(c.text)}</span><span class="dim">${esc(c.lore)}</span></button>`).join("")}</div>`;
+  } else {
+    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: RECRUIT A CREW MEMBER<span class="sub">Pick ${G.draft.idx+1} of ${G.draft.order.length}. Station shows the phase where their order works.</span></div>
+    <div class="cards">${CREW.map(c=>{ const taken=!G.draft.pool.includes(c.key);
+      return `<button class="card ${taken?"taken":""}" style="--st:${ST_COLOR[c.st]}" data-m="R:${c.key}" id="m-R-${c.key}" ${taken?"disabled":""}>
+      ${faceCanvas(c.key)}<div class="nm">${c.name}<em>${c.role.toUpperCase()} · ${c.st}</em></div>
+      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div>
+    <div class="btnrow"><button data-ui="randpick" id="btn-rand">Random pick</button></div>`;
+  }
+  app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">${storyHTML()}${body}
+    <div class="picks">${G.ships.map(sh=>`<div style="color:${P_COLORS[sh.pid-1]}">P${sh.pid}: ${sh.cls?CLASSES[sh.cls].name:"—"} · ${sh.crew.map(c=>CREW_BY[c.key].name).join(", ")||"no crew yet"}</div>`).join("")}</div></section>`;
   paintFaces();
 }
-function draftPick(key){
-  const dr=G.draft; if(!dr.pool.includes(key)) return;
-  const s=G.ships[dr.order[dr.idx]];
-  dr.pool=dr.pool.filter(k=>k!==key); s.crew.push({key,rest:0,stun:false});
-  if(key==="QM") s.parts++;
-  log(`P${s.pid} recruits ${CREW_BY[key].name} (${CREW_BY[key].role}).`,"p"+s.pid);
-  dr.idx++;
-  if(dr.idx>=dr.order.length){ G.screen="game"; startTurn(0); }
-  render();
+function storyHTML(){
+  const st=G.story.slice(0,3);
+  return `<div class="story" id="story" aria-live="polite"><h4>THE CHRONICLE</h4>${st.map((t,i)=>`<p class="${i?"old":""}">${esc(t)}</p>`).join("")}</div>`;
 }
-
+function paintStory(){ const el=document.getElementById("story"); if(el) el.outerHTML=storyHTML(); }
 function shipCard(s){
-  const active=s===S()&&G.st!=="over", cap=energyCap(s), used=energyUsed(s), pct=s.hp/s.maxHp;
+  const active=s===S(G)&&G.st!=="over", cap=energyCap(s), used=energyUsed(s), pct=s.hp/s.maxHp, c=CLASSES[s.cls];
   const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jammed) flags.push(["JAMMED","red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
   if(active&&G.phase==="ATK"&&s.f.locked) flags.push(["LOCKED",""]); if(active&&s.f.debuff) flags.push([`AIM ${s.f.debuff}`,"red"]);
   if(pct<R.HP_FAIL&&s.hp>0) flags.push(["HULL CRITICAL −1","red"]);
   const sysCell=([k,lab,dk])=>`<div class="stat"><span>${lab}</span>+${s.sys[k]}${s.dmg[dk]?` <span class="hurt" style="display:inline;font-family:var(--f-txt);font-size:18px">−${s.dmg[dk]}</span>`:""}</div>`;
-  const crew=s.crew.map((c,i)=>{
-    const d=CREW_BY[c.key], block=orderBlock(s,c), stt=c.stun?["STUNNED","bad"]:c.rest>0?[`REST ${c.rest}`,"dim"]:["READY","ok"];
-    return `<div class="cm ${c.stun?"stun":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(c.key)}
+  const canAct=active&&myTurn()&&!UI.busy, L=canAct?legal(G):[];
+  const crew=s.crew.map((cm,i)=>{
+    const d=CREW_BY[cm.key], block=orderBlock(G,s,cm), stt=cm.stun?["STUNNED","bad"]:cm.rest>0?[`REST ${cm.rest}`,"dim"]:["READY","ok"];
+    return `<div class="cm ${cm.stun?"stun":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
       <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div></div>
-      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active?`<button data-act="order" data-v="${i}" id="order-${s.pid}-${i}" ${block?"disabled":""} title="${esc(block||"Give order")}">Order</button>`:""}</div></div>`;
+      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${L.includes("O:"+(i+1))?"":"disabled"} title="${esc(block||"Give order")}">Order</button>`:""}</div></div>`;
   }).join("");
   return `<section class="ship ${active?"active":""} ${s.hp<=0?"dead":""}" style="--c:${P_COLORS[s.pid-1]}">
-    <h3><span>PLAYER ${s.pid}</span><span>${s.hp}/${s.maxHp}</span></h3>
+    <h3><span>P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode==="online"&&MODE.seat===s.pid-1?" (YOU)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
     <div class="bar"><i class="${pct<HP_LOW?"lo":""}" style="width:${pct*100}%"></i></div>
     <div class="stats"><div class="stat"><span>ENERGY</span>${used}/${cap}</div><div class="stat"><span>AMMO</span>${s.ammo}</div><div class="stat"><span>PARTS</span>${s.parts}</div><div class="stat"><span>HEAD</span>${DIR_NAMES[s.o]}</div>
     ${SYS.map(sysCell).join("")}</div>
     ${flags.length?`<div class="flags">${flags.map(f=>`<span class="flag ${f[1]}">${f[0]}</span>`).join("")}</div>`:""}
     <div class="crew">${crew}</div></section>`;
 }
-function diceHTML(){
-  const r=G.roll; if(!r) return "";
-  if(r.rolling) return `<div class="dice"><div class="die ${r.sides===6||r.sides===4?"d6":""} rolling" id="die">${r.shown}</div><div class="formula">Rolling d${r.sides}…</div></div>`;
+function diceInner(){
+  if(UI.rolling) return `<div class="die ${UI.rolling.sides!==20?"d6":""} rolling">${UI.rolling.shown}</div><div class="formula">Rolling d${UI.rolling.sides}…</div>`;
+  const r=UI.shown||G.roll; if(!r) return `<div class="die" style="opacity:.25">20</div><div class="formula dim">No roll yet this turn.</div>`;
   let body;
   if(r.auto) body=`<b>${r.label}</b><br><span class="ok">AUTO-SUCCESS</span> <span class="dim">(Afterburn)</span>`;
   else {
-    const m=(r.mods||[]).filter(x=>x[0]!==0).map(x=>` ${x[0]>0?"+":"−"}${Math.abs(x[0])} <span class="dim">${x[1]}</span>`).join("");
+    const m=(r.mods||[]).map(x=>` ${x[0]>0?"+":"−"}${Math.abs(x[0])} <span class="dim">${x[1]}</span>`).join("");
     const res=r.dmg?`<span class="bad">${r.total} damage</span>`:r.heal?`<span class="ok">+${r.total} hull</span>`:`${r.total} vs ${r.vs} → <span class="${r.ok?"ok":"bad"}">${r.ok?"SUCCESS":"FAIL"}</span>`;
-    body=`<b>${r.label}</b><br>${r.die}${m} = ${res}`;
+    body=`<b>P${r.pid} ${r.label}</b><br>${r.die}${m} = ${res}`;
   }
-  return `<div class="dice"><div class="die ${r.sides!==20?"d6":""}">${r.auto?"✓":r.die}</div><div class="formula">${body}</div></div>`;
+  return `<div class="die ${r.sides!==20?"d6":""}">${r.auto?"✓":r.die}</div><div class="formula">${body}</div>`;
 }
-function paintDie(){ const d=document.getElementById("die"); if(d&&G.roll) d.textContent=G.roll.shown; }
-function btn(act,label,opts={}){ const {v="",dis=false,cls="",id=act+(v!==""?"-"+v:"")}=opts; return `<button class="${cls}" data-act="${act}" data-v="${v}" id="b-${id}" ${dis?"disabled":""}>${label}</button>`; }
+function paintDice(){ const d=document.getElementById("dicebox"); if(d) d.innerHTML=diceInner(); }
+function btn(m,label,cls="",L){ return `<button class="${cls}" data-m="${m}" id="m-${m.replace(/[^A-Za-z0-9+-]/g,"-")}" ${L.includes(m)?"":"disabled"}>${label}</button>`; }
+function fixNavSide(){
+  const s=S(G); if(navOption(s,UI.speed,UI.side)) return;
+  for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,UI.speed,d)){ UI.side=d; return; }
+  for(const sp of [1,2,3]) for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
+}
 function actionsHTML(){
-  const s=S(), busy=G.roll&&G.roll.rolling, endLbl=G.qi+1<G.queue.length?"End phase ▸":"End turn ▸";
-  const end=(dis)=>btn("end",endLbl,{cls:"go",dis:dis||busy});
+  const s=S(G), L=myTurn()&&!UI.busy?legal(G):[], endLbl=G.qi+1<G.queue.length?"End phase ▸":"End turn ▸";
+  const end=()=>btn("END",endLbl,"go",L);
   let p="",sub="",rows=[];
   switch(G.st){
     case "cmd": {
-      const n=slotsAllowed();
-      p=`PLAN YOUR TURN`; sub=`Pick the order of ${n} phases.${s.jammed?" Your comms are jammed.":""} Chosen: ${G.queue.join(" → ")||"none"}`;
-      rows.push(`<div class="btnrow">${["NAV","ATK","ENG"].map(x=>btn("phase",x,{v:x,cls:x.toLowerCase(),dis:G.queue.includes(x)})).join("")}${btn("undo","Undo",{dis:!G.queue.length})}</div>`);
-      break; }
+      const n=slotsAllowed(G);
+      p="PLAN YOUR TURN"; sub=`Pick the order of ${n} phases.${s.jammed?" Your comms are jammed.":""} Chosen: ${G.queue.join(" → ")||"none"}`;
+      rows.push(`<div class="btnrow">${["NAV","ATK","ENG"].map(x=>btn("Q:"+x,x,x.toLowerCase(),L)).join("")}${btn("Q-","Undo","",L)}</div>`); break; }
     case "nav_pick": {
-      const o=navOption(s,G.nav.speed,G.nav.side), ee=effEngine(s);
+      fixNavSide();
+      const o=navOption(s,UI.speed,UI.side), ee=effEngine(s);
       p="NAVIGATION · SET COURSE"; sub=`Choose speed and turn, or tap a lit hex.${ee?` Engine +${ee} adds ${ee*R.ENG_DIST_BONUS} hexes and raises the DC.`:" Power the ENGINE in ENG to fly further."}`;
-      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${[1,2,3].map(v=>btn("speed",v,{v,cls:G.nav.speed===v?"sel":""})).join("")}</div>`);
-      rows.push(`<div class="btnrow"><span class="lab">TURN</span>${[-3,-2,-1,0,1,2,3].map(v=>btn("side",(v>0?"+":"")+v,{v,cls:G.nav.side===v?"sel":"",dis:!navOption(s,G.nav.speed,v)})).join("")}</div>`);
-      rows.push(`<div class="btnrow">${btn("boost",o?(s.autoBoost?"Afterburn ▸":`Roll boost · DC ${o.dc}`):"No course",{cls:"nav",dis:!o||busy})}${btn("end","Skip move",{dis:busy})}</div>`);
+      const can=L.length>0;
+      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${[1,2,3].map(v=>`<button data-ui="speed" data-v="${v}" id="ui-speed-${v}" class="${UI.speed===v?"sel":""}" ${can&&[-3,-2,-1,0,1,2,3].some(d=>navOption(s,v,d))?"":"disabled"}>${v}</button>`).join("")}</div>`);
+      rows.push(`<div class="btnrow"><span class="lab">TURN</span>${[-3,-2,-1,0,1,2,3].map(v=>`<button data-ui="side" data-v="${v}" id="ui-side-${v}" class="${UI.side===v?"sel":""}" ${can&&navOption(s,UI.speed,v)?"":"disabled"}>${v>0?"+":""}${v}</button>`).join("")}</div>`);
+      const bm=o?`B:${o.speed}:${o.side>0?"+":""}${o.side}`:"B:none";
+      rows.push(`<div class="btnrow">${btn(bm,o?(s.autoBoost?"Afterburn ▸":`Roll boost · DC ${o.dc}`):"No open course","nav",L)}${L.includes("PIVOT:L")?btn("PIVOT:L","Pivot left","",L)+btn("PIVOT:R","Pivot right","",L):""}${btn("END","Skip move","",L)}</div>`);
+      if(L.includes("PIVOT:L")) sub="Rocks block every course. Pivot in place, or skip the move.";
       break; }
-    case "moving": p="DRIFTING…"; break;
     case "nav_drift": p="NAVIGATION · HOLD THE DRIFT"; sub=`Roll DRIFT vs DC ${G.dc}. Success lets you set a new heading and allows lock-on this turn.`;
-      rows.push(`<div class="btnrow">${btn("drift",`Roll drift · DC ${G.dc}`,{cls:"nav",dis:busy})}</div>`); break;
+      rows.push(`<div class="btnrow">${btn("DRIFT",`Roll drift · DC ${G.dc}`,"nav",L)}</div>`); break;
     case "nav_heading": p="NAVIGATION · SET HEADING";
-      rows.push(`<div class="btnrow">${DIR_NAMES.map((d,i)=>btn("head",d,{v:i,cls:s.o===i?"sel":""})).join("")}</div>`); break;
+      rows.push(`<div class="btnrow">${DIR_NAMES.map(d=>btn("H:"+d,d,DIR_NAMES[s.o]===d?"sel":"",L)).join("")}</div>`); break;
     case "done": p="PHASE COMPLETE"; rows.push(`<div class="btnrow">${end()}</div>`); break;
-    case "atk_acquire": {
-      const t=other(s), ai=arcInfo(s,t);
+    case "atk_acquire": { const t=other(G,s), ai=arcInfo(s,t);
       p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:`No ship in your arc (front, range 1–3). You can still reload.`;
-      rows.push(`<div class="btnrow">${btn("acquire",`Target P${t.pid}`,{cls:"atk",dis:!ai})}${btn("reload","Reload",{dis:s.f.reloaded})}${end()}</div>`); break; }
-    case "atk_menu": {
-      const t=tgt(), ai=arcInfo(s,t);
+      rows.push(`<div class="btnrow">${btn("TGT",`Target P${t.pid}`,"atk",L)}${btn("RLD","Reload","",L)}${end()}</div>`); break; }
+    case "atk_menu": { const t=tgt(G), ai=arcInfo(s,t);
       p=`COMBAT · P${t.pid} AT RANGE ${ai?ai.range:"—"}`;
       sub=`Lock on (needs a stable drift): +${R.LOCK_BONUS} to hit and a critical. Fire: d20 vs AC ${ai?R.BASE_AC+R.AC_DIST[ai.range-1]:"—"}.`;
-      const lockDis=s.f.targeted||s.f.reloaded||!s.f.drift||busy;
-      rows.push(`<div class="btnrow">${btn("lock",s.f.drift?"Lock on":"Lock on (no drift)",{dis:lockDis})}${btn("reload","Reload",{dis:s.f.targeted||s.f.reloaded||busy})}${btn("fire",`Fire · ammo ${s.ammo}`,{cls:"atk",dis:s.f.fired||s.ammo<=0||!ai||busy})}${end()}</div>`); break; }
+      rows.push(`<div class="btnrow">${btn("LOCK",s.f.drift?"Lock on":"Lock on (no drift)","",L)}${btn("RLD","Reload","",L)}${btn("FIRE",`Fire · ammo ${s.ammo}`,"atk",L)}${end()}</div>`); break; }
     case "atk_debuff": p="COMBAT · PICK A SYSTEM TO CRIPPLE"; sub="Applied if your next shot hits. CREW stuns a random enemy crew member.";
-      rows.push(`<div class="btnrow">${DEBUFFS.map(([k,l])=>btn("debuff",l,{v:k,cls:"atk"})).join("")}</div>`); break;
-    case "atk_dmg": p="COMBAT · HIT!"; rows.push(`<div class="btnrow">${btn("dmg","Roll damage · d6",{cls:"atk",dis:busy})}</div>`); break;
-    case "eng": {
-      const cap=energyCap(s), used=energyUsed(s);
+      rows.push(`<div class="btnrow">${DEBUFFS.map(([k,l])=>btn("AIM:"+k,l,"atk",L)).join("")}</div>`); break;
+    case "atk_dmg": p="COMBAT · HIT!"; rows.push(`<div class="btnrow">${btn("DMG","Roll damage · d6","atk",L)}</div>`); break;
+    case "eng": { const cap=energyCap(s), used=energyUsed(s);
       p=`ENGINEERING · ENERGY ${used}/${cap}`; sub="Power stays allocated between turns. Heavy hull damage lowers the cap.";
-      rows.push(`<div class="eng-grid">${SYS.map(([k,lab])=>`<span class="sys">${lab}</span>${btn("sysm","−",{v:k,dis:s.sys[k]<=0})}<span>+${s.sys[k]}${k==="eng"?" <span class=\"dim\">(max 2)</span>":""}</span>${btn("sysp","+",{v:k,cls:"eng",dis:used>=cap||(k==="eng"&&s.sys.eng>=2)})}`).join("")}</div>`);
-      rows.push(`<div class="btnrow">${btn("repair",`Repair · ${s.parts} parts`,{cls:"eng",dis:s.parts<=0||s.hp>=s.maxHp})}${end()}</div>`); break; }
+      rows.push(`<div class="eng-grid">${SYS.map(([k,lab])=>{ const K={eng:"ENG",bst:"BST",dft:"DFT",wpn:"WPN"}[k];
+        return `<span class="sys">${lab}</span>${btn("-"+K,"−","",L)}<span>+${s.sys[k]}${k==="eng"?' <span class="dim">(max 2)</span>':""}</span>${btn("+"+K,"+","eng",L)}`; }).join("")}</div>`);
+      rows.push(`<div class="btnrow">${btn("REP",`Repair · ${s.parts} parts`,"eng",L)}${end()}</div>`); break; }
   }
+  if(UI.busy) sub="…";
   return `<div class="prompt">${p}${sub?`<span class="sub">${esc(sub)}</span>`:""}</div>${rows.join("")}`;
 }
+function recordHTML(){
+  const ps=plies(G.seed,G.moves);
+  return ps.map((p,i)=>`<div>${i+1}. <b style="color:${P_COLORS[p.who]}">P${p.who+1}</b> ${esc(plyText(p))}</div>`).reverse().join("");
+}
 function renderGame(){
-  const s=S();
   let overlay="";
+  const s=S(G);
   if(G.st==="over"){
-    const w=G.winner; const c=w?P_COLORS[w.pid-1]:"var(--bad)";
-    overlay=`<div class="overlay"><div class="box" style="--c:${c}"><h2>${w?`PLAYER ${w.pid} WINS`:"BOTH SHIPS LOST"}</h2>
-      ${w?`<p class="dim" style="margin:0">Crew: ${w.crew.map(c=>CREW_BY[c.key].name).join(", ")}</p>`:""}${btn("rematch","Rematch",{cls:"go"})}</div></div>`;
-  } else if(G.handoff){
+    const w=G.ships.find(x=>x.pid===G.winner), c=w?P_COLORS[w.pid-1]:"var(--bad)";
+    overlay=`<div class="overlay"><div class="box ${MODE.mode==="online"&&UI.share?"wide":""}" style="--c:${c}"><h2>${w?`PLAYER ${w.pid} WINS`:"BOTH SHIPS LOST"}</h2>
+      ${w?`<p class="dim">${CLASSES[w.cls].name} · crew ${w.crew.map(c=>CREW_BY[c.key].name).join(", ")}</p>`:""}
+      ${MODE.mode==="online"&&UI.share?`<p class="dim">Send the final move so your friend sees the end:</p><textarea id="share-code" class="code" readonly>${esc(UI.shareText)}</textarea><button class="go" data-ui="copy" id="btn-copy">Copy move</button><span class="msg" id="copy-msg"></span>`:""}
+      <button data-ui="newgame" id="btn-new">New game</button></div></div>`;
+  } else if(MODE.mode==="online"&&!myTurn()&&!UI.busy){
+    overlay=`<div class="overlay"><div class="box wide" style="--c:${P_COLORS[actor(G)]}">${waitingPanel()}</div></div>`;
+  } else if(MODE.mode==="local"&&UI.handoff&&!UI.busy){
     overlay=`<div class="overlay"><div class="box" style="--c:${P_COLORS[s.pid-1]}"><h2>PLAYER ${s.pid}<br>TAKE THE HELM</h2>
-      <p class="dim" style="margin:0">${s.jammed?"Your comms are jammed: plan only 2 phases.":"Plan NAV, ATK and ENG in any order."}</p>${btn("begin","Begin turn",{cls:"go"})}</div></div>`;
+      <p class="dim">${s.jammed?"Your comms are jammed: plan only 2 phases.":"Plan NAV, ATK and ENG in any order."}</p><button class="go" data-ui="begin" id="btn-begin">Begin turn</button></div></div>`;
   }
-  const keepCanvas=cv&&document.body.contains(cv);
-  if(!keepCanvas){
+  if(!cv||!cv.isConnected){
     app.innerHTML=`<div id="hdr"></div><div class="main"><div class="col">
       <div class="screen"><canvas id="map" width="${W}" height="${H}" aria-label="Battle map"></canvas><div class="hud" id="hud"></div><div id="ovl"></div></div>
+      <div id="storywrap"></div>
       <div class="console" id="console"></div><div class="log" id="log" aria-live="polite"></div>
+      <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
-      <li>Rocks and rams deal 5 damage. Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
+      <li>Rocks and rams deal 5 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
+      <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
+      <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
       <li>Crew orders rest 2 turns after use. Stunned crew lose their passive until the end of their next turn.</li></ul></details>
       </div><div class="col" id="side"></div></div>`;
@@ -880,50 +1170,46 @@ function renderGame(){
   }
   document.getElementById("hdr").innerHTML=header();
   document.getElementById("ovl").innerHTML=overlay;
-  document.getElementById("console").innerHTML=G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div>${diceHTML()}</div>`;
+  document.getElementById("storywrap").innerHTML=storyHTML();
+  document.getElementById("console").innerHTML=G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div><div class="dice" id="dicebox">${diceInner()}</div></div>`;
   document.getElementById("log").innerHTML=G.log.slice(0,40).map(l=>{
     const c=l.c==="ok"?"var(--good)":l.c==="bad"?"var(--bad)":l.c==="crew"?"var(--any)":l.c==="p1"?P_COLORS[0]:l.c==="p2"?P_COLORS[1]:"var(--ink)";
     return `<div style="color:${c}">${esc(l.t)}</div>`; }).join("");
+  const rb=document.getElementById("record-box"); if(rb.open) document.getElementById("record").innerHTML=recordHTML();
   document.getElementById("side").innerHTML=G.ships.map(shipCard).join("");
   paintFaces();
 }
 
-app.addEventListener("click",e=>{
-  const b=e.target.closest("button[data-act]"); if(!b||b.disabled) return;
-  const a=b.dataset.act, v=b.dataset.v;
+app.addEventListener("toggle",e=>{ if(e.target.id==="record-box"&&e.target.open) document.getElementById("record").innerHTML=recordHTML(); },true);
+app.addEventListener("click",async e=>{
+  const b=e.target.closest("button"); if(!b||b.disabled) return;
+  if(b.dataset.m){ if(b.dataset.m==="B:none") return; await act(b.dataset.m); return; }
+  const a=b.dataset.ui, v=b.dataset.v;
   switch(a){
-    case "start": newGame(); break;
-    case "pick": draftPick(v); return;
-    case "randpick": draftPick(G.draft.pool[Math.floor(Math.random()*G.draft.pool.length)]); return;
-    case "begin": G.handoff=false; break;
-    case "phase": pickPhase(v); break;
-    case "undo": G.queue.pop(); break;
-    case "speed": G.nav.speed=+v; fixNavSide(); break;
-    case "side": G.nav.side=+v; break;
-    case "boost": doBoost(); return;
-    case "drift": doDrift(); return;
-    case "head": S().o=+v; log(`Heading locked: ${DIR_NAMES[+v]}.`); G.st="done"; break;
-    case "end": endPhase(); break;
-    case "acquire": acquire(); break;
-    case "reload": doReload(); break;
-    case "lock": doLock(); return;
-    case "fire": doFire(); return;
-    case "debuff": chooseDebuff(v); break;
-    case "dmg": doDamage(); return;
-    case "sysp": sysAdd(v,1); break;
-    case "sysm": sysAdd(v,-1); break;
-    case "repair": doRepair(); break;
-    case "order": useOrder(+v); return;
-    case "rematch": newGame(); break;
+    case "local": G=newGame(1+Math.floor(Math.random()*2e9)); MODE={mode:"local",seat:0}; UI.screen="game"; UI.share=null; UI.handoff=false; save(); break;
+    case "online": G=newGame(1+Math.floor(Math.random()*2e9)); MODE={mode:"online",seat:0}; UI.screen="game"; UI.share=null; UI.msg=""; save(); break;
+    case "continue": { const sv=loadSave(); if(!sv||!restore(sv)){ UI.joinMsg="The saved game could not be loaded."; } break; }
+    case "join": { const t=document.getElementById("join-code").value; await importCode(t); return; }
+    case "reply": { const t=document.getElementById("reply-code").value; await importCode(t); return; }
+    case "copy": {
+      const ta=document.getElementById("share-code"), msg=document.getElementById("copy-msg");
+      try{ await navigator.clipboard.writeText(UI.shareText); msg.textContent="Copied."; }
+      catch(err){ ta.focus(); ta.select(); msg.textContent="Press Ctrl+C (or ⌘C) to copy."; }
+      return; }
+    case "randpick": { const ls=legal(G).filter(m=>m.startsWith("R:")); await act(ls[Math.floor(Math.random()*ls.length)]); return; }
+    case "begin": UI.handoff=false; break;
+    case "speed": UI.speed=+v; fixNavSide(); break;
+    case "side": UI.side=+v; break;
+    case "newgame": G=null; UI.screen="title"; UI.share=null; try{ localStorage.removeItem(SAVE_KEY); }catch(err){} break;
   }
   render();
 });
 
 // keep a running game across live page updates
-window.claude?.hot?.snapshot?.(()=>({G}));
+window.claude?.hot?.snapshot?.(()=>({save:G?{seed:G.seed,moves:G.moves,mode:MODE.mode,seat:MODE.seat,share:UI.share,shareText:UI.shareText}:null}));
 function start(data){
-  if(data&&data.G){ G=data.G; if(G.roll) G.roll.rolling=false; if(G.st==="moving"&&G.dest){ const s=S(); s.q=G.dest.q; s.r=G.dest.r; G.st="nav_drift"; } }
-  else G={screen:"title",ships:[],log:[]};
+  const sv=(data&&data.save)||null;
+  if(sv) restore(sv);
   render(); requestAnimationFrame(frame);
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
