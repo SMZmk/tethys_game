@@ -95,7 +95,7 @@ function angleDifficulty(dir,tq,tr,sq,sr){
 // Kindred: each crew member who shares the ship's faction adds +2 hull.
 const FACTIONS = {
   MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#d0743a",
-    perk:"Repairs heal +1",creed:"The ship is the living body. The crew are its servants."},
+    perk:"+1 damage on hits",creed:"The ship is the living body. The crew are its servants."},
   HEART:{name:"Nomads",long:"Followers of the Heart",color:"#e0607e",
     perk:"Crew orders rest only 1 turn",creed:"The crew is the heart. No one is left in the sand."},
   WIND:{name:"Drifters",long:"Followers of the Wind",color:"#7fd8c8",
@@ -105,10 +105,10 @@ const KINDRED_HULL=1;
 const CLASSES = {
   SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:2,speed:4,salvage:2,
     text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
-  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:15,energy:3,parts:3,bst:-1,dft:0,atk:0,dmg:0,rep:0,
-    text:"Mobile fortress. +1 spare part, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
-  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:15,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,
-    text:"Gunboat. +1 attack, +1 damage, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
+  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:14,energy:3,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
+    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
+  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:15,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,shots:2,ammo:2,half:true,
+    text:"Twin guns: fires twice per combat phase, each hit does half damage (+1 before halving). +1 attack, 2 ammo per reload, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
   RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
     text:"Old-world tech. 5 energy: power every system at once.",lore:"Nobody knows who built it. It hums when the wind dies."},
 };
@@ -148,14 +148,14 @@ function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.cha
 function newShip(pid,q,r,o){
   return {pid,cls:null,fac:null,q,r,o,hp:26,maxHp:26,baseEnergy:R.START_ENERGY,parts:R.START_PARTS,ammo:R.START_AMMO,
     sys:{eng:0,bst:0,dft:0,wpn:0},dmg:{SPEED:0,BOOST:0,DRIFT:0,WEAPONS:0},
-    f:{targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null},
+    f:{targeted:false,reloaded:false,shots:0,drift:false,locked:false,debuff:null},
     crew:[],evasive:false,jammed:false,surge:0,autoBoost:false,
     fury:false,tailwind:false,chain:false,storm:false,brace:false};
 }
 function newGame(seed){
   seed=(seed>>>0)||1; setTerrainSeed(seed);
   const G={v:2,seed,rng:seed,moves:[],ships:SPAWNS.map((s,i)=>newShip(i+1,s[0],s[1],s[2])),active:0,
-    draft:{pool:CREW.map(c=>c.key),order:[0,1,1,0,0,1],idx:0},
+    draft:{order:[0,1],idx:0},
     phase:"DRAFT",queue:[],qi:0,repeated:false,st:"draft",target:null,dc:0,aim:null,
     roll:null,winner:null,looted:[],turn:0,log:[],story:[],ev:[]};
   tell(G,"open",{});
@@ -171,6 +171,8 @@ function ev(G,e){ G.ev.push(e); }
 
 const cls=s=>CLASSES[s.cls]||{bst:0,dft:0,atk:0,dmg:0,rep:0};
 const maxSpeed=s=>cls(s).speed||3;
+const crewSlots=s=>cls(s).crew||3;
+const maxShots=s=>cls(s).shots||1;
 const has=(s,key)=>s.crew.some(c=>c.key===key&&!c.stun);
 function energyCap(s){ const p=s.hp/s.maxHp; if(p<R.HP_FAIL) return 0; if(p<R.HP_CRIT) return 1; return s.baseEnergy+(has(s,"TECH")?1:0); }
 const energyUsed=s=>s.sys.eng+s.sys.bst+s.sys.dft+s.sys.wpn;
@@ -296,7 +298,7 @@ const kindred=s=>s.crew.filter(c=>CREW_BY[c.key].f===s.fac).length;
 // ---------------- TURN FLOW ----------------
 function startTurn(G,idx){
   G.active=idx; const s=S(G); G.turn++;
-  s.f={targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null};
+  s.f={targeted:false,reloaded:false,shots:0,drift:false,locked:false,debuff:null};
   s.evasive=false; s.brace=false; s.crew.forEach(c=>{ if(c.rest>0) c.rest--; });
   if(has(s,"MEDIC")&&s.crew.some(c=>c.stun)){ s.crew.forEach(c=>c.stun=false); log(G,`ANA tends the wounded: ${shipName(s)} crew back on their feet.`,"ok"); }
   G.repeated=false; G.phase="CMD"; G.queue=[]; G.qi=0; G.st="cmd"; G.target=null; G.roll=null; G.aim=null;
@@ -317,7 +319,7 @@ const slotsAllowed=G=>S(G).jammed?2:3;
 function beginPhase(G,i){
   G.qi=i; G.phase=G.queue[i]; G.target=null; G.aim=null; const s=S(G);
   if(G.phase==="NAV") G.st="nav_pick";
-  if(G.phase==="ATK"){ Object.assign(s.f,{targeted:false,reloaded:false,fired:false,locked:false,debuff:null}); G.st="atk_acquire"; }
+  if(G.phase==="ATK"){ Object.assign(s.f,{targeted:false,reloaded:false,shots:0,locked:false,debuff:null}); G.st="atk_acquire"; }
   if(G.phase==="ENG") G.st="eng";
 }
 function endPhase(G){ if(G.qi+1<G.queue.length) beginPhase(G,G.qi+1); else endTurn(G); }
@@ -395,7 +397,7 @@ function legal(G){
   if(G.st==="draft"){
     const s=G.ships[actor(G)];
     if(!s.cls) for(const k in CLASSES) for(const f in FACTIONS) L.push("C:"+k+":"+f);
-    else for(const k of G.draft.pool) L.push("R:"+k);
+    else for(const f in FACTIONS) L.push(defaultCrewMove(s,f));   // examples; any valid crew is legal (see isLegal)
     return L;
   }
   const s=S(G);
@@ -415,7 +417,7 @@ function legal(G){
       const t=tgt(G);
       if(!s.f.targeted&&!s.f.reloaded&&s.f.drift) L.push("LOCK");
       if(!s.f.targeted&&!s.f.reloaded) L.push("RLD");
-      if(!s.f.fired&&s.ammo>0&&arcInfo(s,t)) L.push("FIRE");
+      if(s.f.shots<maxShots(s)&&s.ammo>0&&arcInfo(s,t)) L.push("FIRE");
       L.push("END"); break; }
     case "atk_debuff": for(const [k] of DEBUFFS) L.push("AIM:"+k); break;
     case "atk_dmg": L.push("DMG"); break;
@@ -430,9 +432,21 @@ function legal(G){
   return L;
 }
 
+// Crew are picked in one move:  CREW:KEY1,KEY2,KEY3  (Hauler: 4).  Crew are not exclusive.
+function validCrewMove(G,a){
+  if(G.st!=="draft"||!a.startsWith("CREW:")) return false;
+  const s=G.ships[actor(G)]; if(!s.cls) return false;
+  const keys=a.slice(5).split(",");
+  return keys.length===crewSlots(s)&&new Set(keys).size===keys.length&&keys.every(k=>CREW_BY[k]);
+}
+// The computer's crew for each faction, in pick order (a Hauler takes the 4th as well).
+const AI_CREW={MACHINE:["IRONCAPT","HARPOON","TECH","MECHANIC"],HEART:["CAPTAIN","GUNNER","MEDIC","BULWARK"],WIND:["WINDCAPT","ACE","SPOTTER","DRIFTER"]};
+function defaultCrewMove(s,f){ return "CREW:"+AI_CREW[f].slice(0,crewSlots(s)).join(","); }
+function isLegal(G,a){ return validCrewMove(G,a)||legal(G).includes(a); }
+
 // ---------------- APPLY ----------------
 function apply(G,a){
-  if(!legal(G).includes(a)) throw new Error("Illegal move: "+a+" (state "+G.st+")");
+  if(!isLegal(G,a)) throw new Error("Illegal move: "+a+" (state "+G.st+")");
   G.moves.push(a); G.ev=[];
   if(a.startsWith("O:")) { useOrder(G,+a.slice(2)-1); return G; }
   const [head,arg,arg2]=a.split(":");
@@ -452,7 +466,7 @@ function apply(G,a){
     case "atk_acquire": case "atk_menu":
       if(a==="END"){ endPhase(G); break; }
       if(a==="TGT"){ const t=other(G,S(G)); G.target=t.pid; G.st="atk_menu"; log(G,`Target acquired: ${shipName(t)}.`,"ok"); break; }
-      if(a==="RLD"){ const s=S(G); s.ammo=Math.max(s.ammo,has(s,"QM")?2:1); s.f.reloaded=true; log(G,`Reloaded. Ammo ${s.ammo}.`); break; }
+      if(a==="RLD"){ const s=S(G); s.ammo=Math.max(s.ammo,has(s,"QM")?2:1,cls(s).ammo||1); s.f.reloaded=true; log(G,`Reloaded. Ammo ${s.ammo}.`); break; }
       if(a==="LOCK"){ doLock(G); break; }
       if(a==="FIRE"){ doFire(G); break; }
       break;
@@ -469,12 +483,11 @@ function apply(G,a){
 function draftMove(G,head,key,fac){
   const s=G.ships[actor(G)];
   if(head==="C"){
-    const c=CLASSES[key]; s.cls=key; s.fac=fac; s.maxHp=s.hp=c.hull; s.baseEnergy=c.energy; s.parts=c.parts;
+    const c=CLASSES[key]; s.cls=key; s.fac=fac; s.maxHp=s.hp=c.hull; s.baseEnergy=c.energy; s.parts=c.parts; s.ammo=c.ammo||R.START_AMMO;
     log(G,`P${s.pid} takes a ${c.name} under the ${FACTIONS[fac].name}.`,"p"+s.pid); return;
   }
-  G.draft.pool=G.draft.pool.filter(k=>k!==key); s.crew.push({key,rest:0,stun:false});
-  if(key==="QM") s.parts++;
-  log(G,`P${s.pid} recruits ${CREW_BY[key].name} (${CREW_BY[key].role}).`,"p"+s.pid);
+  for(const k of key.split(",")){ s.crew.push({key:k,rest:0,stun:false}); if(k==="QM") s.parts++; }
+  log(G,`P${s.pid} crew: ${s.crew.map(c=>CREW_BY[c.key].name).join(", ")}.`,"p"+s.pid);
   G.draft.idx++;
   if(G.draft.idx>=G.draft.order.length){
     for(const sh of G.ships){ const k=kindred(sh); if(k){ sh.maxHp+=k*KINDRED_HULL; sh.hp=sh.maxHp; log(G,`P${sh.pid} kindred crew: ${k} × +${KINDRED_HULL} hull.`,"p"+sh.pid); } }
@@ -518,7 +531,7 @@ function doLock(G){
 function doFire(G){
   const s=S(G), t=tgt(G), ai=arcInfo(s,t);
   const ac=R.BASE_AC+R.AC_DIST[ai.range-1];
-  s.ammo--; s.f.fired=true;
+  s.ammo--; s.f.shots++;
   const ok=rollCheck(G,"ATTACK",20,[[s.f.locked?R.LOCK_BONUS:0,"lock"],[s.sys.wpn,"WPN"],[cls(s).atk,"hull class"],[hullPen(s),"hull"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"ATK",t,true)],ac,"AC",s.pid);
   ev(G,{t:"shot",from:s.pid,to:t.pid,hit:ok});
   if(ok){ log(G,"Hit! Roll damage.","ok"); G.st="atk_dmg"; }
@@ -527,9 +540,10 @@ function doFire(G){
 function doDamage(G){
   const s=S(G), t=tgt(G);
   const v=rnd(G,6), mods=[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[cls(s).dmg,"hull class"],[-s.dmg.WEAPONS,"dmg"],
-    [has(s,"HARPOON")?1:0,"GRIT"],[s.fury?4:0,"fury"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
+    [has(s,"HARPOON")?1:0,"GRIT"],[s.fac==="MACHINE"?1:0,"Scrappers"],[s.fury?4:0,"fury"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
   s.fury=false;
-  const n=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0));
+  const raw=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0)), n=cls(s).half?Math.ceil(raw/2):raw;
+  if(cls(s).half) mods.push([n-raw,"twin guns ½"]);
   G.roll={label:"DAMAGE",sides:6,die:v,mods,total:n,dmg:true,pid:s.pid};
   ev(G,{t:"roll",roll:{...G.roll}});
   tell(G,"hit",{p:cname(s),t:cname(t)},s.fac);
@@ -545,7 +559,7 @@ function doDamage(G){
 }
 function doRepair(G){
   const s=S(G);
-  const v=rnd(G,4), extra=(has(s,"MECHANIC")?1:0)+cls(s).rep+(s.fac==="MACHINE"?1:0), heal=Math.max(1,v+extra);
+  const v=rnd(G,4), extra=(has(s,"MECHANIC")?1:0)+cls(s).rep, heal=Math.max(1,v+extra);
   s.parts--; s.hp=Math.min(s.maxHp,s.hp+heal);
   G.roll={label:"REPAIR",sides:4,die:v,mods:[[extra,"crew/class/faction"]].filter(x=>x[0]),total:heal,heal:true,pid:s.pid};
   ev(G,{t:"roll",roll:{...G.roll}});
@@ -557,7 +571,7 @@ function useOrder(G,i){
     case "CAPTAIN": G.queue.splice(G.qi+1,0,G.phase); G.repeated=true; log(G,`${G.phase} phase will repeat.`); break;
     case "ACE": s.autoBoost=true; break;
     case "DRIFTER": s.evasive=true; break;
-    case "GUNNER": s.ammo++; s.f.fired=false; break;
+    case "GUNNER": s.ammo++; s.f.shots=Math.max(0,s.f.shots-1); break;
     case "SPOTTER": s.f.locked=true; G.st="atk_debuff"; break;
     case "JAMMER": tgt(G).jammed=true; break;
     case "MECHANIC": for(const k in s.dmg) s.dmg[k]=Math.max(0,s.dmg[k]-1); break;
@@ -577,6 +591,84 @@ function useOrder(G,i){
   ev(G,{t:"order",pid:s.pid,text:d.order});
 }
 
+// ---------------- COMPUTER OPPONENT ----------------
+// The computer follows a short rule card plus a few d6 rolls, so it can also be run
+// on a real table with real dice. Its dice come from the seed and the turn number
+// (not from the game's dice stream), so a replay always repeats its choices.
+//
+//  SETUP   Faction d6: 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters.
+//          Ship d6: 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct,
+//                   5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff).
+//          Crew: its faction's list (AI_CREW below), captain first; a Hauler takes 4.
+//  EACH TURN roll two d6:
+//          Intent: ENGAGE on 2+ while hull is at least half, on 4+ when below half; otherwise ESCAPE.
+//          Style:  1–3 EASY (always take the lowest DC), 4–6 RISKY (always take the highest DC).
+//  PLAN    Engage: NAV → ATK → ENG.   Escape: ENG → NAV → ATK.
+//  ORDERS  Whenever a crew order is possible, give it (first crew first).
+//  NAV     Engage: a course ending 1–3 hexes from the enemy (none: the closest one).
+//          Escape: the course ending farthest from the enemy.
+//          Pick by Style (DC); ties: the straighter course, then the slower one.
+//          After a stable drift, face the enemy (Escape: face away).
+//  ATK     Target if in arc. Out of ammo: reload. Lock on if possible, then fire while possible.
+//          Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.
+//  ENG     Below half hull: repair while parts last.
+//          Then power up: Engage WPN, BST, DFT.  Escape ENGINE, BST, DFT.
+function aiD6(G,tag){ return 1+hashStr(G.seed+":"+G.turn+":"+tag)%6; }
+function aiSetup(G){
+  const s=G.ships[actor(G)];
+  const f=aiD6(G,"faction"+s.pid), fac=f<=2?"MACHINE":f<=4?"HEART":"WIND";
+  const c=aiD6(G,"ship"+s.pid), shipCls=c===1?"SKIFF":c===2?"HAULER":c===3?"DREAD":c===4?"RELIC":{MACHINE:"DREAD",HEART:"HAULER",WIND:"SKIFF"}[fac];
+  return {fac,cls:shipCls,rolls:[f,c]};
+}
+function aiPlan(G){
+  const s=S(G), healthy=s.hp*2>=s.maxHp, intent=aiD6(G,"intent"), style=aiD6(G,"style");
+  return {engage:intent>=(healthy?2:4), risky:style>=4, intent, style, healthy};
+}
+function aiDirToward(s,q,r){
+  const x1=1.5*s.q, y1=Math.sqrt(3)/2*s.q+Math.sqrt(3)*s.r, x2=1.5*q, y2=Math.sqrt(3)/2*q+Math.sqrt(3)*r;
+  return mod(Math.round(Math.atan2(x2-x1,-(y2-y1))*180/Math.PI/60),6);
+}
+function aiMove(G){
+  const L=legal(G); if(!L.length) return null;
+  if(G.st==="draft"){
+    const s=G.ships[actor(G)], su=aiSetup(G);
+    return s.cls?defaultCrewMove(s,s.fac):`C:${su.cls}:${su.fac}`;
+  }
+  const s=S(G), o=other(G,s), P=aiPlan(G);
+  const ord=L.find(m=>m.startsWith("O:"));
+  if(ord&&!["atk_debuff","atk_dmg","nav_drift"].includes(G.st)) return ord;
+  const toward=aiDirToward(s,o.q,o.r), want=P.engage?toward:mod(toward+3,6);
+  switch(G.st){
+    case "cmd": { const plan=P.engage?["NAV","ATK","ENG"]:["ENG","NAV","ATK"]; return "Q:"+plan.find(p=>!G.queue.includes(p)); }
+    case "nav_pick": {
+      const opts=allNavOptions(s);
+      if(!opts.length){ const d=mod(want-s.o,6); return d>=1&&d<=3?"PIVOT:R":"PIVOT:L"; }
+      const dist=x=>hexDist(o.q-x.q,o.r-x.r);
+      let pool;
+      if(P.engage){ pool=opts.filter(x=>dist(x)>=1&&dist(x)<=3); if(!pool.length){ const m=Math.min(...opts.map(dist)); pool=opts.filter(x=>dist(x)===m); } }
+      else { const m=Math.max(...opts.map(dist)); pool=opts.filter(x=>dist(x)===m); }
+      pool.sort((a,b)=>(P.risky?b.dc-a.dc:a.dc-b.dc)||Math.abs(a.side)-Math.abs(b.side)||a.speed-b.speed);
+      const c=pool[0]; return `B:${c.speed}:${c.side>0?"+":""}${c.side}`;
+    }
+    case "nav_drift": return "DRIFT";
+    case "nav_heading": return "H:"+DIR_NAMES[want];
+    case "done": return "END";
+    case "atk_acquire": return L.includes("TGT")?"TGT":(s.ammo<=0&&L.includes("RLD"))?"RLD":"END";
+    case "atk_menu":
+      if(s.ammo<=0&&L.includes("RLD")) return "RLD";
+      if(L.includes("LOCK")) return "LOCK";
+      if(L.includes("FIRE")) return "FIRE";
+      return "END";
+    case "atk_debuff": { const r=aiD6(G,"crit"+G.moves.length); return "AIM:"+(r<=3?"WEAPONS":r<=5?"SPEED":"CREW"); }
+    case "atk_dmg": return "DMG";
+    case "eng":
+      if(L.includes("REP")&&s.hp*2<s.maxHp) return "REP";
+      for(const k of P.engage?["WPN","BST","DFT"]:["ENG","BST","DFT"]) if(L.includes("+"+k)) return "+"+k;
+      return "END";
+  }
+  return L.includes("END")?"END":L[0];
+}
+
 // ---------------- RECORD / NOTATION ----------------
 // Moves are grouped into "plies": consecutive moves by the same player.
 function replay(seed,moves){ const G=newGame(seed); for(const m of moves) apply(G,m); G.ev=[]; return G; }
@@ -592,4 +684,4 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};

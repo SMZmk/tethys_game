@@ -271,7 +271,7 @@ function angleDifficulty(dir,tq,tr,sq,sr){
 // Kindred: each crew member who shares the ship's faction adds +2 hull.
 const FACTIONS = {
   MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#d0743a",
-    perk:"Repairs heal +1",creed:"The ship is the living body. The crew are its servants."},
+    perk:"+1 damage on hits",creed:"The ship is the living body. The crew are its servants."},
   HEART:{name:"Nomads",long:"Followers of the Heart",color:"#e0607e",
     perk:"Crew orders rest only 1 turn",creed:"The crew is the heart. No one is left in the sand."},
   WIND:{name:"Drifters",long:"Followers of the Wind",color:"#7fd8c8",
@@ -281,10 +281,10 @@ const KINDRED_HULL=1;
 const CLASSES = {
   SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:2,speed:4,salvage:2,
     text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
-  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:15,energy:3,parts:3,bst:-1,dft:0,atk:0,dmg:0,rep:0,
-    text:"Mobile fortress. +1 spare part, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
-  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:15,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,
-    text:"Gunboat. +1 attack, +1 damage, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
+  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:14,energy:3,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
+    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
+  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:15,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,shots:2,ammo:2,half:true,
+    text:"Twin guns: fires twice per combat phase, each hit does half damage (+1 before halving). +1 attack, 2 ammo per reload, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
   RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
     text:"Old-world tech. 5 energy: power every system at once.",lore:"Nobody knows who built it. It hums when the wind dies."},
 };
@@ -324,14 +324,14 @@ function hashStr(s){ let h=2166136261>>>0; for(let i=0;i<s.length;i++){ h^=s.cha
 function newShip(pid,q,r,o){
   return {pid,cls:null,fac:null,q,r,o,hp:26,maxHp:26,baseEnergy:R.START_ENERGY,parts:R.START_PARTS,ammo:R.START_AMMO,
     sys:{eng:0,bst:0,dft:0,wpn:0},dmg:{SPEED:0,BOOST:0,DRIFT:0,WEAPONS:0},
-    f:{targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null},
+    f:{targeted:false,reloaded:false,shots:0,drift:false,locked:false,debuff:null},
     crew:[],evasive:false,jammed:false,surge:0,autoBoost:false,
     fury:false,tailwind:false,chain:false,storm:false,brace:false};
 }
 function newGame(seed){
   seed=(seed>>>0)||1; setTerrainSeed(seed);
   const G={v:2,seed,rng:seed,moves:[],ships:SPAWNS.map((s,i)=>newShip(i+1,s[0],s[1],s[2])),active:0,
-    draft:{pool:CREW.map(c=>c.key),order:[0,1,1,0,0,1],idx:0},
+    draft:{order:[0,1],idx:0},
     phase:"DRAFT",queue:[],qi:0,repeated:false,st:"draft",target:null,dc:0,aim:null,
     roll:null,winner:null,looted:[],turn:0,log:[],story:[],ev:[]};
   tell(G,"open",{});
@@ -347,6 +347,8 @@ function ev(G,e){ G.ev.push(e); }
 
 const cls=s=>CLASSES[s.cls]||{bst:0,dft:0,atk:0,dmg:0,rep:0};
 const maxSpeed=s=>cls(s).speed||3;
+const crewSlots=s=>cls(s).crew||3;
+const maxShots=s=>cls(s).shots||1;
 const has=(s,key)=>s.crew.some(c=>c.key===key&&!c.stun);
 function energyCap(s){ const p=s.hp/s.maxHp; if(p<R.HP_FAIL) return 0; if(p<R.HP_CRIT) return 1; return s.baseEnergy+(has(s,"TECH")?1:0); }
 const energyUsed=s=>s.sys.eng+s.sys.bst+s.sys.dft+s.sys.wpn;
@@ -472,7 +474,7 @@ const kindred=s=>s.crew.filter(c=>CREW_BY[c.key].f===s.fac).length;
 // ---------------- TURN FLOW ----------------
 function startTurn(G,idx){
   G.active=idx; const s=S(G); G.turn++;
-  s.f={targeted:false,reloaded:false,fired:false,drift:false,locked:false,debuff:null};
+  s.f={targeted:false,reloaded:false,shots:0,drift:false,locked:false,debuff:null};
   s.evasive=false; s.brace=false; s.crew.forEach(c=>{ if(c.rest>0) c.rest--; });
   if(has(s,"MEDIC")&&s.crew.some(c=>c.stun)){ s.crew.forEach(c=>c.stun=false); log(G,`ANA tends the wounded: ${shipName(s)} crew back on their feet.`,"ok"); }
   G.repeated=false; G.phase="CMD"; G.queue=[]; G.qi=0; G.st="cmd"; G.target=null; G.roll=null; G.aim=null;
@@ -493,7 +495,7 @@ const slotsAllowed=G=>S(G).jammed?2:3;
 function beginPhase(G,i){
   G.qi=i; G.phase=G.queue[i]; G.target=null; G.aim=null; const s=S(G);
   if(G.phase==="NAV") G.st="nav_pick";
-  if(G.phase==="ATK"){ Object.assign(s.f,{targeted:false,reloaded:false,fired:false,locked:false,debuff:null}); G.st="atk_acquire"; }
+  if(G.phase==="ATK"){ Object.assign(s.f,{targeted:false,reloaded:false,shots:0,locked:false,debuff:null}); G.st="atk_acquire"; }
   if(G.phase==="ENG") G.st="eng";
 }
 function endPhase(G){ if(G.qi+1<G.queue.length) beginPhase(G,G.qi+1); else endTurn(G); }
@@ -571,7 +573,7 @@ function legal(G){
   if(G.st==="draft"){
     const s=G.ships[actor(G)];
     if(!s.cls) for(const k in CLASSES) for(const f in FACTIONS) L.push("C:"+k+":"+f);
-    else for(const k of G.draft.pool) L.push("R:"+k);
+    else for(const f in FACTIONS) L.push(defaultCrewMove(s,f));   // examples; any valid crew is legal (see isLegal)
     return L;
   }
   const s=S(G);
@@ -591,7 +593,7 @@ function legal(G){
       const t=tgt(G);
       if(!s.f.targeted&&!s.f.reloaded&&s.f.drift) L.push("LOCK");
       if(!s.f.targeted&&!s.f.reloaded) L.push("RLD");
-      if(!s.f.fired&&s.ammo>0&&arcInfo(s,t)) L.push("FIRE");
+      if(s.f.shots<maxShots(s)&&s.ammo>0&&arcInfo(s,t)) L.push("FIRE");
       L.push("END"); break; }
     case "atk_debuff": for(const [k] of DEBUFFS) L.push("AIM:"+k); break;
     case "atk_dmg": L.push("DMG"); break;
@@ -606,9 +608,21 @@ function legal(G){
   return L;
 }
 
+// Crew are picked in one move:  CREW:KEY1,KEY2,KEY3  (Hauler: 4).  Crew are not exclusive.
+function validCrewMove(G,a){
+  if(G.st!=="draft"||!a.startsWith("CREW:")) return false;
+  const s=G.ships[actor(G)]; if(!s.cls) return false;
+  const keys=a.slice(5).split(",");
+  return keys.length===crewSlots(s)&&new Set(keys).size===keys.length&&keys.every(k=>CREW_BY[k]);
+}
+// The computer's crew for each faction, in pick order (a Hauler takes the 4th as well).
+const AI_CREW={MACHINE:["IRONCAPT","HARPOON","TECH","MECHANIC"],HEART:["CAPTAIN","GUNNER","MEDIC","BULWARK"],WIND:["WINDCAPT","ACE","SPOTTER","DRIFTER"]};
+function defaultCrewMove(s,f){ return "CREW:"+AI_CREW[f].slice(0,crewSlots(s)).join(","); }
+function isLegal(G,a){ return validCrewMove(G,a)||legal(G).includes(a); }
+
 // ---------------- APPLY ----------------
 function apply(G,a){
-  if(!legal(G).includes(a)) throw new Error("Illegal move: "+a+" (state "+G.st+")");
+  if(!isLegal(G,a)) throw new Error("Illegal move: "+a+" (state "+G.st+")");
   G.moves.push(a); G.ev=[];
   if(a.startsWith("O:")) { useOrder(G,+a.slice(2)-1); return G; }
   const [head,arg,arg2]=a.split(":");
@@ -628,7 +642,7 @@ function apply(G,a){
     case "atk_acquire": case "atk_menu":
       if(a==="END"){ endPhase(G); break; }
       if(a==="TGT"){ const t=other(G,S(G)); G.target=t.pid; G.st="atk_menu"; log(G,`Target acquired: ${shipName(t)}.`,"ok"); break; }
-      if(a==="RLD"){ const s=S(G); s.ammo=Math.max(s.ammo,has(s,"QM")?2:1); s.f.reloaded=true; log(G,`Reloaded. Ammo ${s.ammo}.`); break; }
+      if(a==="RLD"){ const s=S(G); s.ammo=Math.max(s.ammo,has(s,"QM")?2:1,cls(s).ammo||1); s.f.reloaded=true; log(G,`Reloaded. Ammo ${s.ammo}.`); break; }
       if(a==="LOCK"){ doLock(G); break; }
       if(a==="FIRE"){ doFire(G); break; }
       break;
@@ -645,12 +659,11 @@ function apply(G,a){
 function draftMove(G,head,key,fac){
   const s=G.ships[actor(G)];
   if(head==="C"){
-    const c=CLASSES[key]; s.cls=key; s.fac=fac; s.maxHp=s.hp=c.hull; s.baseEnergy=c.energy; s.parts=c.parts;
+    const c=CLASSES[key]; s.cls=key; s.fac=fac; s.maxHp=s.hp=c.hull; s.baseEnergy=c.energy; s.parts=c.parts; s.ammo=c.ammo||R.START_AMMO;
     log(G,`P${s.pid} takes a ${c.name} under the ${FACTIONS[fac].name}.`,"p"+s.pid); return;
   }
-  G.draft.pool=G.draft.pool.filter(k=>k!==key); s.crew.push({key,rest:0,stun:false});
-  if(key==="QM") s.parts++;
-  log(G,`P${s.pid} recruits ${CREW_BY[key].name} (${CREW_BY[key].role}).`,"p"+s.pid);
+  for(const k of key.split(",")){ s.crew.push({key:k,rest:0,stun:false}); if(k==="QM") s.parts++; }
+  log(G,`P${s.pid} crew: ${s.crew.map(c=>CREW_BY[c.key].name).join(", ")}.`,"p"+s.pid);
   G.draft.idx++;
   if(G.draft.idx>=G.draft.order.length){
     for(const sh of G.ships){ const k=kindred(sh); if(k){ sh.maxHp+=k*KINDRED_HULL; sh.hp=sh.maxHp; log(G,`P${sh.pid} kindred crew: ${k} × +${KINDRED_HULL} hull.`,"p"+sh.pid); } }
@@ -694,7 +707,7 @@ function doLock(G){
 function doFire(G){
   const s=S(G), t=tgt(G), ai=arcInfo(s,t);
   const ac=R.BASE_AC+R.AC_DIST[ai.range-1];
-  s.ammo--; s.f.fired=true;
+  s.ammo--; s.f.shots++;
   const ok=rollCheck(G,"ATTACK",20,[[s.f.locked?R.LOCK_BONUS:0,"lock"],[s.sys.wpn,"WPN"],[cls(s).atk,"hull class"],[hullPen(s),"hull"],[-s.dmg.WEAPONS,"dmg"],...crewMods(s,"ATK",t,true)],ac,"AC",s.pid);
   ev(G,{t:"shot",from:s.pid,to:t.pid,hit:ok});
   if(ok){ log(G,"Hit! Roll damage.","ok"); G.st="atk_dmg"; }
@@ -703,9 +716,10 @@ function doFire(G){
 function doDamage(G){
   const s=S(G), t=tgt(G);
   const v=rnd(G,6), mods=[[R.DMG_BONUS,"base"],[s.sys.wpn,"WPN"],[cls(s).dmg,"hull class"],[-s.dmg.WEAPONS,"dmg"],
-    [has(s,"HARPOON")?1:0,"GRIT"],[s.fury?4:0,"fury"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
+    [has(s,"HARPOON")?1:0,"GRIT"],[s.fac==="MACHINE"?1:0,"Scrappers"],[s.fury?4:0,"fury"],[t.brace?-3:0,"brace"]].filter(x=>x[0]!==0);
   s.fury=false;
-  const n=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0));
+  const raw=Math.max(1,v+mods.reduce((a,x)=>a+x[0],0)), n=cls(s).half?Math.ceil(raw/2):raw;
+  if(cls(s).half) mods.push([n-raw,"twin guns ½"]);
   G.roll={label:"DAMAGE",sides:6,die:v,mods,total:n,dmg:true,pid:s.pid};
   ev(G,{t:"roll",roll:{...G.roll}});
   tell(G,"hit",{p:cname(s),t:cname(t)},s.fac);
@@ -721,7 +735,7 @@ function doDamage(G){
 }
 function doRepair(G){
   const s=S(G);
-  const v=rnd(G,4), extra=(has(s,"MECHANIC")?1:0)+cls(s).rep+(s.fac==="MACHINE"?1:0), heal=Math.max(1,v+extra);
+  const v=rnd(G,4), extra=(has(s,"MECHANIC")?1:0)+cls(s).rep, heal=Math.max(1,v+extra);
   s.parts--; s.hp=Math.min(s.maxHp,s.hp+heal);
   G.roll={label:"REPAIR",sides:4,die:v,mods:[[extra,"crew/class/faction"]].filter(x=>x[0]),total:heal,heal:true,pid:s.pid};
   ev(G,{t:"roll",roll:{...G.roll}});
@@ -733,7 +747,7 @@ function useOrder(G,i){
     case "CAPTAIN": G.queue.splice(G.qi+1,0,G.phase); G.repeated=true; log(G,`${G.phase} phase will repeat.`); break;
     case "ACE": s.autoBoost=true; break;
     case "DRIFTER": s.evasive=true; break;
-    case "GUNNER": s.ammo++; s.f.fired=false; break;
+    case "GUNNER": s.ammo++; s.f.shots=Math.max(0,s.f.shots-1); break;
     case "SPOTTER": s.f.locked=true; G.st="atk_debuff"; break;
     case "JAMMER": tgt(G).jammed=true; break;
     case "MECHANIC": for(const k in s.dmg) s.dmg[k]=Math.max(0,s.dmg[k]-1); break;
@@ -753,6 +767,84 @@ function useOrder(G,i){
   ev(G,{t:"order",pid:s.pid,text:d.order});
 }
 
+// ---------------- COMPUTER OPPONENT ----------------
+// The computer follows a short rule card plus a few d6 rolls, so it can also be run
+// on a real table with real dice. Its dice come from the seed and the turn number
+// (not from the game's dice stream), so a replay always repeats its choices.
+//
+//  SETUP   Faction d6: 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters.
+//          Ship d6: 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct,
+//                   5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff).
+//          Crew: its faction's list (AI_CREW below), captain first; a Hauler takes 4.
+//  EACH TURN roll two d6:
+//          Intent: ENGAGE on 2+ while hull is at least half, on 4+ when below half; otherwise ESCAPE.
+//          Style:  1–3 EASY (always take the lowest DC), 4–6 RISKY (always take the highest DC).
+//  PLAN    Engage: NAV → ATK → ENG.   Escape: ENG → NAV → ATK.
+//  ORDERS  Whenever a crew order is possible, give it (first crew first).
+//  NAV     Engage: a course ending 1–3 hexes from the enemy (none: the closest one).
+//          Escape: the course ending farthest from the enemy.
+//          Pick by Style (DC); ties: the straighter course, then the slower one.
+//          After a stable drift, face the enemy (Escape: face away).
+//  ATK     Target if in arc. Out of ammo: reload. Lock on if possible, then fire while possible.
+//          Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.
+//  ENG     Below half hull: repair while parts last.
+//          Then power up: Engage WPN, BST, DFT.  Escape ENGINE, BST, DFT.
+function aiD6(G,tag){ return 1+hashStr(G.seed+":"+G.turn+":"+tag)%6; }
+function aiSetup(G){
+  const s=G.ships[actor(G)];
+  const f=aiD6(G,"faction"+s.pid), fac=f<=2?"MACHINE":f<=4?"HEART":"WIND";
+  const c=aiD6(G,"ship"+s.pid), shipCls=c===1?"SKIFF":c===2?"HAULER":c===3?"DREAD":c===4?"RELIC":{MACHINE:"DREAD",HEART:"HAULER",WIND:"SKIFF"}[fac];
+  return {fac,cls:shipCls,rolls:[f,c]};
+}
+function aiPlan(G){
+  const s=S(G), healthy=s.hp*2>=s.maxHp, intent=aiD6(G,"intent"), style=aiD6(G,"style");
+  return {engage:intent>=(healthy?2:4), risky:style>=4, intent, style, healthy};
+}
+function aiDirToward(s,q,r){
+  const x1=1.5*s.q, y1=Math.sqrt(3)/2*s.q+Math.sqrt(3)*s.r, x2=1.5*q, y2=Math.sqrt(3)/2*q+Math.sqrt(3)*r;
+  return mod(Math.round(Math.atan2(x2-x1,-(y2-y1))*180/Math.PI/60),6);
+}
+function aiMove(G){
+  const L=legal(G); if(!L.length) return null;
+  if(G.st==="draft"){
+    const s=G.ships[actor(G)], su=aiSetup(G);
+    return s.cls?defaultCrewMove(s,s.fac):`C:${su.cls}:${su.fac}`;
+  }
+  const s=S(G), o=other(G,s), P=aiPlan(G);
+  const ord=L.find(m=>m.startsWith("O:"));
+  if(ord&&!["atk_debuff","atk_dmg","nav_drift"].includes(G.st)) return ord;
+  const toward=aiDirToward(s,o.q,o.r), want=P.engage?toward:mod(toward+3,6);
+  switch(G.st){
+    case "cmd": { const plan=P.engage?["NAV","ATK","ENG"]:["ENG","NAV","ATK"]; return "Q:"+plan.find(p=>!G.queue.includes(p)); }
+    case "nav_pick": {
+      const opts=allNavOptions(s);
+      if(!opts.length){ const d=mod(want-s.o,6); return d>=1&&d<=3?"PIVOT:R":"PIVOT:L"; }
+      const dist=x=>hexDist(o.q-x.q,o.r-x.r);
+      let pool;
+      if(P.engage){ pool=opts.filter(x=>dist(x)>=1&&dist(x)<=3); if(!pool.length){ const m=Math.min(...opts.map(dist)); pool=opts.filter(x=>dist(x)===m); } }
+      else { const m=Math.max(...opts.map(dist)); pool=opts.filter(x=>dist(x)===m); }
+      pool.sort((a,b)=>(P.risky?b.dc-a.dc:a.dc-b.dc)||Math.abs(a.side)-Math.abs(b.side)||a.speed-b.speed);
+      const c=pool[0]; return `B:${c.speed}:${c.side>0?"+":""}${c.side}`;
+    }
+    case "nav_drift": return "DRIFT";
+    case "nav_heading": return "H:"+DIR_NAMES[want];
+    case "done": return "END";
+    case "atk_acquire": return L.includes("TGT")?"TGT":(s.ammo<=0&&L.includes("RLD"))?"RLD":"END";
+    case "atk_menu":
+      if(s.ammo<=0&&L.includes("RLD")) return "RLD";
+      if(L.includes("LOCK")) return "LOCK";
+      if(L.includes("FIRE")) return "FIRE";
+      return "END";
+    case "atk_debuff": { const r=aiD6(G,"crit"+G.moves.length); return "AIM:"+(r<=3?"WEAPONS":r<=5?"SPEED":"CREW"); }
+    case "atk_dmg": return "DMG";
+    case "eng":
+      if(L.includes("REP")&&s.hp*2<s.maxHp) return "REP";
+      for(const k of P.engage?["WPN","BST","DFT"]:["ENG","BST","DFT"]) if(L.includes("+"+k)) return "+"+k;
+      return "END";
+  }
+  return L.includes("END")?"END":L[0];
+}
+
 // ---------------- RECORD / NOTATION ----------------
 // Moves are grouped into "plies": consecutive moves by the same player.
 function replay(seed,moves){ const G=newGame(seed); for(const m of moves) apply(G,m); G.ev=[]; return G; }
@@ -768,7 +860,7 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
 </script>
 <script>
 // ======================================================================
@@ -778,7 +870,7 @@ if(typeof module!=="undefined") module.exports={maxSpeed,FACTIONS,CREW_BY,kindre
 let G=null;
 let MODE={mode:"local",seat:0};                 // local hotseat, or online with my seat (0/1)
 const UI={screen:"title",speed:1,side:0,handoff:false,busy:false,rolling:null,shown:null,
-  focus:null,heading:null,pickCls:null,pickFac:null,pickCrew:null,share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
+  focus:null,heading:null,pickCls:null,pickFac:null,pickCrew:[],aiNote:"",share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
 const SAVE_KEY="tethys.v2";
 const P_COLORS=["#ffcf4a","#5fd0ff"];
 const ST_COLOR={NAV:"var(--nav)",ATK:"var(--atk)",ENG:"var(--eng)",ANY:"var(--any)"};
@@ -789,6 +881,8 @@ const reduceMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep=ms=>new Promise(r=>setTimeout(r,reduceMotion()?Math.min(ms,60):ms));
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const myTurn=()=>G&&G.st!=="over"&&(MODE.mode==="local"||actor(G)===MODE.seat);
+const AI_SEAT=1;
+const aiTurn=()=>G&&MODE.mode==="ai"&&G.st!=="over"&&actor(G)===AI_SEAT;
 
 // ---------------- SAVE / LOAD ----------------
 function save(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify({seed:G.seed,moves:G.moves,mode:MODE.mode,seat:MODE.seat,share:UI.share,shareText:UI.shareText})); }catch(e){} }
@@ -829,13 +923,39 @@ async function makeShare(){
 // ---------------- PLAYING MOVES ----------------
 async function act(m){
   if(UI.busy||!myTurn()) return;
-  if(!legal(G).includes(m)) return;
+  if(!isLegal(G,m)) return;
   const before=actor(G);
-  apply(G,m); const evs=G.ev; G.ev=[]; UI.heading=null; UI.pickCls=null; UI.pickFac=null; UI.pickCrew=null;
+  apply(G,m); const evs=G.ev; G.ev=[]; UI.heading=null; UI.pickCls=null; UI.pickFac=null; UI.pickCrew=[];
   save();
   await present(evs);
   if(MODE.mode==="online"&&before===MODE.seat&&actor(G)!==MODE.seat) await makeShare();
   render();
+  if(aiTurn()) await runAI();
+}
+// The computer plays its moves one by one, with the same animations as a player.
+let aiRunning=false;
+async function runAI(){
+  if(aiRunning) return; aiRunning=true;
+  try{
+    while(aiTurn()){
+      if(G.st==="draft"&&!G.ships[AI_SEAT].cls){
+        const su=aiSetup(G);
+        UI.aiNote=`Computer rolls: faction d6 ${su.rolls[0]} → ${FACTIONS[su.fac].name}, ship d6 ${su.rolls[1]} → ${CLASSES[su.cls].name}.`;
+        log(G,UI.aiNote,"crew");
+      }
+      if(G.st==="cmd"&&!G.queue.length){
+        const p=aiPlan(G);
+        UI.aiNote=`Computer rolls: intent d6 ${p.intent} → ${p.engage?"ENGAGE":"ESCAPE"}${p.healthy?"":" (hurt: needs 4+)"}, style d6 ${p.style} → ${p.risky?"RISKY":"EASY"}.`;
+        log(G,UI.aiNote,"crew");
+      }
+      render();
+      await sleep(G.st==="draft"?500:280);
+      const m=aiMove(G); if(!m) break;
+      apply(G,m); const evs=G.ev; G.ev=[]; save();
+      await present(evs);
+    }
+  } finally { aiRunning=false; }
+  UI.handoff=false; render();
 }
 async function present(evs){
   if(!evs.length){ return; }
@@ -1150,13 +1270,13 @@ function header(){
     const s=S(G), slots=["CMD",...G.queue]; while(slots.length<1+slotsAllowed(G)) slots.push("···");
     track=`<div class="track" aria-label="Phase plan">`+slots.map((p,i)=>{ const on=G.phase==="CMD"?i===0:i===G.qi+1; const col=p==="NAV"?"var(--nav)":p==="ATK"?"var(--atk)":p==="ENG"?"var(--eng)":"var(--dim)";
       return `<span class="slot ${on?"on":""}" style="border-color:${col};${on?`background:${col}`:""}">${p}</span>`; }).join("")+`</div>`;
-    const who=MODE.mode==="online"?(myTurn()?"YOUR TURN":`WAITING · P${s.pid}`):`PLAYER ${s.pid}`;
+    const who=MODE.mode==="online"?(myTurn()?"YOUR TURN":`WAITING · P${s.pid}`):MODE.mode==="ai"?(myTurn()?"YOUR TURN":"COMPUTER'S TURN"):`PLAYER ${s.pid}`;
     track+=`<span class="turnchip" style="color:${P_COLORS[s.pid-1]}">${G.st==="over"?"GAME OVER":who}</span>`;
   }
   const seatChip=G&&MODE.mode==="online"&&MODE.seat!==null?`<span class="turnchip" style="color:${P_COLORS[MODE.seat]}">YOU ARE P${MODE.seat+1}</span>`:"";
   return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
-const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull and a faction, then draft 3 crew from 15 (picks go 1-2-2-1-1-2). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
+const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull, a faction and your whole crew in one go (3 crew, Hauler 4). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
   ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2 phases."],
   ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
   ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
@@ -1171,7 +1291,7 @@ function renderTitle(){
   const sv=loadSave();
   app.innerHTML=header()+`<section class="full"><div class="hero"><div><h1>TETHYS<small>DESERT DRIFTER</small></h1></div>
   <div style="display:flex;flex-direction:column;gap:14px"><p>The old world is sand and scrap. Somewhere beyond the dunes lies Europa. Two ships have heard the same rumour of a relic that points the way, and only one will carry it home.</p>
-  <div class="btnrow"><button class="go" data-ui="local" id="btn-local">Play on this device</button><button data-ui="online" id="btn-online">Start online game</button>${sv?`<button data-ui="continue" id="btn-continue">Continue saved game</button>`:""}</div>
+  <div class="btnrow"><button class="go" data-ui="ai" id="btn-ai">Play vs computer</button><button data-ui="local" id="btn-local">Two players, one device</button><button data-ui="online" id="btn-online">Start online game</button>${sv?`<button data-ui="continue" id="btn-continue">Continue saved game</button>`:""}</div>
   <div class="join"><label class="prompt" for="join-code">JOIN A FRIEND'S GAME<span class="sub">Paste the move code your friend sent you.</span></label>
   <textarea id="join-code" class="code" placeholder="TETHYS-…"></textarea>
   <div class="btnrow"><button data-ui="join" id="btn-join">Load code</button><span class="msg ${UI.joinMsg?"err":""}">${esc(UI.joinMsg)}</span></div></div>
@@ -1187,21 +1307,21 @@ function waitingPanel(){
 function canUndo(){
   if(!G||UI.busy||!G.moves.length) return false;
   const last=G.moves[G.moves.length-1];
-  if(!/^[CR]:/.test(last)) return false;
+  if(!/^(C|CREW):/.test(last)) return false;
   if(MODE.mode==="local") return true;
   const prev=replay(G.seed,G.moves.slice(0,-1));
   return actor(prev)===MODE.seat&&actor(G)===MODE.seat;      // online: only inside your own, unsent turn
 }
 function undoLast(){
   if(!canUndo()) return;
-  G=replay(G.seed,G.moves.slice(0,-1)); UI.pickCrew=null; UI.handoff=false; save();
+  G=replay(G.seed,G.moves.slice(0,-1)); UI.pickCrew=[]; UI.handoff=false; save();
 }
 const facChip=f=>f?`<span class="fchip" style="--fc:${FACTIONS[f].color}">${FACTIONS[f].name.toUpperCase()}</span>`:"";
 function renderDraft(){
   const pi=actor(G), s=G.ships[pi], mine=myTurn();
   const undo=canUndo()?`<button data-ui="undo" id="btn-undo">Undo last pick</button>`:"";
   let body;
-  if(!mine) body=waitingPanel();
+  if(!mine) body=MODE.mode==="ai"?`<div class="prompt">THE COMPUTER IS CHOOSING<span class="sub">${esc(UI.aiNote||"Rolling the dice…")}</span></div>`:waitingPanel();
   else if(!s.cls){
     const cl=UI.pickCls, fa=UI.pickFac;
     body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR SHIP<span class="sub">Pick a hull and the faction you sail under. You can change both until you confirm.</span></div>
@@ -1214,15 +1334,15 @@ function renderDraft(){
       <span class="dim">Crew: ${CREW.filter(c=>c.f===k).map(c=>c.name).join(", ")}</span></button>`).join("")}</div>
     <div class="btnrow">${cl&&fa?`<button class="go" data-m="C:${cl}:${fa}" id="m-confirm-ship">Confirm: ${CLASSES[cl].name} of the ${FACTIONS[fa].name} ▸</button>`:`<button class="go" disabled>Choose a ship and a faction</button>`}${undo}</div>`;
   } else {
-    const pk=UI.pickCrew&&G.draft.pool.includes(UI.pickCrew)?UI.pickCrew:null;
-    const kin=kindred(s);
-    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: RECRUIT A CREW MEMBER<span class="sub">Pick ${G.draft.idx+1} of ${G.draft.order.length}. You sail with the ${FACTIONS[s.fac].name}: their crew add +${KINDRED_HULL} hull each (now ${kin}).</span></div>
+    const slots=crewSlots(s), pk=(UI.pickCrew||[]).filter(k=>CREW_BY[k]).slice(0,slots);
+    const kin=pk.filter(k=>CREW_BY[k].f===s.fac).length;
+    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR CREW<span class="sub">Pick ${slots} crew (${pk.length}/${slots} chosen). Your ${CLASSES[s.cls].name} sails with the ${FACTIONS[s.fac].name}: each of their crew adds +${KINDRED_HULL} hull (now ${kin}). Both players may take the same people.</span></div>
     ${Object.entries(FACTIONS).map(([fk,f])=>`<div class="facgroup" style="--fc:${f.color}"><div class="fachead">${f.name.toUpperCase()} <span class="dim">· ${esc(f.long)}${fk===s.fac?" · YOUR FACTION":""}</span></div>
-      <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const taken=!G.draft.pool.includes(c.key);
-      return `<button class="card ${taken?"taken":""} ${pk===c.key?"picked":""}" style="--st:${ST_COLOR[c.st]}" data-ui="selcrew" data-v="${c.key}" id="sel-${c.key}" ${taken?"disabled":""} aria-pressed="${pk===c.key}">
-      ${faceCanvas(c.key)}<div class="nm">${c.name}<em>${c.role.toUpperCase()} · ${c.st}</em></div>
+      <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const on=pk.includes(c.key), full=!on&&pk.length>=slots;
+      return `<button class="card ${on?"picked":""} ${full?"taken":""}" style="--st:${ST_COLOR[c.st]}" data-ui="selcrew" data-v="${c.key}" id="sel-${c.key}" ${full?"disabled":""} aria-pressed="${on}">
+      ${faceCanvas(c.key)}<div class="nm">${on?"✓ ":""}${c.name}<em>${c.role.toUpperCase()} · ${c.st}</em></div>
       <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
-    <div class="btnrow">${pk?`<button class="go" data-m="R:${pk}" id="m-confirm-crew">Recruit ${CREW_BY[pk].name} ▸</button>`:`<button class="go" disabled>Choose a crew member</button>`}<button data-ui="randpick" id="btn-rand">Random pick</button>${undo}</div>`;
+    <div class="btnrow">${pk.length===slots?`<button class="go" data-m="CREW:${pk.join(",")}" id="m-confirm-crew">Sail with ${pk.map(k=>CREW_BY[k].name).join(", ")} ▸</button>`:`<button class="go" disabled>Choose ${slots-pk.length} more</button>`}<button data-ui="randpick" id="btn-rand">Fill randomly</button>${pk.length?`<button data-ui="clearcrew" id="btn-clear">Clear</button>`:""}${undo}</div>`;
   }
   app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">${storyHTML()}${body}
     <div class="picks">${G.ships.map(sh=>`<div style="color:${P_COLORS[sh.pid-1]}">P${sh.pid}: ${sh.cls?CLASSES[sh.cls].name:"—"} ${facChip(sh.fac)} · ${sh.crew.map(c=>CREW_BY[c.key].name).join(", ")||"no crew yet"}</div>`).join("")}</div></section>`;
@@ -1250,7 +1370,7 @@ function shipCard(s){
       <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${usable?"":"disabled"} title="${esc(block||"Give order")}">${usable?"Give order":"Order"}</button>`:""}</div></div>`;
   }).join("");
   return `<section class="ship ${active?"active":""} ${s.hp<=0?"dead":""}" style="--c:${P_COLORS[s.pid-1]}">
-    <h3><span class="shiphead">${shipCanvas(s.cls,s.pid,s.fac)}P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode==="online"&&MODE.seat===s.pid-1?" (YOU)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
+    <h3><span class="shiphead">${shipCanvas(s.cls,s.pid,s.fac)}P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode!=="local"&&MODE.seat===s.pid-1?" (YOU)":""}${MODE.mode==="ai"&&s.pid-1===AI_SEAT?" (COMPUTER)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
     <div class="flags">${facChip(s.fac)}<span class="flag" style="background:transparent;color:var(--dim)">${s.fac?esc(FACTIONS[s.fac].perk):""}${kindred(s)?` · KINDRED ${kindred(s)}`:""}</span></div>
     <div class="bar"><i class="${pct<HP_LOW?"lo":""}" style="width:${pct*100}%"></i></div>
     <div class="stats"><div class="stat"><span>ENERGY</span>${used}/${cap}</div><div class="stat"><span>AMMO</span>${s.ammo}</div><div class="stat"><span>PARTS</span>${s.parts}</div><div class="stat"><span>HEAD</span>${DIR_NAMES[s.o]}</div>
@@ -1278,6 +1398,7 @@ function fixNavSide(){
   for(let sp=1;sp<=maxSpeed(s);sp++) for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
 }
 function actionsHTML(){
+  if(aiTurn()) return `<div class="prompt">COMPUTER'S TURN<span class="sub">${esc(UI.aiNote)} It follows its rule card: see “How the computer plays” below.</span></div>`;
   const s=S(G), L=myTurn()&&!UI.busy?legal(G):[], endLbl=G.qi+1<G.queue.length?"End phase ▸":"End turn ▸";
   const end=()=>btn("END",endLbl,"go",L);
   let p="",sub="",rows=[];
@@ -1354,14 +1475,22 @@ function renderGame(){
       <div id="storywrap"></div>
       <div class="console" id="console"></div><div class="log" id="log" aria-live="polite"></div>
       <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
+      <details class="help"><summary>How the computer plays</summary><ul>
+      <li>Setup: faction d6 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff). Crew: a fixed list for its faction.</li>
+      <li>Each turn it rolls two d6. Intent: engage on 2+ while its hull is at least half, on 4+ when below half; otherwise it escapes. Style: 1–3 easy (always the lowest DC), 4–6 risky (always the highest DC).</li>
+      <li>Engage: NAV → ATK → ENG, flying to a hex 1–3 from you and turning to face you. Escape: ENG → NAV → ATK, flying as far away as it can and turning away.</li>
+      <li>It gives every crew order as soon as it can. It targets you when you are in its arc, reloads when empty, locks on, then fires as often as it may. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.</li>
+      <li>Engineering: below half hull it repairs while it has parts, then powers up WPN, BST, DFT (escaping: ENGINE, BST, DFT).</li>
+      <li>Its dice come from the game seed, so the same game always plays out the same way. You can run it with real dice using these rules.</li></ul></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
+      <li>Hauler: room for 4 crew. Dreadnought: twin guns, two shots per combat phase, each hit does half damage.</li>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
       <li>Rocks and rams deal 3 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
       <li>After an order, a crew member sits out your next 2 turns (Nomads: 1). Stunned crew lose their passive until the end of their next turn.</li>
-      <li>Factions: Scrappers repair +1, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +1 hull.</li></ul></details>
+      <li>Factions: Scrappers +1 damage, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +1 hull.</li></ul></details>
       </div><div class="col" id="side"></div></div>`;
     initCanvas(document.getElementById("map"));
   }
@@ -1384,8 +1513,9 @@ app.addEventListener("click",async e=>{
   const a=b.dataset.ui, v=b.dataset.v;
   switch(a){
     case "local": G=newGame(1+Math.floor(Math.random()*2e9)); MODE={mode:"local",seat:0}; UI.screen="game"; UI.share=null; UI.handoff=false; save(); break;
+    case "ai": G=newGame(1+Math.floor(Math.random()*2e9)); MODE={mode:"ai",seat:0}; UI.screen="game"; UI.share=null; UI.handoff=false; save(); break;
     case "online": G=newGame(1+Math.floor(Math.random()*2e9)); MODE={mode:"online",seat:0}; UI.screen="game"; UI.share=null; UI.msg=""; save(); break;
-    case "continue": { const sv=loadSave(); if(!sv||!restore(sv)){ UI.joinMsg="The saved game could not be loaded."; } break; }
+    case "continue": { const sv=loadSave(); if(!sv||!restore(sv)){ UI.joinMsg="The saved game could not be loaded."; } else if(aiTurn()){ render(); runAI(); return; } break; }
     case "join": { const t=document.getElementById("join-code").value; await importCode(t); return; }
     case "reply": { const t=document.getElementById("reply-code").value; await importCode(t); return; }
     case "copy": {
@@ -1393,14 +1523,16 @@ app.addEventListener("click",async e=>{
       try{ await navigator.clipboard.writeText(UI.shareText); msg.textContent="Copied."; }
       catch(err){ ta.focus(); ta.select(); msg.textContent="Press Ctrl+C (or ⌘C) to copy."; }
       return; }
-    case "randpick": { const ls=legal(G).filter(m=>m.startsWith("R:")); UI.pickCrew=ls[Math.floor(Math.random()*ls.length)].slice(2); break; }
+    case "randpick": { const s=G.ships[actor(G)], pk=[...(UI.pickCrew||[])], rest=CREW.map(c=>c.key).filter(k=>!pk.includes(k)).sort(()=>Math.random()-.5);
+      UI.pickCrew=[...pk,...rest].slice(0,crewSlots(s)); break; }
+    case "clearcrew": UI.pickCrew=[]; break;
     case "begin": UI.handoff=false; break;
     case "speed": UI.speed=+v; fixNavSide(); break;
     case "side": UI.side=+v; break;
     case "heading": UI.heading=+v; break;
     case "selcls": UI.pickCls=v; break;
     case "selfac": UI.pickFac=v; break;
-    case "selcrew": UI.pickCrew=v; break;
+    case "selcrew": { const pk=[...(UI.pickCrew||[])], i=pk.indexOf(v); if(i>=0) pk.splice(i,1); else pk.push(v); UI.pickCrew=pk; break; }
     case "undo": undoLast(); break;
     case "newgame": G=null; UI.screen="title"; UI.share=null; try{ localStorage.removeItem(SAVE_KEY); }catch(err){} break;
   }
@@ -1413,6 +1545,7 @@ function start(data){
   const sv=(data&&data.save)||null;
   if(sv) restore(sv);
   render(); requestAnimationFrame(frame);
+  if(aiTurn()) runAI();
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 </script>

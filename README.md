@@ -79,16 +79,16 @@ If the shot hits, a random enemy crew member is **stunned**: no passive and no o
 
 The last ship flying wins.
 
-## Browser Game (online play)
+## Browser Game
 
-`web/index.html` is a self-contained browser version for 2 players: same d20 hex combat and crew,
+`web/index.html` is a self-contained browser version: play against the computer, two players on one device, or online: same d20 hex combat and crew,
 plus ship classes, a storyteller, and **online play by move codes**. Open it in any browser or serve it with
 GitHub Pages; no install needed.
 
 ### Playing a friend online
 1. Click **Start online game**. You are Player 1: pick your ship and first crew member.
 2. The game shows a short message with a move code, like
-   `Tethys · move 1 · P1: C:SKIFF R:CAPTAIN` followed by `TETHYS-…`. Send it to your friend (chat, mail, anything).
+   `Tethys · move 1 · P1: C:SKIFF:WIND CREW:SELA,VEX,ORO` followed by `TETHYS-…`. Send it to your friend (chat, mail, anything).
 3. Your friend clicks **Load code** on the title screen and pastes it. Their game replays your moves, then it is their turn.
 4. They send their code back, you paste it under **Load their move**, and so on, like correspondence chess.
 
@@ -100,7 +100,7 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 | Move | Meaning |
 |---|---|
 | `C:SKIFF:WIND` | choose ship class (SKIFF, HAULER, DREAD, RELIC) and faction (MACHINE, HEART, WIND) |
-| `R:CAPTAIN` | recruit a crew member |
+| `CREW:CAPTAIN,GUNNER,MEDIC` | choose the whole crew at once (3 names, Hauler 4) |
 | `Q:NAV,ATK,ENG` | plan the phase order |
 | `B:2:+1` | boost at speed 2, turn +1 (rolls d20) |
 | `DRIFT`, `H:NE` | drift roll; after a stable drift, preview a heading and confirm it |
@@ -118,7 +118,7 @@ Nomads count heads after every hit, Drifters trust the wind.
 
 | Faction | From the setting | Perk |
 |---|---|---|
-| Scrappers | Followers of the Machine: the ship is the living body | Repairs heal +1 |
+| Scrappers | Followers of the Machine: the ship is the living body, aggressive | +1 damage on hits |
 | Nomads | Followers of the Heart: no one is left in the sand | Crew orders sit out only 1 turn (others 2) |
 | Drifters | Followers of the Wind: free and never lost | +1 to boost and drift rolls |
 
@@ -126,13 +126,14 @@ Nomads count heads after every hit, Drifters trust the wind.
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
 | Skiff | small twin-hull sand-catamaran | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
-| Hauler | huge diesel barge with smokestacks | 15 | 3 | 3 | −1 boost rolls |
-| Dreadnought | riveted gunboat with a turret | 15 | 3 | 1 | +1 attack, +1 damage |
+| Hauler | huge diesel barge with smokestacks | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
+| Dreadnought | riveted gunboat with a turret | 15 | 3 | 1 | twin guns: 2 shots per combat phase, each hit half damage (+1 before halving); +1 attack; 2 ammo per reload |
 | Construct | old-world relic with orbiting shards | 15 | 5 | 2 | 5 energy |
 
 ### Crew (browser version)
-15 crew, 5 per faction, drafted 3 per ship (picks go 1-2-2-1-1-2). Click a card, then confirm; you can undo picks
-(on one device any time during the draft, online until your turn is sent). After an order a crew member sits out
+15 crew, 5 per faction. Each player picks ship, faction and the whole crew in one turn (3 crew, Hauler 4);
+both players may take the same people. Click cards to select, then confirm; you can undo (on one device any
+time during setup, online or against the computer until your turn is done). After an order a crew member sits out
 your next 2 turns.
 
 | Faction | Crew | Station | Passive | Order |
@@ -158,7 +159,25 @@ Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 
 (+1 per kindred crew), base armour class is 10 (+2/+4 at range 2/3), so a ship goes down after 2–3 hits.
 In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rocks and rams deal 3, repairs heal d4.
 
-Balance (3,000 bot games): factions win 46–54% against each other, ship classes 42–58%.
+Balance (3,000 bot games with random crews): factions win 45–55% against each other, ship classes 44–54%.
+
+### Playing against the computer
+Click **Play vs computer**. The computer follows a short rule card and rolls d6s, so it could also be
+run on a real table with real dice. Its rolls are shown in the log.
+
+| Step | Rule |
+|---|---|
+| Setup | Faction d6: 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6: 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff). Crew: a fixed list per faction. |
+| Intent (d6 each turn) | Engage on 2+ while its hull is at least half, on 4+ when below half; otherwise escape. |
+| Style (d6 each turn) | 1–3 easy: always the lowest DC. 4–6 risky: always the highest DC. |
+| Plan | Engage: NAV → ATK → ENG. Escape: ENG → NAV → ATK. |
+| Orders | Gives every crew order as soon as it can. |
+| NAV | Engage: a course ending 1–3 hexes from you, then face you. Escape: the course ending farthest away, then face away. |
+| ATK | Target you if in arc, reload when empty, lock on, fire as often as allowed. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew. |
+| ENG | Below half hull: repair while parts last. Then power WPN, BST, DFT (escaping: ENGINE, BST, DFT). |
+
+The computer beats a player making random moves 84% of the time. Its strength depends on its faction:
+as Nomads it is the toughest (it wins about 60% against itself as Scrappers or Drifters), as Scrappers the easiest.
 
 ### The arena
 The two ships start in open flats in the middle. Rock gets denser the further out you drift, but winding
@@ -166,8 +185,8 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 50 rules tests (draft, factions, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
-- `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, phone width.
+- `node web/test/rules.test.js`: 56 rules tests (setup, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, phone width.
 
 ### Source
 `web/page.html` (styles), `web/logic.js` (rules, no DOM, runs in Node too) and `web/ui.js` (screen and online codes).

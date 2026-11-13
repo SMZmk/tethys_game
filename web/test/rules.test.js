@@ -20,15 +20,12 @@ function force(G, sides, pred) {
 }
 const forceVal = (G, sides, v) => force(G, sides, x => x === v);
 // Drafted game: P1 Skiff + RHO/ORO/KAEL... with chosen crews.
-function drafted({ c1 = "SKIFF", c2 = "SKIFF", f1 = "MACHINE", f2 = "MACHINE", crew1 = ["ACE", "GUNNER", "MECHANIC"], crew2, seed = 42 } = {}) {
-  crew2 = crew2 || ["DRIFTER", "SPOTTER", "TECH", "QM", "CAPTAIN", "JAMMER"].filter(k => !crew1.includes(k)).slice(0, 3);
+function drafted({ c1 = "SKIFF", c2 = "SKIFF", f1 = "WIND", f2 = "WIND", crew1 = ["ACE", "GUNNER", "MECHANIC"], crew2, seed = 42 } = {}) {
+  crew2 = crew2 || ["DRIFTER", "SPOTTER", "TECH", "QM"].slice(0, c2 === "HAULER" ? 4 : 3);
+  if (c1 === "HAULER" && crew1.length < 4) crew1 = [...crew1, "QM"];
   const G = L.newGame(seed);
-  const order = [0, 1, 1, 0, 0, 1], picks = [[...crew1], [...crew2]];
-  L.apply(G, "C:" + c1 + ":" + f1);
-  order.forEach((p, i) => {
-    if (i === 1) L.apply(G, "C:" + c2 + ":" + f2);
-    L.apply(G, "R:" + picks[p].shift());
-  });
+  L.apply(G, "C:" + c1 + ":" + f1); L.apply(G, "CREW:" + crew1.join(","));
+  L.apply(G, "C:" + c2 + ":" + f2); L.apply(G, "CREW:" + crew2.join(","));
   return G;
 }
 // Put both ships in the open centre: P1 at (0,1) facing N, P2 at (0,-1) facing S (range 2, in each other's arc).
@@ -50,21 +47,23 @@ test("draft: class pick sets hull, energy and parts", () => {
   assert.strictEqual(s.maxHp, c.hull); assert.strictEqual(s.hp, c.hull);
   assert.strictEqual(s.baseEnergy, c.energy); assert.strictEqual(s.parts, c.parts);
 });
-test("draft: snake order 1-2-2-1-1-2, then Player 1 starts planning", () => {
-  const G = L.newGame(7), who = [];
-  L.apply(G, "C:SKIFF:WIND");
-  for (let i = 0; i < 6; i++) {
-    who.push(L.actor(G));
-    if (!sh(G, L.actor(G)).cls) L.apply(G, "C:DREAD:HEART");
-    L.apply(G, L.legal(G).find(m => m.startsWith("R:")));
-  }
-  assert.deepStrictEqual(who, [0, 1, 1, 0, 0, 1]);
+test("draft: each player picks ship and whole crew in one turn, P1 then P2", () => {
+  const G = L.newGame(7);
+  L.apply(G, "C:SKIFF:WIND"); assert.strictEqual(L.actor(G), 0);
+  L.apply(G, "CREW:ACE,DRIFTER,SPOTTER"); assert.strictEqual(L.actor(G), 1);
+  L.apply(G, "C:DREAD:HEART"); L.apply(G, "CREW:ACE,GUNNER,CAPTAIN");            // crew may overlap
   assert.strictEqual(G.st, "cmd"); assert.strictEqual(G.active, 0); assert.strictEqual(G.turn, 1);
+  assert.deepStrictEqual(G.ships[1].crew.map(c => c.key), ["ACE", "GUNNER", "CAPTAIN"]);
 });
-test("draft: a crew member can only be recruited once", () => {
-  const G = L.newGame(7); L.apply(G, "C:SKIFF:WIND"); L.apply(G, "R:CAPTAIN"); L.apply(G, "C:SKIFF:HEART");
-  assert.ok(!L.legal(G).includes("R:CAPTAIN"));
-  assert.throws(() => L.apply(G, "R:CAPTAIN"), /Illegal/);
+test("draft: crew must fill every slot, no duplicates, known names", () => {
+  const G = L.newGame(7); L.apply(G, "C:SKIFF:WIND");
+  for (const bad of ["CREW:ACE,DRIFTER", "CREW:ACE,ACE,SPOTTER", "CREW:ACE,DRIFTER,NOBODY", "CREW:ACE,DRIFTER,SPOTTER,QM"])
+    assert.throws(() => L.apply(G, bad), /Illegal/, bad);
+});
+test("hauler: room for 4 crew", () => {
+  const G = L.newGame(7); L.apply(G, "C:HAULER:HEART");
+  assert.throws(() => L.apply(G, "CREW:CAPTAIN,GUNNER,MEDIC"), /Illegal/);
+  L.apply(G, "CREW:CAPTAIN,GUNNER,MEDIC,BULWARK"); assert.strictEqual(G.ships[0].crew.length, 4);
 });
 test("draft: Quartermaster brings one extra spare part", () => {
   const G = drafted({ crew1: ["QM", "ACE", "GUNNER"] });
@@ -292,10 +291,10 @@ test("faction: Drifters get +1 to boost and drift", () => {
   forceVal(G, 20, 10); L.apply(G, "B:1:0");
   assert.ok(G.roll.mods.some(m => m[1] === "Drifters" && m[0] === 1));
 });
-test("faction: Scrappers repair +1 (d4 + 1)", () => {
-  const G = face(drafted({ c1: "DREAD", f1: "MACHINE", crew1: ["GUNNER", "ACE", "TECH"] })); const s = sh(G, 0); s.hp = 5;
-  plan(G, "ENG", "NAV", "ATK"); forceVal(G, 4, 1); L.apply(G, "REP");
-  assert.strictEqual(s.hp, 5 + 1 + 1);
+test("faction: Scrappers deal +1 damage", () => {
+  const G = toAttack({ f1: "MACHINE", crew1: ["GUNNER", "ACE", "TECH"] }), t = sh(G, 1), hp = t.hp;
+  L.apply(G, "TGT"); force(G, 20, v => v >= 19); L.apply(G, "FIRE"); forceVal(G, 6, 2); L.apply(G, "DMG");
+  assert.strictEqual(t.hp, hp - (2 + 4 + 1));
 });
 test("faction: Nomad orders rest only 1 turn", () => {
   const G = face(drafted({ f1: "HEART", crew1: ["QM", "GUNNER", "TECH"] })); plan(G, "ENG", "NAV", "ATK");
@@ -354,13 +353,55 @@ test("crew: SELA Tailwind lowers boost DC by 4; failed drift still sets heading"
   assert.strictEqual(G.st, "nav_heading"); assert.ok(!sh(G, 0).f.drift);
 });
 
+// ---------- dreadnought ----------
+test("dreadnought: twin guns fire twice, each hit half damage (+1 before halving)", () => {
+  const G = toAttack({ c1: "DREAD", crew1: ["SPOTTER", "ACE", "TECH"] }), t = sh(G, 1), s = sh(G, 0);
+  assert.strictEqual(s.ammo, 2); assert.strictEqual(L.maxShots(s), 2);
+  L.apply(G, "TGT"); const hp = t.hp;
+  force(G, 20, v => v >= 19); L.apply(G, "FIRE"); forceVal(G, 6, 5); L.apply(G, "DMG");
+  assert.strictEqual(t.hp, hp - Math.ceil((5 + 4 + 1) / 2));
+  assert.ok(L.legal(G).includes("FIRE"));
+  force(G, 20, v => v >= 19); L.apply(G, "FIRE"); forceVal(G, 6, 5); L.apply(G, "DMG");
+  assert.strictEqual(t.hp, hp - 10); assert.ok(!L.legal(G).includes("FIRE"));
+});
+test("dreadnought: reload gives 2 ammo", () => {
+  const G = face(drafted({ c1: "DREAD" })); const s = sh(G, 0); s.ammo = 0;
+  plan(G, "ATK", "NAV", "ENG"); L.apply(G, "RLD"); assert.strictEqual(s.ammo, 2);
+});
+
+// ---------- computer opponent ----------
+test("computer: plays whole games with legal moves only", () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const G = L.newGame(seed * 101);
+    for (let n = 0; n < 30000 && G.st !== "over" && G.turn < 200; n++) L.apply(G, L.aiMove(G));
+    assert.strictEqual(G.st, "over", "seed " + seed);
+    assert.strictEqual(L.stateHash(L.replay(G.seed, G.moves)), L.stateHash(G));
+  }
+});
+test("computer: setup follows the d6 rule card", () => {
+  for (let seed = 1; seed <= 30; seed++) {
+    const G = L.newGame(seed), su = L.aiSetup(G), [f, c] = su.rolls;
+    assert.strictEqual(su.fac, f <= 2 ? "MACHINE" : f <= 4 ? "HEART" : "WIND");
+    const own = { MACHINE: "DREAD", HEART: "HAULER", WIND: "SKIFF" }[su.fac];
+    assert.strictEqual(su.cls, ["SKIFF", "HAULER", "DREAD", "RELIC", own, own][c - 1]);
+  }
+});
+test("computer: engages on 2+ when healthy, on 4+ when hurt; style 4+ is risky", () => {
+  const G = face(drafted());
+  for (let t = 0; t < 30; t++) {
+    G.turn = t; const s = sh(G, 0);
+    s.hp = s.maxHp; let p = L.aiPlan(G); assert.strictEqual(p.engage, p.intent >= 2); assert.strictEqual(p.risky, p.style >= 4);
+    s.hp = 1; p = L.aiPlan(G); assert.strictEqual(p.engage, p.intent >= 4);
+  }
+});
+
 // ---------- skiff ----------
 test("skiff: less hull, but speed 4, repairs +2 and double salvage", () => {
   assert.ok(L.CLASSES.SKIFF.hull < L.CLASSES.HAULER.hull);
   const G = face(drafted({ c1: "SKIFF", c2: "HAULER", crew1: ["GUNNER", "ACE", "TECH"] }));
   assert.strictEqual(L.maxSpeed(sh(G, 0)), 4); assert.strictEqual(L.maxSpeed(sh(G, 1)), 3);
   plan(G, "ENG", "NAV", "ATK"); const s = sh(G, 0); s.hp = 4;
-  forceVal(G, 4, 1); L.apply(G, "REP"); assert.strictEqual(s.hp, 4 + 1 + 2 + 1);   // d4 + Skiff 2 + Scrappers 1
+  forceVal(G, 4, 1); L.apply(G, "REP"); assert.strictEqual(s.hp, 4 + 1 + 2);       // d4 + Skiff 2
 });
 test("skiff: an old-world wreck gives the Skiff 2 parts", () => {
   const G = face(drafted({ c1: "SKIFF" })); plan(G, "NAV", "ATK", "ENG");
@@ -408,8 +449,8 @@ test("replay: seed + move list reproduces whole games exactly", () => {
 test("notation: plies group consecutive moves by the same player", () => {
   const G = drafted(); plan(G, "NAV", "ATK", "ENG");
   const ps = L.plies(G.seed, G.moves);
-  assert.deepStrictEqual(ps.map(p => p.who), [0, 1, 0, 1, 0]);
-  assert.strictEqual(L.plyText(ps[4]), "Q:NAV,ATK,ENG");
+  assert.deepStrictEqual(ps.map(p => p.who), [0, 1, 0]);             // P1 ship+crew, P2 ship+crew, P1 plan
+  assert.strictEqual(L.plyText(ps[2]), "Q:NAV,ATK,ENG");
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
