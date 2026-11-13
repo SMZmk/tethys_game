@@ -141,7 +141,7 @@ test("nav: pivot is offered only when rocks block every course", () => {
   L.apply(G, "PIVOT:R"); assert.strictEqual(s.o, (o + 1) % 6); assert.strictEqual(G.st, "done");
 });
 test("nav: a wreck gives +1 spare part, only once", () => {
-  const G = face(drafted()); plan(G, "NAV", "ATK", "ENG");
+  const G = face(drafted({ c1: "DREAD" })); plan(G, "NAV", "ATK", "ENG");
   L.setTerrainSeed(G.seed);
   const s = sh(G, 0); let spot = null;
   for (let q = -9; q <= 9 && !spot; q++) for (let r = -9; r <= 9 && !spot; r++) if (L.terrain(q, r) === 4) spot = [q, r];
@@ -293,7 +293,7 @@ test("faction: Drifters get +1 to boost and drift", () => {
   assert.ok(G.roll.mods.some(m => m[1] === "Drifters" && m[0] === 1));
 });
 test("faction: Scrappers repair +1 (d4 + 1)", () => {
-  const G = face(drafted({ f1: "MACHINE", crew1: ["GUNNER", "ACE", "TECH"] })); const s = sh(G, 0); s.hp = 5;
+  const G = face(drafted({ c1: "DREAD", f1: "MACHINE", crew1: ["GUNNER", "ACE", "TECH"] })); const s = sh(G, 0); s.hp = 5;
   plan(G, "ENG", "NAV", "ATK"); forceVal(G, 4, 1); L.apply(G, "REP");
   assert.strictEqual(s.hp, 5 + 1 + 1);
 });
