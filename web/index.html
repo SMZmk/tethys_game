@@ -176,6 +176,7 @@ body.busy #console button,body.busy .cm button{cursor:wait}
 .cm.usable{box-shadow:inset 0 0 0 2px var(--any)}
 .cm.usable button{background:#4a3f12;border-color:var(--any);color:var(--ink)}
 button.ord{border-color:var(--any);background:#3a3210}
+.sideimg{width:100%;height:auto;aspect-ratio:36/24;image-rendering:pixelated;border:2px solid #000;display:block}
 </style>
 
 <div class="app" id="app"></div>
@@ -277,11 +278,11 @@ function angleDifficulty(dir,tq,tr,sq,sr){
 // Every ship sails under a faction; every crew member belongs to one.
 // Kindred: each crew member who shares the ship's faction adds +2 hull.
 const FACTIONS = {
-  MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#d0743a",
+  MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#c4622c",
     perk:"+1 damage on hits. Epic orders after a hit",creed:"The ship is the living body. Mercy is for the weak."},
-  HEART:{name:"Nomads",long:"Followers of the Heart",color:"#e0607e",
+  HEART:{name:"Nomads",long:"Followers of the Heart",color:"#3fb0a0",
     perk:"After a stable drift: +1 to all rolls. Epic orders after a stable drift",creed:"When the wind is right, crew and ship move as one."},
-  WIND:{name:"Drifters",long:"Followers of the Wind",color:"#7fd8c8",
+  WIND:{name:"Drifters",long:"Followers of the Wind",color:"#e2c27a",
     perk:"+1 to boost and drift rolls. Every order rests only 1 turn",creed:"Born to fly and fight. Owned by no one, lost never."},
 };
 const KINDRED_HULL=1;
@@ -290,34 +291,34 @@ const FORBIDDEN={MACHINE:["RELIC"],WIND:["HAULER"]};
 const shipAllowed=(cls,fac)=>!(FORBIDDEN[fac]||[]).includes(cls);
 const CLASSES = {
   SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:2,speed:4,salvage:2,
-    text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
+    text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A regatta catamaran of the dune sea: two knife hulls, a tall wing sail, no armour."},
   HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:14,energy:3,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
-    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
+    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A great junk with three battened sails that carries a whole camp on its back."},
   DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,twin:true,half:true,
-    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
+    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"A war junk: a ram at the bow, a gun behind it and cannons along both rails."},
   RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
-    text:"Old-world tech. 5 energy: power every system at once.",lore:"Nobody knows who built it. It hums when the wind dies."},
+    text:"Old-world tech. 5 energy: power every system at once.",lore:"A manta ray of old-world metal. Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
 const CREW = [
   // Followers of the Machine — Scrappers
-  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Knock Them Down!",text:"After a hit: stun a random enemy crew member (no lock needed)",pal:["#c89878","#6a6f78","#3a3030","#e8e0d0"]},
-  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit, no lock needed: d6 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn)",pal:["#a87050","#8a4a28","#4a3a30","#c83020"]},
-  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e8a020","#5a4a3a","#202020"]},
-  {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#4a5a6a","#383c44","#40c8f0"]},
-  {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#7a7a70","#586838","#e0e0e0"]},
+  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Knock Them Down!",text:"After a hit: stun a random enemy crew member (no lock needed)",pal:["#c08a68","#7a3a1c","#3a2418","#e8dcc8"]},
+  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit, no lock needed: d6 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn)",pal:["#a87050","#a4502a","#4a2c1c","#2a1a14"]},
+  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#c06a28","#5a3a24","#e8dcc8"]},
+  {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#d8a888","#8a5a3a","#3a2a22","#5ab8b0"]},
+  {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#6a4a30","#7a4a28","#c83c28"]},
   // Followers of the Heart — Nomads
-  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",epic:"DRIFT",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e0d0","#6a4028","#3050a0"]},
-  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#3a2a20","#5a3a22","#c03030"]},
-  {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#a07848","#3a2a20","#d8c060"]},
-  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#6a8a3a","#6a4a30","#2a8a6a"]},
-  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#7a3a30","#e04848"]},
+  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",epic:"DRIFT",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8d8b8","#7a4a2a","#2f8fb0"]},
+  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#5a3a24","#6a4024","#d8402c"]},
+  {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#b08048","#4a3020","#e8b830"]},
+  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#7a8a3a","#6a4a30","#3ab89a"]},
+  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#a04a2a","#7a3a28","#c84a9a"]},
   // Followers of the Wind — Drifters
-  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you set your heading. Epic, Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0ecdc","#2a6a7a","#9ae8f0"]},
-  {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
-  {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#2a2a40","#208878","#a0f8c8"]},
-  {key:"SPOTTER",f:"WIND",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
-  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Weapons",text:"Enemy −2 to lock and attack rolls on their next turn",pal:["#986848","#304030","#202830","#40f860"]},
+  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you set your heading. Epic, Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0e6cc","#d8c08a","#5ad8e8"]},
+  {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#e0b860","#c8a060","#f0a040"]},
+  {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#c8a878","#e0cc9a","#6ae0c8"]},
+  {key:"SPOTTER",f:"WIND",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#e8d8a8","#b89058","#e86a8a"]},
+  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Weapons",text:"Enemy −2 to lock and attack rolls on their next turn",pal:["#986848","#a08858","#d4b878","#a0e860"]},
 ];
 const CREW_BY = Object.fromEntries(CREW.map(c=>[c.key,c]));
 
@@ -1162,36 +1163,37 @@ function drawTerrain(cs){
     } }
   ctx.putImageData(img,0,0);
 }
-// Ship silhouettes, facing north. A = player colour, F = faction colour.
-// Skiff: twin-hull sand-catamaran. Hauler: diesel barge with stacks. Dreadnought: riveted gunboat. Construct: old-world relic.
-const SHIP_ART={
-  SKIFF:["..oo....oo..",".oAAo..oAAo.",".oAAo..oAAo.",".oAAo..oAAo.",".oAAooooAAo.",".oAAmccmAAo.",
-         ".oAAmccmAAo.",".oAAmFFmAAo.",".oAAooooAAo.",".osAo..oAso.",".osAo..oAso.",".osso..osso.","..ff....ff.."],
-  HAULER:["....oooooooooo....","...oAAAAAAAAAAo...","..oAAwwwwwwwwAAo..","..oAwwddwwddwwAo..","..oAwwddwwddwwAo..",
-          "..oAwwwwccwwwwAo..","..oAwwwmccmwwwAo..","..oAwddwwwwddwAo..","..oAwddwwwwddwAo..","..oAwwwwwwwwwwAo..",
-          "..oAwwkkwwkkwwAo..","..oAwwkkwwkkwwAo..","..oAFFFFFFFFFFAo..","..oAssssssssssAo..","..oAAAAAAAAAAAAo..",
-          "...oooooooooooo...","....f..f..f..f...."],
-  DREAD:[".......oo.......","......omdo......","......omdo......",".....oAmdAo.....","....oAAddAAo....",
-         "....oAmddmAo....","...oAAAmmAAAo...","...oAdAAAAdAo...","..oAAdAkkAdAAo..","..oAAAAkkAAAAo..",
-         "..oAFFFFFFFFAo..","..oAssssssssAo..",".oAAsAAAAAAsAAo.",".oAsoooooooosAo.","oAso........osAo",
-         "oso..........oso","o..f........f..o"],
-  RELIC:["......oo......",".....oggo.....","....ogAAgo....","...ogAssAgo...","..ogAsGGsAgo..",".ogAsGFFGsAgo.",
-         "ogAsGFFFFGsAgo","ogAsGFFFFGsAgo",".ogAsGFFGsAgo.","..ogAsGGsAgo..","...ogAssAgo...","....ogAAgo....",
-         ".....oggo.....","......oo......"],
-};
-const STACKS={HAULER:[[6,10],[11,10]],DREAD:[[7,8]]};   // smokestack pixels (x,y) in the sprite
+// Ships, seen from above with the bow up. Skiff: regatta catamaran. Hauler and Dreadnought: Chinese junks
+// with battened sails. Construct: an old-world manta ray. They hover over the dune sea (shadow + glow).
+// A = player colour, S = sail in the faction's colours, F = faction stripe.
+const SHIP_ART={"SKIFF": ["..o.......o..", ".oAo.....oAo.", ".oAo.....oAo.", ".oAo..S..oAo.", ".oAoooSoooAo.", ".oAottSttoAo.", ".oAottSttoAo.", ".oAottmttoAo.", ".oAottSttoAo.", ".oAoooSoooAo.", ".oAo..F..oAo.", ".osAo...oAso.", ".oso.....oso.", "..g.......g.."], "HAULER": [".......oooo.......", "......oAAAAo......", ".....oAwwwwAo.....", "....oAwwwwwwAo....", "...oAwSSSSSSwAo...", "...oAwrrrrrrwAo...", "..oAwwSSSSSSwwAo..", "..oAwSSSSSSSSwAo..", "..oAwrrrrrrrrwAo..", "..oAwSSSSSSSSwAo..", "..oAwwwwmmwwwwAo..", "..oAwSSSSSSSSwAo..", "..oAwrrrrrrrrwAo..", "..oAwSSSSSSSSwAo..", "..oAddddddddddAo..", "..oAdFFFFFFFFdAo..", "..oAAAAAAAAAAAAo..", "...oooooooooooo...", "....g..g..g..g...."], "DREAD": [".......oo.......", "......oAAo......", "......omdo......", ".....oAmmAo.....", "....oAwwwwAo....", "...oAwSSSSwAo...", "..moAwrrrrwAom..", "...oAwSSSSwAo...", "...oAwwmmwwAo...", "..moAwSSSSwAom..", "...oAwrrrrwAo...", "...oAwSSSSwAo...", "..moAwwwwwwAom..", "...oAddddddAo...", "...oAdFFFFdAo...", "...oAAAAAAAAo...", "....oooooooo....", ".....g....g....."], "RELIC": ["....oo....oo....", "....oAo..oAo....", ".....oAooAo.....", "...ooAAGGAAoo...", "..oAAAGFFGAAAo..", ".oAAAAGFFGAAAAo.", "oAAAsAAGGAAsAAAo", "oAAssAAAAAAssAAo", ".oAsoAAAAAAosAo.", "..oo.oAAAAo.oo..", "......oAAo......", ".......oo.......", ".......oo.......", ".......go.......", "........g......."]};
+// Side views for the ship choice (bow to the right).
+const SHIP_SIDE={"SKIFF": ["..............o.................", "..............oSo...............", "..............oSSo..............", "..............oSrSo.............", "..............oSSSSo............", "..............oSSrSSo...........", "..............oSSSSSSo..........", "..............oSSSrSSSo.........", "..............oSSSSSSSSo........", "..............oSSSSrSSSSo.......", "..............oSSSSSSSSSSo......", "..............oSSSSSrSSSSSo.....", "..............ommmmmmmmmmmmo....", "......oooooooooooooooooooooooo..", "...ooAAAAAAAAAAAAAAAAAAAAAAAAAoo", "....oAAFFFFFFAAAAAAAAAAAAAAAAoo.", ".....ossssssssssssssssssssoo....", "......oooooooooooooooooooo......", "........g.......g.......g.......", "................................", ".......kkkkkkkkkkkkkkkkkkkkk....", "...y..........y........y......y."], "HAULER": ["........oo...........oo.........", "........oSoo.........oSoo.......", ".......oSSSSoo......oSSSSoo.....", ".......orrrrrro.....orrrrrro..oo", ".......oSSSSSSo.....oSSSSSSo.oSo", "......oSSSSSSSo....oSSSSSSSooSSo", "......orrrrrrro....orrrrrrroorro", "......oSSSSSSSo....oSSSSSSSooSSo", ".....oSSSSSSSSo...oSSSSSSSSooSSo", ".....orrrrrrrro...orrrrrrrroorro", ".....oSSSSSSSSo...oSSSSSSSSooSSo", ".....ooooooooom...ooooooooomoooo", "..oooo.......m.............m..m.", "..oddo.......m.............m..m.", "..oddddooooooooooooooooooooooooo", "..oddddwwwwwwwwwwwwwwwwwwwwwwwwo", "..oAAAAAAAAAAAAAAAAAAAAAAAAAAAo.", "..oAAFFFFFFFFFFFFFFFFFFFFFAAAo..", "...osssssssssssssssssssssssso...", "....oooooooooooooooooooooooo....", "......g.....g.....g.....g.......", ".....kkkkkkkkkkkkkkkkkkkkkkkk...", "..y.........y.........y.......y."], "DREAD": ["..........oo..........oo........", "..........oSoo........oSoo......", ".........oSSSSoo.....oSSSSoo....", ".........orrrrrro....orrrrrro...", ".........oSSSSSSo....oSSSSSSo...", "........oSSSSSSSo...oSSSSSSSo...", "........orrrrrrro...orrrrrrro...", "........oSSSSSSSo...oSSSSSSSo...", "........oooooooom...oooooooom...", "...ooo..........m...........m...", "...odo..........m...........m...", "...oddooooooooooooooooooooooo...", "...oddwwwwwwwwwwwwwwwwwwwwwwmmm.", "...oAAAAAAAAAAAAAAAAAAAAAAAAAoo.", "...oAmAAAmAAAmAAAmAAAmAAAmAAAAoo", "...oAAFFFFFFFFFFFFFFFFFFFFAAAoo.", "....osssssssssssssssssssssssoo..", ".....oooooooooooooooooooooooo...", ".......g......g......g......g...", "......kkkkkkkkkkkkkkkkkkkkkkk...", "..y.........y........y........y."], "RELIC": ["................................", "................................", "..........oooooooo..............", ".......oooAAAAAAAAoooo..........", ".....ooAAAAAGGGGAAAAAAoo........", "...ooAAAAAAGFFFFGAAAAAAAoo...oo.", "..oAAAAssAAAGGGGAAAAAssAAAooAAo.", ".oAAAAAsssAAAAAAAAAAsssAAAAAAAo.", "..oooAAAAAAAAAAAAAAAAAAAAAAoo.oo", ".....oooAAAAAAAAAAAAAAAooo......", "..o......oooooooooooooo.........", ".oGo............................", "..oGo...........................", "....oGGo........................", "........g...g...g...g...........", "................................", "................................", ".......kkkkkkkkkkkkkkkkkk.......", "................................", "..y.........y........y........y."]};
+const SAILS={MACHINE:["#9a4a24"],HEART:["#d8402c","#2f9fb0","#e8b830"],WIND:["#ecdcb4"]};
 const shipSprites={};
 function shade(hex,amt){ const n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*(1+amt)))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; }
+function artColors(color,fac,frame){
+  const fc=(FACTIONS[fac]||{color:"#c0a070"}).color;
+  return {o:"#120e18",A:color,s:shade(color,-0.45),c:"#7fe8ff",m:"#8a909c",d:"#5a3a24",w:"#a8865a",t:"#3a3028",
+    F:fc,g:frame?"#ffd890":"#c08a40",G:frame?"#e0ffff":"#a0f0ff",k:"rgba(40,22,10,.35)",y:"#e8d0a0"};
+}
+function sailColor(fac,y){ const c=SAILS[fac]||["#d8c8a0"]; return c[Math.floor(y/2)%c.length]; }
+function paintArt(x,art,map,fac,ox=0,oy=0,scale=1){
+  art.forEach((row,yy)=>[...row].forEach((ch,xx)=>{
+    let col=map[ch];
+    if(ch==="S") col=sailColor(fac,yy); else if(ch==="r") col=shade(sailColor(fac,yy),-0.4);
+    if(col){ x.fillStyle=col; x.fillRect(ox+xx*scale,oy+yy*scale,scale,scale); }
+  }));
+}
 function shipSprite(cls,color,fac,frame){
   cls=SHIP_ART[cls]?cls:"SKIFF";
   const k=cls+color+fac+frame; if(shipSprites[k]) return shipSprites[k];
-  const art=SHIP_ART[cls], w=Math.max(...art.map(r=>r.length)), h=art.length;
-  const c=document.createElement("canvas"); c.width=w; c.height=h; const x=c.getContext("2d");
-  const fc=(FACTIONS[fac]||{color:"#c0c0c0"}).color;
-  const map={o:"#120e18",A:color,s:shade(color,-0.45),c:"#7fe8ff",m:"#8a909c",d:"#4a4e58",w:"#a8865a",k:"#2a2a30",
-    F:fc,f:frame?"#ffffff":"#ffb040",g:frame?"#60f0ff":"#3ab0e0",G:frame?"#e0ffff":"#a0f0ff"};
-  if(cls==="SKIFF") map.f=frame?"#ffffff":"#3fd8ff";
-  art.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(map[ch]){ x.fillStyle=map[ch]; x.fillRect(xx,yy,1,1);} }));
+  const art=SHIP_ART[cls], c=document.createElement("canvas"); c.width=art[0].length; c.height=art.length;
+  const x=c.getContext("2d"); paintArt(x,art,artColors(color,fac,frame),fac);
+  // hover shadow: the same silhouette, dark and transparent
+  const sh=document.createElement("canvas"); sh.width=c.width; sh.height=c.height; const y=sh.getContext("2d");
+  y.drawImage(c,0,0); y.globalCompositeOperation="source-in"; y.fillStyle="rgba(30,16,6,.45)"; y.fillRect(0,0,sh.width,sh.height);
+  c.shadow=sh;
   return shipSprites[k]=c;
 }
 function paintShips(){
@@ -1200,8 +1202,19 @@ function paintShips(){
     x.clearRect(0,0,c.width,c.height); x.imageSmoothingEnabled=false;
     x.drawImage(sp,Math.floor((c.width-sp.width)/2),Math.floor((c.height-sp.height)/2));
   });
+  document.querySelectorAll("canvas[data-side]").forEach(c=>{
+    const art=SHIP_SIDE[c.dataset.side], x=c.getContext("2d"), fac=c.dataset.fac||"";
+    x.imageSmoothingEnabled=false;
+    // dune sea backdrop: dusk sky, a far dune line, near sand
+    const sky=x.createLinearGradient(0,0,0,c.height); sky.addColorStop(0,"#2a1c2a"); sky.addColorStop(.55,"#b8643a"); sky.addColorStop(.56,"#c89058"); sky.addColorStop(1,"#a8743e");
+    x.fillStyle=sky; x.fillRect(0,0,c.width,c.height);
+    x.fillStyle="#9a6634"; for(let i=0;i<c.width;i++){ const h=Math.round(Math.sin(i/6)*1.5+Math.sin(i/2.3)*.6); x.fillRect(i,12+h,1,2); }
+    x.fillStyle="#f0d8a0"; x.fillRect(5,3,2,2);
+    paintArt(x,art,artColors(P_COLORS[+c.dataset.pid-1]||P_COLORS[0],fac,0),fac,Math.floor((c.width-art[0].length)/2),c.height-art.length);
+  });
 }
 const shipCanvas=(cls,pid,fac,cl="")=>`<canvas class="shipimg ${cl}" width="20" height="20" data-ship="${cls}" data-pid="${pid}" data-fac="${fac||""}" aria-hidden="true"></canvas>`;
+const sideCanvas=(cls,pid,fac)=>`<canvas class="sideimg" width="36" height="24" data-side="${cls}" data-pid="${pid}" data-fac="${fac||""}" aria-hidden="true"></canvas>`;
 function toScreen(q,r){ const [x,y]=hexPx(q,r); return [Math.round(x-cam.x+W/2),Math.round(y-cam.y+H/2)]; }
 const fx={
   shot(a,b){ const pa=shipPos(G.ships[a-1]),pb=shipPos(G.ships[b-1]); shots.push({a:hexPx(pa.q,pa.r),b:hexPx(pb.q,pb.r),t0:performance.now(),col:P_COLORS[a-1]}); },
@@ -1231,14 +1244,18 @@ function frame(now){
     const p=shipPos(sh), [x,y]=toScreen(p.q,p.r);
     if(sh===s&&G.st!=="over"){ ctx.strokeStyle=fr?"#ffffff":P_COLORS[sh.pid-1]; ctx.lineWidth=1; hexOutline(x,y,HS-1); }
     if(G.target===sh.pid&&G.phase==="ATK"){ ctx.strokeStyle=s.f.locked?"#3dff6a":"#ff4040"; hexOutline(x,y,HS-1); hexOutline(x,y,HS-3); }
-    ctx.save(); ctx.translate(x,y); ctx.rotate((sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3); const spr=shipSprite(sh.cls,P_COLORS[sh.pid-1],sh.fac,fr), sw=spr.width, sh2=spr.height;
+    const ang=(sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3;
+    const spr=shipSprite(sh.cls,P_COLORS[sh.pid-1],sh.fac,fr), sw=spr.width, sh2=spr.height;
+    ctx.save(); ctx.translate(x+2,y+3); ctx.rotate(ang); ctx.drawImage(spr.shadow,-Math.floor(sw/2),-Math.floor(sh2/2)); ctx.restore();   // hover shadow
+    ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
     ctx.drawImage(spr,-Math.floor(sw/2),-Math.floor(sh2/2));
+    // bow marker: a small arrow in the player's colour, always ahead of the ship
+    const by=-Math.floor(sh2/2)-2;
+    ctx.fillStyle="#120e18"; ctx.beginPath(); ctx.moveTo(0,by-6); ctx.lineTo(-5,by+1); ctx.lineTo(5,by+1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=P_COLORS[sh.pid-1]; ctx.beginPath(); ctx.moveTo(0,by-4.5); ctx.lineTo(-3.5,by); ctx.lineTo(3.5,by); ctx.closePath(); ctx.fill();
     if(sh.cls==="RELIC"){ const a=now/400; for(let k=0;k<3;k++){ const b=a+k*2.094; ctx.fillStyle=k?"#60f0ff":"#e0ffff"; ctx.fillRect(Math.round(Math.cos(b)*9)-1,Math.round(Math.sin(b)*9)-1,2,2); } }
-    for(const [px,py] of (STACKS[sh.cls]||[])) if(Math.random()<0.05&&!reduceMotion()){
-      const ang=(sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3, lx=px-sw/2, ly=py-sh2/2;
-      const [wx,wy]=hexPx(p.q,p.r); parts.push({x:wx+lx*Math.cos(ang)-ly*Math.sin(ang),y:wy+lx*Math.sin(ang)+ly*Math.cos(ang),vx:.15+Math.random()*.2,vy:-.25,l:40,c:Math.random()<.5?"#5a5660":"#3a3840"}); }
     ctx.restore();
-    const w=16, f=Math.ceil(w*sh.hp/sh.maxHp), top=y-Math.ceil(Math.max(sw,sh2)/2)-4;
+    const w=16, f=Math.ceil(w*sh.hp/sh.maxHp), top=y-Math.ceil(Math.max(sw,sh2)/2)-11;
     ctx.fillStyle="#000"; ctx.fillRect(x-w/2-1,top,w+2,4);
     ctx.fillStyle=sh.hp/sh.maxHp<HP_LOW?"#ff4d5e":"#5be37a"; ctx.fillRect(x-w/2,top+1,f,2);
     if(sh.evasive){ ctx.fillStyle="#7fe8ff"; ctx.fillRect(x+9,top+1,2,2); }
@@ -1369,7 +1386,7 @@ function renderDraft(){
     const cl=UI.pickCls, fa=UI.pickFac;
     body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR SHIP<span class="sub">Pick a hull and the faction you sail under. You can change both until you confirm.</span></div>
     <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""} ${fa&&!shipAllowed(k,fa)?"taken":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}" ${fa&&!shipAllowed(k,fa)?"disabled":""}>
-      <span class="clshead">${shipCanvas(k,s.pid,fa,"big")}<span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()} · ${c.size.toUpperCase()}</em></span></span>
+      ${sideCanvas(k,s.pid,fa)}<span class="clshead">${shipCanvas(k,s.pid,fa,"big")}<span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()} · ${c.size.toUpperCase()}</em></span></span>
       <span class="row"><span>HULL ${c.hull}</span><span>ENERGY ${c.energy}</span><span>PARTS ${c.parts}</span></span><span>${esc(c.text)}</span><span class="dim">${esc(c.lore)}</span></button>`).join("")}</div>
     <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull. Scrappers won't sail the Construct; Drifters won't sail the Hauler.</span></div>
     <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""} ${cl&&!shipAllowed(cl,k)?"taken":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}" ${cl&&!shipAllowed(cl,k)?"disabled":""}>

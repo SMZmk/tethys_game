@@ -38,6 +38,12 @@ Computer against computer, the factions win 44–56% against each other (before 
 - Drifters: bedouin-like wraps and scarves. They don't whistle: mouth amplifiers make deep, subwoofer-like bass
   that travels against the wind. The story text uses this.
 
+## Ship looks (done)
+- Skiff: modern regatta catamaran with a wing sail. Hauler: big Chinese junk. Dreadnought: war junk.
+  Construct: manta ray. All hover over the dune sea (shadow, glow).
+- Heading is always visible: a bow arrow in the player's colour. Large side views on the ship choice.
+- Colours: desert browns and oranges with small contrasts. Scrappers rust, Nomads colourful, Drifters sand and beige.
+
 ## Maps (planned)
 
 Different maps should reward different builds without changing the crew. A map would be a named set of

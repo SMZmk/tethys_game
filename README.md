@@ -127,10 +127,14 @@ See `ROADMAP.md` for the design behind this and what is planned next.
 ### Ship classes
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
-| Skiff | small twin-hull sand-catamaran | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
-| Hauler | huge diesel barge with smokestacks | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
-| Dreadnought | riveted gunboat with a turret | 17 | 3 | 1 | twin guns: every shot rolls to hit twice, each hit half damage (+1 before halving); +1 attack |
-| Construct | old-world relic with orbiting shards | 15 | 5 | 2 | 5 energy |
+| Skiff | small regatta catamaran with a wing sail | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
+| Hauler | huge Chinese junk with three battened sails | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
+| Dreadnought | war junk with a ram, bow gun and side cannons | 17 | 3 | 1 | twin guns: every shot rolls to hit twice, each hit half damage (+1 before halving); +1 attack |
+| Construct | old-world manta ray with orbiting shards | 15 | 5 | 2 | 5 energy |
+
+All ships hover over the dune sea. On the map each ship has a hover shadow and an arrow in the player's colour
+ahead of its bow, so you can always see its heading. Sails take the faction's colours: rust for Scrappers,
+patchwork for Nomads, sand for Drifters. The ship choice shows a large side view of each hull.
 
 ### Crew (browser version)
 Each faction has its own look: Nomads are wastelanders in leather jackets, sunglasses, cowboy hats and bandanas;

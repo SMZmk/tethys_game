@@ -94,11 +94,11 @@ function angleDifficulty(dir,tq,tr,sq,sr){
 // Every ship sails under a faction; every crew member belongs to one.
 // Kindred: each crew member who shares the ship's faction adds +2 hull.
 const FACTIONS = {
-  MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#d0743a",
+  MACHINE:{name:"Scrappers",long:"Followers of the Machine",color:"#c4622c",
     perk:"+1 damage on hits. Epic orders after a hit",creed:"The ship is the living body. Mercy is for the weak."},
-  HEART:{name:"Nomads",long:"Followers of the Heart",color:"#e0607e",
+  HEART:{name:"Nomads",long:"Followers of the Heart",color:"#3fb0a0",
     perk:"After a stable drift: +1 to all rolls. Epic orders after a stable drift",creed:"When the wind is right, crew and ship move as one."},
-  WIND:{name:"Drifters",long:"Followers of the Wind",color:"#7fd8c8",
+  WIND:{name:"Drifters",long:"Followers of the Wind",color:"#e2c27a",
     perk:"+1 to boost and drift rolls. Every order rests only 1 turn",creed:"Born to fly and fight. Owned by no one, lost never."},
 };
 const KINDRED_HULL=1;
@@ -107,34 +107,34 @@ const FORBIDDEN={MACHINE:["RELIC"],WIND:["HAULER"]};
 const shipAllowed=(cls,fac)=>!(FORBIDDEN[fac]||[]).includes(cls);
 const CLASSES = {
   SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:2,bst:1,dft:1,atk:0,dmg:0,rep:2,speed:4,salvage:2,
-    text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A sand-catamaran: two knife hulls, one big engine, no armour."},
+    text:"Light and quick. Only 13 hull, but speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts.",lore:"A regatta catamaran of the dune sea: two knife hulls, a tall wing sail, no armour."},
   HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:14,energy:3,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
-    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A diesel barge with smokestacks that carries a whole camp on its back."},
+    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A great junk with three battened sails that carries a whole camp on its back."},
   DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,twin:true,half:true,
-    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"Riveted armour, a turret and a stack that never stops smoking."},
+    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"A war junk: a ram at the bow, a gun behind it and cannons along both rails."},
   RELIC:{name:"Construct",role:"Relic",size:"Medium",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
-    text:"Old-world tech. 5 energy: power every system at once.",lore:"Nobody knows who built it. It hums when the wind dies."},
+    text:"Old-world tech. 5 energy: power every system at once.",lore:"A manta ray of old-world metal. Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
 const CREW = [
   // Followers of the Machine — Scrappers
-  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Knock Them Down!",text:"After a hit: stun a random enemy crew member (no lock needed)",pal:["#c89878","#6a6f78","#3a3030","#e8e0d0"]},
-  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit, no lock needed: d6 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn)",pal:["#a87050","#8a4a28","#4a3a30","#c83020"]},
-  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#e8a020","#5a4a3a","#202020"]},
-  {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#e8b898","#4a5a6a","#383c44","#40c8f0"]},
-  {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#7a7a70","#586838","#e0e0e0"]},
+  {key:"IRONCAPT",f:"MACHINE",name:"VOSS",role:"Iron Captain",st:"ATK",epic:"HIT",passive:"+1 attack rolls",order:"Knock Them Down!",text:"After a hit: stun a random enemy crew member (no lock needed)",pal:["#c08a68","#7a3a1c","#3a2418","#e8dcc8"]},
+  {key:"HARPOON",f:"MACHINE",name:"GRIT",role:"Harpooner",st:"ATK",epic:"HIT",passive:"+1 damage on hits",order:"Chain Shot",text:"After a hit, no lock needed: d6 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn)",pal:["#a87050","#a4502a","#4a2c1c","#2a1a14"]},
+  {key:"MECHANIC",f:"MACHINE",name:"BRAKK",role:"Engineer",st:"ENG",passive:"Repair heals +1",order:"Field Fix",text:"All system damage −1",pal:["#c89068","#c06a28","#5a3a24","#e8dcc8"]},
+  {key:"TECH",f:"MACHINE",name:"IVO",role:"Reactor Tech",st:"ENG",passive:"+1 energy cap",order:"Surge",text:"Next roll this turn +5",pal:["#d8a888","#8a5a3a","#3a2a22","#5ab8b0"]},
+  {key:"QM",f:"MACHINE",name:"SAL",role:"Scavenger",st:"ENG",passive:"+1 part; reload gives 2 ammo",order:"Salvage",text:"+2 spare parts",pal:["#b88860","#6a4a30","#7a4a28","#c83c28"]},
   // Followers of the Heart — Nomads
-  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",epic:"DRIFT",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8e0d0","#6a4028","#3050a0"]},
-  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#3a2a20","#5a3a22","#c03030"]},
-  {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#a07848","#3a2a20","#d8c060"]},
-  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#6a8a3a","#6a4a30","#2a8a6a"]},
-  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#2a2028","#7a3a30","#e04848"]},
+  {key:"CAPTAIN",f:"HEART",name:"RHO",role:"Captain",st:"ANY",epic:"DRIFT",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8d8b8","#7a4a2a","#2f8fb0"]},
+  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#5a3a24","#6a4024","#d8402c"]},
+  {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#b08048","#4a3020","#e8b830"]},
+  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#7a8a3a","#6a4a30","#3ab89a"]},
+  {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#a04a2a","#7a3a28","#c84a9a"]},
   // Followers of the Wind — Drifters
-  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you set your heading. Epic, Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0ecdc","#2a6a7a","#9ae8f0"]},
-  {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#c84020","#1870a8","#78e8f8"]},
-  {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#2a2a40","#208878","#a0f8c8"]},
-  {key:"SPOTTER",f:"WIND",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#7850c8","#403060","#f840a0"]},
-  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Weapons",text:"Enemy −2 to lock and attack rolls on their next turn",pal:["#986848","#304030","#202830","#40f860"]},
+  {key:"WINDCAPT",f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you set your heading. Epic, Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0e6cc","#d8c08a","#5ad8e8"]},
+  {key:"ACE",f:"WIND",name:"VEX",role:"Ace Pilot",st:"NAV",passive:"+2 boost rolls",order:"Afterburn",text:"Next boost auto-succeeds",pal:["#f0c098","#e0b860","#c8a060","#f0a040"]},
+  {key:"DRIFTER",f:"WIND",name:"ORO",role:"Wayfinder",st:"NAV",passive:"+2 drift rolls",order:"Evasive",text:"Enemy attacks −3 until your next turn",pal:["#b07850","#c8a878","#e0cc9a","#6ae0c8"]},
+  {key:"SPOTTER",f:"WIND",name:"NYX",role:"Spotter",st:"ATK",passive:"+3 lock rolls",order:"Auto-Lock",text:"Instant lock, no roll",pal:["#f0d0b0","#e8d8a8","#b89058","#e86a8a"]},
+  {key:"JAMMER",f:"WIND",name:"ZED",role:"Jammer",st:"ATK",passive:"Enemy locks on you −2",order:"Jam Weapons",text:"Enemy −2 to lock and attack rolls on their next turn",pal:["#986848","#a08858","#d4b878","#a0e860"]},
 ];
 const CREW_BY = Object.fromEntries(CREW.map(c=>[c.key,c]));
 
