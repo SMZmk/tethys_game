@@ -92,22 +92,12 @@ To measure: TASSA's *All Hands* together with strong orders such as Sandstorm; H
 
 Earlier map ideas kept for later: salt flats (wide open, firepower decides), wreck field (many wrecks, sustain decides).
 
-### 4. Game mode: Relic Race
-Player 1 picks the mode together with the map: **Duel** (as now: last ship flying) or **Relic Race**.
-It ties in with the story: the relic that points the way to Europa, and the Immortals hunting it.
-
-Proposal (to be confirmed and balanced with bots):
-- **The relic** lies on one open hex in the middle of the map, an equal distance from both spawns.
-- **Pick it up:** end your move on the relic's hex. The ship now *carries* it (shown on the map and the ship card).
-- **Heavy cargo:** the carrier gets −1 to boost rolls.
-- **Knock it loose:** when the carrier is hit after a lock-on, the relic falls into the carrier's hex and anyone can pick it up.
-- **Win:** carry the relic out of the arena (any hex 12 or more from the centre, past the edge of the flats),
-  **or** destroy the other ship as usual.
-- **The computer:** relic free → go for it; carrying it → escape; enemy carrying it → engage and aim to knock it loose.
-- **Multiplayer:** works per team; any ally can carry the relic out.
-
-Open questions: escape distance (12 hexes?), whether the carrier penalty is right, whether a stun on the carrier's crew
-should also knock the relic loose, and whether a destroyed carrier drops the relic or the game simply ends.
+### 4. Game mode: Relic Race (capture the flag)
+Player 1 picks the mode together with the map: **Duel** (as now) or **Relic Race**.
+- The **relic** lies in the middle of the map. Any ship can pick it up by ending its move on its hex.
+- Once it is picked up, an **exit point** appears for every team, on opposite sides of the map.
+- The carrier gets **−1 engine power** (counted like a point of speed damage), so it can't easily fly away.
+- The game ends when the relic reaches an exit point (that team wins) **or** only one ship remains.
 
 ### 5. Storms (optional setting)
 - The wind blows from one of the six directions and **turns one step clockwise every two rounds**, so players can plan for it.
