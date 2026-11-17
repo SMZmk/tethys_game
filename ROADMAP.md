@@ -47,7 +47,7 @@ Computer against computer, the factions win 44–56% against each other (before 
 
 ## Planned next (decided, not built yet)
 
-Build order: **1 crits → 2 captains → 3 path rule and maps → 4 storms → 5 multiplayer.**
+Build order: **1 crits → 2 captains → 3 path rule and maps → 4 Relic Race mode → 5 storms → 6 multiplayer.**
 Each step gets rules tests and a bot balance check before it ships.
 
 ### 1. Critical rolls (natural 20 / natural 1)
@@ -90,16 +90,33 @@ To measure: TASSA's *All Hands* together with strong orders such as Sandstorm; H
 | **Canyon** | One wide gorge between the spawns; open for a few hexes, then quickly mountains. | Ships meet head-on at full speed: fight or evade. |
 | **Labyrinth** | Medium-sized network of narrow alleys, all connected. | Quick, agile ships (Skiff, Drifters) have the edge. |
 
-Earlier map ideas kept for later: salt flats, wreck field, relic race.
+Earlier map ideas kept for later: salt flats (wide open, firepower decides), wreck field (many wrecks, sustain decides).
 
-### 4. Storms (optional setting)
+### 4. Game mode: Relic Race
+Player 1 picks the mode together with the map: **Duel** (as now: last ship flying) or **Relic Race**.
+It ties in with the story: the relic that points the way to Europa, and the Immortals hunting it.
+
+Proposal (to be confirmed and balanced with bots):
+- **The relic** lies on one open hex in the middle of the map, an equal distance from both spawns.
+- **Pick it up:** end your move on the relic's hex. The ship now *carries* it (shown on the map and the ship card).
+- **Heavy cargo:** the carrier gets −1 to boost rolls.
+- **Knock it loose:** when the carrier is hit after a lock-on, the relic falls into the carrier's hex and anyone can pick it up.
+- **Win:** carry the relic out of the arena (any hex 12 or more from the centre, past the edge of the flats),
+  **or** destroy the other ship as usual.
+- **The computer:** relic free → go for it; carrying it → escape; enemy carrying it → engage and aim to knock it loose.
+- **Multiplayer:** works per team; any ally can carry the relic out.
+
+Open questions: escape distance (12 hexes?), whether the carrier penalty is right, whether a stun on the carrier's crew
+should also knock the relic loose, and whether a destroyed carrier drops the relic or the game simply ends.
+
+### 5. Storms (optional setting)
 - The wind blows from one of the six directions and **turns one step clockwise every two rounds**, so players can plan for it.
 - Boosting **into** the wind: DC +2. **With** the wind: DC −1, then **drag** pushes the ship 1 hex downwind.
 - Attacks **without a lock**: −2 (perfect drifts pay off).
 - Ship differences: the **Hauler** ignores drag but turns worse (+1 DC on any turn); the Skiff takes full drag;
   **KESTREL** ignores drag.
 
-### 5. Multiplayer: 1v2, 1v3, 2v2, free-for-all (4)
+### 6. Multiplayer: 1v2, 1v3, 2v2, free-for-all (4)
 - **Turn order:** teams alternate (A1, B1, A2, B2) so no side moves twice in a row; free-for-all goes P1 → P4.
 - **Targeting:** choose any enemy in your arc. Support orders can help allies (e.g. ANA heals an ally nearby).
 - **Friendly fire:** off; ramming an ally still damages both ships.
