@@ -86,9 +86,9 @@ plus ship classes, a storyteller, and **online play by move codes**. Open it in 
 GitHub Pages; no install needed.
 
 ### Playing a friend online
-1. Click **Start online game**. You are Player 1: pick the battlefield (map, mode, weather), then your ship and crew.
+1. Click **Start online game**. You are Player 1: pick the map and mode, then your ship and crew. (Player 2 picks the weather.)
 2. The game shows a short message with a move code, like
-   `Tethys · move 1 · P1: SET:CANYON:DUEL:CALM C:SKIFF:WIND CREW:SELA,VEX,ORO` followed by `TETHYS-…`. Send it to your friend (chat, mail, anything).
+   `Tethys · move 1 · P1: SET:CANYON:DUEL C:SKIFF:WIND CREW:WINDCAPT,ACE,DRIFTER` followed by `TETHYS-…`. Send it to your friend (chat, mail, anything).
 3. Your friend clicks **Load code** on the title screen and pastes it. Their game replays your moves, then it is their turn.
 4. They send their code back, you paste it under **Load their move**, and so on, like correspondence chess.
 
@@ -99,7 +99,8 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 ### Move notation
 | Move | Meaning |
 |---|---|
-| `SET:CANYON:RELIC:STORM` | Player 1 picks the map (WASTE, CANYON, LABYRINTH), mode (DUEL, RELIC) and weather (CALM, STORM) |
+| `SET:CANYON:RELIC` | Player 1 picks the map (WASTE, CANYON, LABYRINTH) and mode (DUEL, RELIC) |
+| `WX:STORM` | Player 2 picks the weather (CALM, STORM) before choosing a ship |
 | `C:SKIFF:WIND` | choose ship class (SKIFF, HAULER, DREAD, RELIC) and faction (MACHINE, HEART, WIND) |
 | `CREW:CAPTAIN,GUNNER,MEDIC` | choose the whole crew at once (3 names, Hauler 4) |
 | `Q:NAV,ATK,ENG` | plan the phase order |
@@ -181,7 +182,7 @@ In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rocks and r
   a spare part lost), 6 lucky second chance (roll again).
 
 ### Maps, modes and weather
-Player 1 picks them before choosing a ship. Courses must have a clear path; a failed boost stops in front of
+Player 1 picks the map and mode before choosing a ship; Player 2 picks the weather before choosing theirs. Courses must have a clear path; a failed boost stops in front of
 the first rock it hits and crashes.
 
 | Map | Plays like |
@@ -207,6 +208,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 
 | Step | Rule |
 |---|---|
+| Weather | As Player 2 it picks the weather first: d6 1–4 calm, 5–6 storm. |
 | Setup | Faction d6: 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6: 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff); a ship its faction won't sail becomes its faction's ship. Crew: a fixed list per faction. |
 | Intent (d6 each turn) | Engage on 2+ while its hull is at least half, on 4+ when below half; otherwise escape. |
 | Style (d6 each turn) | 1–3 easy: always the lowest DC. 4–6 risky: always the highest DC. |

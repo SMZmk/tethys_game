@@ -488,7 +488,9 @@ function legal(G){
   if(G.st==="over") return L;
   if(G.st==="draft"){
     const s=G.ships[actor(G)];
-    if(!G.cfg){ for(const m in MAPS) for(const md of ["DUEL","RELIC"]) for(const w of ["CALM","STORM"]) L.push(`SET:${m}:${md}:${w}`); return L; }
+    // Player 1 picks the map and mode; Player 2 picks the weather before choosing a ship.
+    if(!G.cfg){ for(const m in MAPS) for(const md of ["DUEL","RELIC"]) L.push(`SET:${m}:${md}`); return L; }
+    if(actor(G)===1&&G.cfg.storm===null){ L.push("WX:CALM","WX:STORM"); return L; }
     if(!s.cls){ for(const k in CLASSES) for(const f in FACTIONS) if(shipAllowed(k,f)) L.push("C:"+k+":"+f); }
     else { for(const f in FACTIONS) L.push(defaultCrewMove(s,f)); }   // examples; any valid crew is legal (see isLegal)
     return L;
@@ -547,10 +549,11 @@ function apply(G,a){
   const [head,arg,arg2]=a.split(":");
   switch(G.st){
     case "draft":
-      if(head==="SET"){ const w=a.split(":")[3]; G.cfg={map:arg,mode:arg2,storm:w==="STORM"}; setTerrain(G.seed,arg);
+      if(head==="SET"){ G.cfg={map:arg,mode:arg2,storm:null}; setTerrain(G.seed,arg);
         if(arg2==="RELIC") G.relic={q:0,r:0,carrier:null};
-        if(G.cfg.storm) G.windStart=hashStr("wind"+G.seed)%6;
-        log(G,`Map: ${MAPS[arg].name}. Mode: ${arg2==="RELIC"?"Relic Race":"Duel"}.${G.cfg.storm?" A storm is brewing.":""}`); break; }
+        log(G,`P1 picks the map: ${MAPS[arg].name}. Mode: ${arg2==="RELIC"?"Relic Race":"Duel"}.`); break; }
+      if(head==="WX"){ G.cfg.storm=arg==="STORM"; if(G.cfg.storm) G.windStart=hashStr("wind"+G.seed)%6;
+        log(G,G.cfg.storm?"P2 calls up a storm.":"P2 picks calm weather."); break; }
       draftMove(G,head,arg,arg2); break;
     case "cmd":
       if(a==="Q-") G.queue.pop();
@@ -746,6 +749,7 @@ function useOrder(G,i,arg){
 //                   5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff).
 //                   A ship its faction won't sail (Scrappers: Construct, Drifters: Hauler) becomes its faction's ship.
 //          Crew: its faction's list (AI_CREW below), captain first; a Hauler takes 4.
+//          As Player 2 it picks the weather first: d6 1–4 calm, 5–6 storm.
 //  EACH TURN roll two d6:
 //          Intent: ENGAGE on 2+ while hull is at least half, on 4+ when below half; otherwise ESCAPE.
 //          Style:  1–3 EASY (always take the lowest DC), 4–6 RISKY (always take the highest DC).
@@ -779,7 +783,8 @@ function aiDirToward(s,q,r){
 function aiMove(G){
   const L=legal(G); if(!L.length) return null;
   if(G.st==="draft"){
-    if(!G.cfg){ const r=aiD6(G,"map"); return `SET:${r<=2?"WASTE":r<=4?"CANYON":"LABYRINTH"}:DUEL:CALM`; }
+    if(!G.cfg){ const r=aiD6(G,"map"); return `SET:${r<=2?"WASTE":r<=4?"CANYON":"LABYRINTH"}:DUEL`; }
+    if(L[0].startsWith("WX:")) return aiD6(G,"weather")>=5?"WX:STORM":"WX:CALM";
     const s=G.ships[actor(G)], su=aiSetup(G);
     return s.cls?defaultCrewMove(s,s.fac):`C:${su.cls}:${su.fac}`;
   }

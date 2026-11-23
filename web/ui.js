@@ -76,7 +76,10 @@ async function runAI(){
   if(aiRunning) return; aiRunning=true;
   try{
     while(aiTurn()){
-      if(G.st==="draft"&&!G.ships[AI_SEAT].cls){
+      if(G.st==="draft"&&G.cfg&&G.cfg.storm===null){
+        UI.aiNote=`Computer rolls for the weather: d6 ${aiD6(G,"weather")} → ${aiD6(G,"weather")>=5?"storm (5–6)":"calm (1–4)"}.`;
+        log(G,UI.aiNote,"crew");
+      } else if(G.st==="draft"&&!G.ships[AI_SEAT].cls){
         const su=aiSetup(G);
         UI.aiNote=`Computer rolls: faction d6 ${su.rolls[0]} → ${FACTIONS[su.fac].name}, ship d6 ${su.rolls[1]} → ${CLASSES[su.cls].name}.`;
         log(G,UI.aiNote,"crew");
@@ -461,7 +464,7 @@ function header(){
   return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
 const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull, a faction and your whole crew in one go (3 crew, Hauler 4). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
-  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. Player 1 picks the map (Wastelands, Canyon, Labyrinth), the mode (Duel or Relic Race) and the weather."],
+  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. Player 1 picks the map and mode (Duel or Relic Race); Player 2 picks the weather."],
   ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
   ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
   ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts (d4 hull each)."],
@@ -491,7 +494,7 @@ function waitingPanel(){
 function canUndo(){
   if(!G||UI.busy||!G.moves.length) return false;
   const last=G.moves[G.moves.length-1];
-  if(!/^(SET|C|CREW):/.test(last)) return false;
+  if(!/^(SET|WX|C|CREW):/.test(last)) return false;
   if(MODE.mode==="local") return true;
   const prev=replay(G.seed,G.moves.slice(0,-1));
   return actor(prev)===MODE.seat&&actor(G)===MODE.seat;      // online: only inside your own, unsent turn
@@ -514,13 +517,18 @@ function paintMaps(){
   });
 }
 function setupBody(pi){
-  const m=UI.pickMap||"WASTE", md=UI.pickMode||"DUEL", st=UI.pickStorm||"CALM";
-  return `<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER 1: CHOOSE THE BATTLEFIELD<span class="sub">Pick a map, a game mode and the weather. Then choose your ship.</span></div>
+  const m=UI.pickMap||"WASTE", md=UI.pickMode||"DUEL";
+  return `<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER 1: CHOOSE THE BATTLEFIELD<span class="sub">Pick a map and a game mode. Then choose your ship. Player 2 will pick the weather.</span></div>
     <div class="classes facs">${Object.entries(MAPS).map(([k,mp])=>`<button class="cls ${m===k?"picked":""}" data-ui="selmap" data-v="${k}" id="sel-map-${k}" aria-pressed="${m===k}">
       <canvas class="mapimg" width="110" height="110" data-map="${k}" aria-hidden="true"></canvas><span class="nm">${mp.name.toUpperCase()}</span><span>${esc(mp.text)}</span></button>`).join("")}</div>
-    <div class="classes">${[["DUEL","Duel","Last ship flying wins."],["RELIC","Relic Race","Capture the flag: grab the relic in the middle and bring it to your own exit. The carrier gets −1 engine. Or sink the other ship."]].map(([k,n,t])=>`<button class="cls ${md===k?"picked":""}" data-ui="selmode" data-v="${k}" id="sel-mode-${k}" aria-pressed="${md===k}"><span class="nm">${n.toUpperCase()}</span><span>${t}</span></button>`).join("")}
-      ${[["CALM","Calm","No wind."],["STORM","Storm","The wind turns every two rounds. Into the wind DC +2, with the wind DC −1 and drag; shots without a lock −2. Haulers ignore drag but turn worse."]].map(([k,n,t])=>`<button class="cls ${st===k?"picked":""}" data-ui="selstorm" data-v="${k}" id="sel-storm-${k}" aria-pressed="${st===k}"><span class="nm">${n.toUpperCase()}</span><span>${t}</span></button>`).join("")}</div>
-    <div class="btnrow"><button class="go" data-m="SET:${m}:${md}:${st}" id="m-confirm-setup">Confirm: ${MAPS[m].name}, ${md==="RELIC"?"Relic Race":"Duel"}${st==="STORM"?", storm":""} ▸</button></div>`;
+    <div class="classes">${[["DUEL","Duel","Last ship flying wins."],["RELIC","Relic Race","Capture the flag: grab the relic in the middle and bring it to your own exit. The carrier gets −1 engine. Or sink the other ship."]].map(([k,n,t])=>`<button class="cls ${md===k?"picked":""}" data-ui="selmode" data-v="${k}" id="sel-mode-${k}" aria-pressed="${md===k}"><span class="nm">${n.toUpperCase()}</span><span>${t}</span></button>`).join("")}</div>
+    <div class="btnrow"><button class="go" data-m="SET:${m}:${md}" id="m-confirm-setup">Confirm: ${MAPS[m].name}, ${md==="RELIC"?"Relic Race":"Duel"} ▸</button></div>`;
+}
+function weatherBody(pi){
+  const st=UI.pickStorm||"CALM";
+  return `<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER 2: CHOOSE THE WEATHER<span class="sub">Player 1 chose ${MAPS[G.cfg.map].name}, ${G.cfg.mode==="RELIC"?"Relic Race":"Duel"}. You decide whether a storm rises. Then choose your ship.</span></div>
+    <div class="classes">${[["CALM","Calm","No wind."],["STORM","Storm","The wind turns every two rounds. Into the wind DC +2, with the wind DC −1 and drag; shots without a lock −2. Haulers ignore drag but turn worse."]].map(([k,n,t])=>`<button class="cls ${st===k?"picked":""}" data-ui="selstorm" data-v="${k}" id="sel-storm-${k}" aria-pressed="${st===k}"><span class="nm">${n.toUpperCase()}</span><span>${t}</span></button>`).join("")}</div>
+    <div class="btnrow"><button class="go" data-m="WX:${st}" id="m-confirm-weather">Confirm: ${st==="STORM"?"storm":"calm"} ▸</button></div>`;
 }
 const facChip=f=>f?`<span class="fchip" style="--fc:${FACTIONS[f].color}">${FACTIONS[f].name.toUpperCase()}</span>`:"";
 function renderDraft(){
@@ -528,6 +536,7 @@ function renderDraft(){
   const undo=canUndo()?`<button data-ui="undo" id="btn-undo">Undo last pick</button>`:"";
   let body;
   if(mine&&!G.cfg) body=setupBody(pi);
+  else if(mine&&pi===1&&G.cfg.storm===null) body=weatherBody(pi);
   else if(!mine) body=MODE.mode==="ai"?`<div class="prompt">THE COMPUTER IS CHOOSING<span class="sub">${esc(UI.aiNote||"Rolling the dice…")}</span></div>`:waitingPanel();
   else if(!s.cls){
     const cl=UI.pickCls, fa=UI.pickFac;
@@ -552,7 +561,7 @@ function renderDraft(){
     <div class="btnrow">${pk.length===slots?`<button class="go" data-m="CREW:${pk.join(",")}" id="m-confirm-crew">Sail with ${pk.map(k=>CREW_BY[k].name).join(", ")} ▸</button>`:`<button class="go" disabled>Choose ${slots-pk.length} more</button>`}<button data-ui="randpick" id="btn-rand">Fill randomly</button>${pk.length?`<button data-ui="clearcrew" id="btn-clear">Clear</button>`:""}${undo}</div>`;
   }
   app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">${storyHTML()}${body}
-    ${G.cfg?`<div class="picks"><div class="dim">${MAPS[G.cfg.map].name} · ${G.cfg.mode==="RELIC"?"Relic Race":"Duel"}${G.cfg.storm?" · storm":""}</div></div>`:""}
+    ${G.cfg?`<div class="picks"><div class="dim">${MAPS[G.cfg.map].name} · ${G.cfg.mode==="RELIC"?"Relic Race":"Duel"}${G.cfg.storm===null?"":G.cfg.storm?" · storm":" · calm"}</div></div>`:""}
     <div class="picks">${G.ships.map(sh=>`<div style="color:${P_COLORS[sh.pid-1]}">P${sh.pid}: ${sh.cls?CLASSES[sh.cls].name:"—"} ${facChip(sh.fac)} · ${sh.crew.map(c=>CREW_BY[c.key].name).join(", ")||"no crew yet"}</div>`).join("")}</div></section>`;
   paintFaces(); paintShips(); paintMaps();
 }
@@ -688,6 +697,7 @@ function renderGame(){
       <div class="console" id="console"></div><div class="log" id="log" aria-live="polite"></div>
       <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
       <details class="help"><summary>How the computer plays</summary><ul>
+      <li>As Player 2 it picks the weather first: d6 1–4 calm, 5–6 storm.</li>
       <li>Setup: faction d6 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff). Crew: a fixed list for its faction.</li>
       <li>Each turn it rolls two d6. Intent: engage on 2+ while its hull is at least half, on 4+ when below half; otherwise it escapes. Style: 1–3 easy (always the lowest DC), 4–6 risky (always the highest DC).</li>
       <li>Engage: NAV → ATK → ENG, flying to a hex 1–3 from you and turning to face you. Escape: ENG → NAV → ATK, flying as far away as it can and turning away.</li>

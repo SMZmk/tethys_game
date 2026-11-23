@@ -50,7 +50,8 @@ Computer against computer, the factions win 44–56% against each other (before 
   (1–2 turned around, 3–4 engine stall and a 2× overshoot on a boost, 5 disaster on deck, 6 lucky second chance).
 - **Captains**: two per faction, faction-locked, one per crew. New: HESK, Forge-Master (Scrappers, defensive),
   TASSA, Caravan Mother (Nomads, defensive), KESTREL, Storm Rider (Drifters, offensive). No neutral crew.
-- **Path rule** and **three maps**: Wastelands, Canyon, Labyrinth (same size). Player 1 picks.
+- **Path rule** and **three maps**: Wastelands, Canyon, Labyrinth (same size). Player 1 picks the map and mode;
+  Player 2 picks the weather (the computer: d6 5–6 storm).
 - **Relic Race** (capture the flag) as a mode; exits 12 hexes behind each start; carrier −1 engine.
 - **Storms** (optional): wind turns one step clockwise every two rounds.
 - **Skiff buff**, keeping it small and fragile: +2 drift (easy to fly), 3 spare parts (easy to assemble),

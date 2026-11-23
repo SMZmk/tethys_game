@@ -11,7 +11,8 @@ function test(name, fn) {
 
 // ---------- helpers ----------
 // A new game where Player 1 has already chosen the setup (map, mode, storm).
-function fresh(seed, set = "WASTE:DUEL:CALM") { const G = L.newGame(seed); L.apply(G, "SET:" + set); return G; }
+// set = "MAP:MODE:WEATHER": Player 1 picks map and mode now; Player 2's weather is applied by drafted().
+function fresh(seed, set = "WASTE:DUEL:CALM") { const [m, md, wx] = set.split(":"); const G = L.newGame(seed); L.apply(G, `SET:${m}:${md}`); G._wx = wx || "CALM"; return G; }
 // Make the next d<sides> roll satisfy pred, by choosing the RNG state.
 function force(G, sides, pred) {
   for (let r = 1; r < 100000; r++) {
@@ -32,7 +33,7 @@ function drafted({ c1 = "SKIFF", c2 = "SKIFF", f1 = "WIND", f2 = "WIND", crew1 =
   if (c1 === "HAULER" && crew1.length < 4) crew1 = [...crew1, "QM"];
   const G = fresh(seed, set);
   L.apply(G, "C:" + c1 + ":" + f1); L.apply(G, "CREW:" + crew1.join(","));
-  L.apply(G, "C:" + c2 + ":" + f2); L.apply(G, "CREW:" + crew2.join(","));
+  L.apply(G, "WX:" + G._wx); L.apply(G, "C:" + c2 + ":" + f2); L.apply(G, "CREW:" + crew2.join(","));
   return G;
 }
 // Put both ships in the open centre: P1 at (0,1) facing N, P2 at (0,-1) facing S (range 2, in each other's arc).
@@ -60,7 +61,7 @@ test("draft: each player picks ship and whole crew in one turn, P1 then P2", () 
   const G = fresh(7);
   L.apply(G, "C:SKIFF:WIND"); assert.strictEqual(L.actor(G), 0);
   L.apply(G, "CREW:ACE,DRIFTER,SPOTTER"); assert.strictEqual(L.actor(G), 1);
-  L.apply(G, "C:DREAD:HEART"); L.apply(G, "CREW:ACE,GUNNER,CAPTAIN");            // crew may overlap
+  L.apply(G, "WX:CALM"); L.apply(G, "C:DREAD:HEART"); L.apply(G, "CREW:ACE,GUNNER,CAPTAIN");            // crew may overlap
   assert.strictEqual(G.st, "cmd"); assert.strictEqual(G.active, 0); assert.strictEqual(G.turn, 1);
   assert.deepStrictEqual(G.ships[1].crew.map(c => c.key), ["ACE", "GUNNER", "CAPTAIN"]);
 });
@@ -478,6 +479,26 @@ test("fight length: every ship goes down to 2-3 average hits", () => {
   }
 });
 
+
+// ---------- setup ----------
+test("setup: Player 1 picks map and mode, Player 2 picks the weather", () => {
+  const G = L.newGame(11);
+  assert.ok(L.legal(G).every(m => /^SET:\w+:(DUEL|RELIC)$/.test(m)));
+  L.apply(G, "SET:CANYON:RELIC"); assert.strictEqual(G.cfg.storm, null);
+  L.apply(G, "C:SKIFF:WIND"); L.apply(G, "CREW:SELA,ACE,DRIFTER".replace("SELA", "WINDCAPT"));
+  assert.strictEqual(L.actor(G), 1); assert.deepStrictEqual(L.legal(G), ["WX:CALM", "WX:STORM"]);
+  assert.throws(() => L.apply(G, "C:DREAD:HEART"), /Illegal/);                   // weather first
+  L.apply(G, "WX:STORM"); assert.strictEqual(G.cfg.storm, true);
+  assert.ok(L.legal(G).some(m => m.startsWith("C:")));
+});
+test("setup: the computer as Player 2 picks the weather by d6 (5-6 storm)", () => {
+  let storms = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const G = L.newGame(seed); L.apply(G, "SET:WASTE:DUEL"); L.apply(G, "C:SKIFF:WIND"); L.apply(G, "CREW:WINDCAPT,ACE,DRIFTER");
+    const m = L.aiMove(G); assert.ok(m === "WX:CALM" || m === "WX:STORM"); if (m === "WX:STORM") storms++;
+  }
+  assert.ok(storms > 5 && storms < 35, "storms " + storms);
+});
 
 // ---------- critical rolls ----------
 test("crit: a natural 20 gives +3 to the next roll this turn", () => {
