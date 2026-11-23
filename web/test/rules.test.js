@@ -443,6 +443,28 @@ test("computer: setup follows the d6 rule card", () => {
     assert.strictEqual(su.cls, want);
   }
 });
+test("computer: when boxed in it keeps turning the same way (no left-right flip-flop)", () => {
+  const G = face(drafted()); plan(G, "NAV", "ATK", "ENG"); L.setTerrain(G.seed, "WASTE");
+  const s = sh(G, 0); let found = false;
+  for (let q = -40; q <= 40 && !found; q++) for (let r = -40; r <= 40 && !found; r++) for (let o = 0; o < 6 && !found; o++) {
+    if (L.isObstacle(q, r)) continue; Object.assign(s, { q, r, o }); if (!L.allNavOptions(s).length) found = true; }
+  assert.ok(found);
+  let first = L.aiMove(G); while (first.startsWith("O:")) { L.apply(G, first); G.st = "nav_pick"; first = L.aiMove(G); }
+  assert.ok(first.startsWith("PIVOT"), first); L.apply(G, first);
+  s.o = (s.o + (first === "PIVOT:L" ? 1 : -1) + 6) % 6; G.st = "nav_pick";     // back where it was, still boxed in
+  assert.strictEqual(L.aiMove(G), first);
+});
+test("computer: after a drift it does not face straight into rock", () => {
+  const G = face(drafted()); const s = sh(G, 0); let checked = 0;
+  for (let seed = 1; seed <= 20; seed++) { L.setTerrain(seed * 31, "CANYON");
+    for (let q = -6; q <= 6; q++) for (let r = -12; r <= 12; r++) {
+      if (L.isObstacle(q, r)) continue; Object.assign(s, { q, r }); G.st = "nav_heading";
+      const d = ["N", "NE", "SE", "S", "SW", "NW"].indexOf(L.aiMove(G).slice(2)), D = [[0, -1], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0]][d];
+      const anyOpen = [[0, -1], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0]].some(([a, b]) => !L.isObstacle(q + a, r + b) && !L.isObstacle(q + 2 * a, r + 2 * b));
+      if (anyOpen) { assert.ok(!L.isObstacle(q + D[0], r + D[1]), `faces rock at ${q},${r}`); checked++; }
+    } }
+  L.setTerrain(1, "WASTE"); assert.ok(checked > 100);
+});
 test("computer: engages on 2+ when healthy, on 4+ when hurt; style 4+ is risky", () => {
   const G = face(drafted());
   for (let t = 0; t < 30; t++) {

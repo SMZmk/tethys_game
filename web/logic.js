@@ -561,7 +561,8 @@ function apply(G,a){
       break;
     case "nav_pick":
       if(a==="END"){ endPhase(G); break; }
-      if(head==="PIVOT"){ const s=S(G); s.o=mod(s.o+(arg==="L"?-1:1),6); log(G,`Pivot in place to ${DIR_NAMES[s.o]}.`); G.st="done"; break; }
+      if(head==="PIVOT"){ const s=S(G); s.o=mod(s.o+(arg==="L"?-1:1),6); s.aiTurnDir=a; log(G,`Pivot in place to ${DIR_NAMES[s.o]}.`); G.st="done"; break; }
+      S(G).aiTurnDir=null;
       doBoost(G,+arg,+arg2); break;
     case "nav_drift": doDrift(G); break;
     case "nav_heading": S(G).o=DIR_NAMES.indexOf(arg); log(G,`Heading locked: ${arg}.`); G.st="done"; break;
@@ -758,7 +759,10 @@ function useOrder(G,i,arg){
 //  NAV     Engage: a course ending 1–3 hexes from the enemy (none: the closest one).
 //          Escape: the course ending farthest from the enemy.
 //          Pick by Style (DC); ties: the straighter course, then the slower one.
-//          After a stable drift, face the enemy (Escape: face away).
+//          After a stable drift, face the enemy (Escape: face away), unless rock lies right ahead:
+//          then take the nearest direction with two open hexes in front.
+//  BOXED IN (rock blocks every course): pivot toward the side with fewer rocks ahead (tie: right),
+//          and keep turning that way on the next turns until a course opens.
 //  ATK     Target if in arc. Out of ammo: reload. Lock on if possible, then fire while possible.
 //          Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.
 //  ENG     Below half hull: repair while parts last.
@@ -775,6 +779,13 @@ function aiSetup(G){
 function aiPlan(G){
   const s=S(G), healthy=s.hp*2>=s.maxHp, intent=aiD6(G,"intent"), style=aiD6(G,"style");
   return {engage:intent>=(healthy?2:4), risky:style>=4, intent, style, healthy};
+}
+// rocks in the 3 hexes straight ahead when facing `dir`
+const rocksAhead=(s,dir)=>[1,2,3].filter(k=>isObstacle(s.q+DIRS[dir][0]*k,s.r+DIRS[dir][1]*k)).length;
+// the wanted direction, or the nearest one (by turning) with two open hexes in front
+function openDir(s,want){
+  for(const k of [0,1,-1,2,-2,3]){ const d=mod(want+k,6); if(!isObstacle(s.q+DIRS[d][0],s.r+DIRS[d][1])&&!isObstacle(s.q+DIRS[d][0]*2,s.r+DIRS[d][1]*2)) return d; }
+  return want;
 }
 function aiDirToward(s,q,r){
   const x1=1.5*s.q, y1=Math.sqrt(3)/2*s.q+Math.sqrt(3)*s.r, x2=1.5*q, y2=Math.sqrt(3)/2*q+Math.sqrt(3)*r;
@@ -796,7 +807,11 @@ function aiMove(G){
     case "cmd": { const plan=P.engage?["NAV","ATK","ENG"]:["ENG","NAV","ATK"]; return "Q:"+plan.find(p=>!G.queue.includes(p)&&p!==s.lostPhase); }
     case "nav_pick": {
       const opts=allNavOptions(s);
-      if(!opts.length){ const d=mod(want-s.o,6); return d>=1&&d<=3?"PIVOT:R":"PIVOT:L"; }
+      if(!opts.length){
+        if(s.aiTurnDir) return s.aiTurnDir;                               // keep turning the same way
+        const l=rocksAhead(s,mod(s.o-1,6)), r=rocksAhead(s,mod(s.o+1,6));
+        return l<r?"PIVOT:L":"PIVOT:R";
+      }
       const dist=x=>hexDist(o.q-x.q,o.r-x.r);
       let pool;
       // Relic Race: a free relic is the goal; the carrier heads for its exit
@@ -809,7 +824,7 @@ function aiMove(G){
     }
     case "nav_drift": return "DRIFT";
     case "nav_heading": { const goal=G.relic&&!G.relic.carrier?G.relic:s.relic&&G.exits?G.exits[s.pid-1]:null;
-      return "H:"+DIR_NAMES[goal?aiDirToward(s,goal.q,goal.r):want]; }
+      return "H:"+DIR_NAMES[openDir(s,goal?aiDirToward(s,goal.q,goal.r):want)]; }
     case "done": return "END";
     case "atk_acquire": return L.includes("TGT")?"TGT":(s.ammo<=0&&L.includes("RLD"))?"RLD":"END";
     case "atk_menu":

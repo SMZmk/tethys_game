@@ -701,6 +701,7 @@ function renderGame(){
       <li>Setup: faction d6 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff). Crew: a fixed list for its faction.</li>
       <li>Each turn it rolls two d6. Intent: engage on 2+ while its hull is at least half, on 4+ when below half; otherwise it escapes. Style: 1–3 easy (always the lowest DC), 4–6 risky (always the highest DC).</li>
       <li>Engage: NAV → ATK → ENG, flying to a hex 1–3 from you and turning to face you. Escape: ENG → NAV → ATK, flying as far away as it can and turning away.</li>
+      <li>It never turns its bow straight into rock: if rock lies right ahead, it takes the nearest open direction. Boxed in, it pivots toward the side with fewer rocks and keeps turning that way.</li>
       <li>Relic Race: while the relic is free it flies for it; carrying it, it flies for its exit.</li>
       <li>It gives every crew order as soon as it can. It targets you when you are in its arc, reloads when empty, locks on, then fires as often as it may. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.</li>
       <li>Engineering: below half hull it repairs while it has parts, then powers up WPN, BST, DFT (escaping: ENGINE, BST, DFT).</li>

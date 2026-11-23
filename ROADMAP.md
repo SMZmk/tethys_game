@@ -57,6 +57,9 @@ Computer against computer, the factions win 44–56% against each other (before 
 - **Skiff buff**, keeping it small and fragile: +2 drift (easy to fly), 3 spare parts (easy to assemble),
   small target (+1 AC). It now wins 48–51% on every map (before 46–48%).
 
+- **Computer and cliffs**: it never turns its bow straight into rock after a drift, and when boxed in it keeps
+  pivoting one way until a course opens (before: left, right, left… back into the cliff, in 152 of 900 games).
+
 Balance after this round (bot games, random builds, 1,500 per setting): ships 44–55%, factions 47–54%.
 Captains: SELA is the strongest (about 55–63%); TASSA and HESK are slightly below average (about 44–50%).
 Simple buffs for TASSA and HESK were tested and made no measurable difference, so the agreed designs were kept.

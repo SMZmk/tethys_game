@@ -216,6 +216,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 | Orders | Gives every crew order as soon as it can. |
 | Relic Race | While the relic is free it flies for it; carrying it, it flies for its own exit. |
 | NAV | Engage: a course ending 1–3 hexes from you, then face you. Escape: the course ending farthest away, then face away. |
+| Rock | It never faces straight into rock (it takes the nearest open direction). Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. |
 | ATK | Target you if in arc, reload when empty, lock on, fire as often as allowed. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew. |
 | ENG | Below half hull: repair while parts last. Then power WPN, BST, DFT (escaping: ENGINE, BST, DFT). |
 
