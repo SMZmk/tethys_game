@@ -10,6 +10,8 @@ function test(name, fn) {
 }
 
 // ---------- helpers ----------
+// A new game where Player 1 has already chosen the setup (map, mode, storm).
+function fresh(seed, set = "WASTE:DUEL:CALM") { const G = L.newGame(seed); L.apply(G, "SET:" + set); return G; }
 // Make the next d<sides> roll satisfy pred, by choosing the RNG state.
 function force(G, sides, pred) {
   for (let r = 1; r < 100000; r++) {
@@ -19,11 +21,16 @@ function force(G, sides, pred) {
   throw new Error("could not force roll");
 }
 const forceVal = (G, sides, v) => force(G, sides, x => x === v);
+// Force a sequence of rolls, e.g. [[20,1],[6,3]] = natural 1, then a 3 on the mishap d6.
+function forceSeq(G, seq) {
+  for (let r = 1; r < 2000000; r++) { const p = { rng: r }; if (seq.every(([s, v]) => L.rnd(p, s) === v)) { G.rng = r; return; } }
+  throw new Error("could not force sequence");
+}
 // Drafted game: P1 Skiff + RHO/ORO/KAEL... with chosen crews.
-function drafted({ c1 = "SKIFF", c2 = "SKIFF", f1 = "WIND", f2 = "WIND", crew1 = ["ACE", "GUNNER", "MECHANIC"], crew2, seed = 42 } = {}) {
+function drafted({ c1 = "SKIFF", c2 = "SKIFF", f1 = "WIND", f2 = "WIND", crew1 = ["ACE", "GUNNER", "MECHANIC"], crew2, seed = 42, set = "WASTE:DUEL:CALM" } = {}) {
   crew2 = crew2 || ["DRIFTER", "SPOTTER", "TECH", "QM"].slice(0, c2 === "HAULER" ? 4 : 3);
   if (c1 === "HAULER" && crew1.length < 4) crew1 = [...crew1, "QM"];
-  const G = L.newGame(seed);
+  const G = fresh(seed, set);
   L.apply(G, "C:" + c1 + ":" + f1); L.apply(G, "CREW:" + crew1.join(","));
   L.apply(G, "C:" + c2 + ":" + f2); L.apply(G, "CREW:" + crew2.join(","));
   return G;
@@ -43,14 +50,14 @@ console.log("Tethys rules");
 
 // ---------- setup & draft ----------
 test("draft: class pick sets hull, energy and parts", () => {
-  const G = L.newGame(7);
+  const G = fresh(7);
   L.apply(G, "C:HAULER:HEART");
   const s = sh(G, 0), c = L.CLASSES.HAULER;
   assert.strictEqual(s.maxHp, c.hull); assert.strictEqual(s.hp, c.hull);
   assert.strictEqual(s.baseEnergy, c.energy); assert.strictEqual(s.parts, c.parts);
 });
 test("draft: each player picks ship and whole crew in one turn, P1 then P2", () => {
-  const G = L.newGame(7);
+  const G = fresh(7);
   L.apply(G, "C:SKIFF:WIND"); assert.strictEqual(L.actor(G), 0);
   L.apply(G, "CREW:ACE,DRIFTER,SPOTTER"); assert.strictEqual(L.actor(G), 1);
   L.apply(G, "C:DREAD:HEART"); L.apply(G, "CREW:ACE,GUNNER,CAPTAIN");            // crew may overlap
@@ -58,17 +65,17 @@ test("draft: each player picks ship and whole crew in one turn, P1 then P2", () 
   assert.deepStrictEqual(G.ships[1].crew.map(c => c.key), ["ACE", "GUNNER", "CAPTAIN"]);
 });
 test("draft: crew must fill every slot, no duplicates, known names", () => {
-  const G = L.newGame(7); L.apply(G, "C:SKIFF:WIND");
+  const G = fresh(7); L.apply(G, "C:SKIFF:WIND");
   for (const bad of ["CREW:ACE,DRIFTER", "CREW:ACE,ACE,SPOTTER", "CREW:ACE,DRIFTER,NOBODY", "CREW:ACE,DRIFTER,SPOTTER,QM"])
     assert.throws(() => L.apply(G, bad), /Illegal/, bad);
 });
 test("draft: only one captain per crew", () => {
-  const G = L.newGame(7); L.apply(G, "C:SKIFF:WIND");
+  const G = fresh(7); L.apply(G, "C:SKIFF:WIND");
   assert.throws(() => L.apply(G, "CREW:WINDCAPT,CAPTAIN,ACE"), /Illegal/);
   L.apply(G, "CREW:WINDCAPT,ACE,DRIFTER");
 });
 test("hauler: room for 4 crew", () => {
-  const G = L.newGame(7); L.apply(G, "C:HAULER:HEART");
+  const G = fresh(7); L.apply(G, "C:HAULER:HEART");
   assert.throws(() => L.apply(G, "CREW:CAPTAIN,GUNNER,MEDIC"), /Illegal/);
   L.apply(G, "CREW:CAPTAIN,GUNNER,MEDIC,BULWARK"); assert.strictEqual(G.ships[0].crew.length, 4);
 });
@@ -101,7 +108,7 @@ test("nav: boost failure overshoots by 50%", () => {
   const G = face(drafted({ crew1: ["GUNNER", "MECHANIC", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
   const s = sh(G, 0); s.q = 0; s.r = 2; G.ships[1].q = 5;           // clear the path
   const opt = L.navOption(s, 2, 0);
-  forceVal(G, 20, 1);
+  forceVal(G, 20, 2);
   L.apply(G, "B:2:0");
   const want = [Math.round(0 + (opt.q - 0) * 1.5), Math.round(2 + (opt.r - 2) * 1.5)];
   assert.deepStrictEqual([s.q, s.r], want);
@@ -118,7 +125,7 @@ test("nav: stable drift lets you choose and confirm any heading", () => {
 test("nav: failed drift spins one step and blocks lock-on", () => {
   const G = face(drafted({ crew1: ["GUNNER", "MECHANIC", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
   force(G, 20, v => v >= 19); L.apply(G, "B:1:0");
-  forceVal(G, 20, 1); L.apply(G, "DRIFT");
+  forceVal(G, 20, 2); L.apply(G, "DRIFT");
   assert.ok([1, 5].includes(sh(G, 0).o)); assert.strictEqual(G.st, "done"); assert.ok(!sh(G, 0).f.drift);
   L.apply(G, "END"); L.apply(G, "TGT");
   assert.ok(!L.legal(G).includes("LOCK"));
@@ -181,7 +188,7 @@ test("combat: target, lock, cripple weapons, hit for d6+4", () => {
 test("combat: a miss wastes the lock and the aimed critical", () => {
   const G = toAttack(), s = sh(G, 0);
   L.apply(G, "TGT"); force(G, 20, v => v >= 19); L.apply(G, "LOCK"); L.apply(G, "AIM:DRIFT");
-  forceVal(G, 20, 1); L.apply(G, "FIRE");
+  forceVal(G, 20, 2); L.apply(G, "FIRE");
   assert.ok(!s.f.locked); assert.strictEqual(s.f.debuff, null); assert.strictEqual(sh(G, 1).dmg.DRIFT, 0);
   assert.ok(!L.legal(G).includes("FIRE"));                    // one shot per phase
 });
@@ -231,7 +238,7 @@ test("crew: Battle Stations (Nomad epic) needs a stable drift, then repeats the 
 });
 test("crew: Afterburn makes the next boost succeed without a roll", () => {
   const G = face(drafted({ crew1: ["ACE", "GUNNER", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
-  L.apply(G, "O:1"); forceVal(G, 20, 1); L.apply(G, "B:1:0");
+  L.apply(G, "O:1"); forceVal(G, 20, 2); L.apply(G, "B:1:0");
   assert.ok(G.roll.auto); assert.deepStrictEqual([sh(G, 0).q, sh(G, 0).r], [0, 0]);
 });
 test("crew: Evasive gives enemy attacks −3", () => {
@@ -241,7 +248,7 @@ test("crew: Evasive gives enemy attacks −3", () => {
 });
 test("crew: Double Tap reloads and allows a second shot", () => {
   const G = toAttack();                                         // P1 has GUNNER in slot 2
-  L.apply(G, "TGT"); forceVal(G, 20, 1); L.apply(G, "FIRE");
+  L.apply(G, "TGT"); forceVal(G, 20, 2); L.apply(G, "FIRE");
   assert.ok(!L.legal(G).includes("FIRE")); L.apply(G, "O:2"); assert.ok(L.legal(G).includes("FIRE"));
 });
 test("crew: Auto-Lock locks without a roll", () => {
@@ -290,10 +297,10 @@ test("faction: kindred crew add +1 hull each", () => {
   assert.strictEqual(sh(G, 0).maxHp, L.CLASSES.SKIFF.hull + 2); assert.strictEqual(sh(G, 0).hp, sh(G, 0).maxHp);
 });
 test("faction: every crew member and ship belongs to a faction", () => {
-  assert.strictEqual(L.CREW.length, 15);
+  assert.strictEqual(L.CREW.length, 18);
   for (const c of L.CREW) assert.ok(L.FACTIONS[c.f], c.key);
-  for (const f in L.FACTIONS) assert.strictEqual(L.CREW.filter(c => c.f === f).length, 5, f);
-  assert.strictEqual(L.CREW.filter(c => /Captain/.test(c.role)).length, 3);
+  for (const f in L.FACTIONS) assert.strictEqual(L.CREW.filter(c => c.f === f).length, 6, f);
+  for (const f in L.FACTIONS) assert.strictEqual(L.CREW.filter(c => c.f === f && c.capt).length, 2, f + " captains");
 });
 test("faction: Drifters get +1 to boost and drift", () => {
   const G = face(drafted({ f1: "WIND", crew1: ["GUNNER", "MECHANIC", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
@@ -319,7 +326,7 @@ test("faction: Nomads get +1 to all rolls after a stable drift", () => {
   assert.ok(G.roll.mods.some(m => m[1] === "Nomads" && m[0] === 1));
 });
 test("faction: Scrappers won't sail the Construct, Drifters won't sail the Hauler", () => {
-  const G = L.newGame(3);
+  const G = fresh(3);
   assert.ok(!L.legal(G).includes("C:RELIC:MACHINE")); assert.ok(!L.legal(G).includes("C:HAULER:WIND"));
   assert.ok(L.legal(G).includes("C:RELIC:HEART")); assert.ok(L.legal(G).includes("C:HAULER:HEART"));
   assert.throws(() => L.apply(G, "C:RELIC:MACHINE"), /Illegal/);
@@ -379,7 +386,7 @@ test("crew: ANA Patch Up (Nomad epic) heals 3 after a stable drift; stunned crew
 });
 test("crew: SELA keeps the helm: a failed drift still lets you set the heading (no lock)", () => {
   const G = face(drafted({ crew1: ["WINDCAPT", "GUNNER", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
-  force(G, 20, v => v >= 19); L.apply(G, "B:1:0"); forceVal(G, 20, 1); L.apply(G, "DRIFT");
+  force(G, 20, v => v >= 19); L.apply(G, "B:1:0"); forceVal(G, 20, 2); L.apply(G, "DRIFT");
   assert.strictEqual(G.st, "nav_heading"); assert.ok(!sh(G, 0).f.drift);
 });
 test("crew: SELA Tailwind lowers boost DC by 4", () => {
@@ -410,7 +417,8 @@ test("dreadnought: two attack rolls make a clean miss rarer", () => {
   let missOne = 0, missTwin = 0;
   for (let seed = 1; seed <= 300; seed++) {
     for (const c of ["SKIFF", "DREAD"]) {
-      const G = toAttack({ c1: c, seed }); L.apply(G, "TGT"); L.apply(G, "FIRE");
+      const G = toAttack({ c1: c, seed }); G.rng = (seed * 2654435761) >>> 0;   // fresh dice per game
+      L.apply(G, "TGT"); L.apply(G, "FIRE");
       if (G.st !== "atk_dmg") { if (c === "DREAD") missTwin++; else missOne++; }
     }
   }
@@ -470,6 +478,158 @@ test("fight length: every ship goes down to 2-3 average hits", () => {
   }
 });
 
+
+// ---------- critical rolls ----------
+test("crit: a natural 20 gives +3 to the next roll this turn", () => {
+  const G = face(drafted()); plan(G, "NAV", "ATK", "ENG");
+  forceVal(G, 20, 20); L.apply(G, "B:1:0"); assert.strictEqual(sh(G, 0).momentum, 3);
+  forceVal(G, 20, 10); L.apply(G, "DRIFT");
+  assert.ok(G.roll.mods.some(m => m[1] === "natural 20" && m[0] === 3)); assert.strictEqual(sh(G, 0).momentum, 0);
+});
+test("crit: a natural 1 always fails, even with big bonuses", () => {
+  const G = face(drafted()); const s = sh(G, 0); s.surge = 30; plan(G, "NAV", "ATK", "ENG");
+  forceSeq(G, [[20, 1], [6, 6], [20, 1]]); L.apply(G, "B:1:0");                  // 1, lucky second chance, 1 again
+  assert.ok(!G.roll.ok);
+});
+test("crit: natural 1 on a boost overshoots 2x; mishap 3-4 stalls the engine", () => {
+  const G = face(drafted({ crew1: ["GUNNER", "MECHANIC", "TECH"] })); const s = sh(G, 0);
+  Object.assign(s, { q: 0, r: 2 }); G.ships[1].q = 5; s.sys.eng = 2;
+  plan(G, "NAV", "ATK", "ENG"); const opt = L.navOption(s, 1, 0);
+  forceSeq(G, [[20, 1], [6, 3]]); L.apply(G, "B:1:0");
+  assert.strictEqual(s.sys.eng, 1);
+  const want = [Math.round(0 + opt.q * 2), Math.round(2 + (opt.r - 2) * 2)], line = L.hexLine(0, 2, want[0], want[1]);
+  const free = line.findIndex(([q, r]) => L.isObstacle(q, r)); const stop = free < 0 ? want : (free === 0 ? [0, 2] : line[free - 1]);
+  assert.deepStrictEqual([s.q, s.r], stop);
+});
+test("crit: mishap 1-2 turns the stern to the enemy", () => {
+  const G = toAttack(); L.apply(G, "TGT"); const s = sh(G, 0);
+  forceSeq(G, [[20, 1], [6, 1]]); L.apply(G, "FIRE");
+  assert.strictEqual(s.o, 3);                                            // enemy is north, so the stern faces it
+});
+test("crit: mishap 5 is 1 damage, a crew member down and a lost part", () => {
+  const G = toAttack(); L.apply(G, "TGT"); const s = sh(G, 0), hp = s.hp, parts = s.parts;
+  forceSeq(G, [[20, 1], [6, 5]]); L.apply(G, "FIRE");
+  assert.strictEqual(s.hp, hp - 1); assert.strictEqual(s.parts, parts - 1); assert.strictEqual(s.crew.filter(c => c.stun).length, 1);
+});
+test("crit: mishap 6 is a lucky second chance", () => {
+  const G = toAttack(); L.apply(G, "TGT");
+  forceSeq(G, [[20, 1], [6, 6], [20, 19]]); L.apply(G, "FIRE");
+  assert.strictEqual(G.st, "atk_dmg");
+});
+test("crit: KESTREL rerolls a natural 1", () => {
+  const G = toAttack({ crew1: ["STORMCAPT", "GUNNER", "TECH"] }); L.apply(G, "TGT");
+  forceSeq(G, [[20, 1], [20, 19]]); L.apply(G, "FIRE");
+  assert.strictEqual(G.st, "atk_dmg");
+});
+
+// ---------- captains ----------
+test("captains: only your own faction's captain, and only one", () => {
+  const G = fresh(7); L.apply(G, "C:SKIFF:WIND");
+  assert.throws(() => L.apply(G, "CREW:CAPTAIN,ACE,DRIFTER"), /Illegal/);     // Nomad captain on a Drifter ship
+  assert.throws(() => L.apply(G, "CREW:WINDCAPT,STORMCAPT,ACE"), /Illegal/);  // two captains
+  L.apply(G, "CREW:STORMCAPT,ACE,DRIFTER");
+});
+test("captains: HESK forges a permanent upgrade after a hit (1 part, each stat once)", () => {
+  const G = toAttack({ c1: "DREAD", f1: "MACHINE", crew1: ["FORGE", "GUNNER", "TECH"] }); const s = sh(G, 0);
+  assert.strictEqual(s.parts, L.CLASSES.DREAD.parts + 1);                    // HESK brings a part
+  L.apply(G, "TGT"); force(G, 20, v => v >= 19); L.apply(G, "FIRE"); L.apply(G, "DMG"); L.apply(G, "END");
+  assert.ok(L.legal(G).includes("O:1:WPN")); const parts = s.parts;
+  L.apply(G, "O:1:WPN"); assert.strictEqual(s.upg.wpn, 1); assert.strictEqual(s.parts, parts - 1);
+  assert.ok(!L.legal(G).some(m => m.startsWith("O:1")));                     // resting now
+});
+test("captains: TASSA keeps the crew standing while her drift holds; All Hands ignores rest once", () => {
+  const G = face(drafted({ f1: "HEART", crew1: ["ELDER", "GUNNER", "MEDIC"] })); const s = sh(G, 0);
+  plan(G, "NAV", "ATK", "ENG"); stableDrift(G);
+  s.crew[1].rest = 2;                                                       // KAEL resting
+  L.apply(G, "O:1"); assert.ok(s.allHands);
+  L.apply(G, "END"); L.apply(G, "TGT"); assert.ok(L.legal(G).includes("O:2"));  // KAEL despite rest
+  L.apply(G, "O:2"); assert.ok(!s.allHands);
+  L.apply(G, "END"); L.apply(G, "END");                                     // enemy turn: try to stun
+  plan(G, "ATK", "NAV", "ENG"); L.apply(G, "TGT"); L.apply(G, "O:2");        // P2's NYX: auto-lock
+  L.apply(G, "AIM:CREW"); force(G, 20, v => v >= 19); L.apply(G, "FIRE"); L.apply(G, "DMG");
+  assert.strictEqual(s.crew.filter(c => c.stun).length, 0);
+});
+test("captains: KESTREL rams: enemy takes 6, she takes 1", () => {
+  const G = face(drafted({ crew1: ["STORMCAPT", "GUNNER", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
+  const [a, b] = G.ships, opt = L.navOption(a, 1, 0); b.q = opt.q; b.r = opt.r;
+  const ha = a.hp, hb = b.hp; L.apply(G, "O:1");
+  force(G, 20, v => v >= 3 && v <= 19); L.apply(G, "B:1:0");
+  assert.strictEqual(b.hp, hb - 6); assert.strictEqual(a.hp, ha - 1);
+});
+
+// ---------- path rule ----------
+test("path: courses through rock are not offered", () => {
+  const G = face(drafted()); const s = sh(G, 0);
+  for (const o of L.allNavOptions(s)) assert.ok(L.pathClear(s.q, s.r, o.q, o.r));
+  L.setTerrain(G.seed, "LABYRINTH");
+  let checked = 0;
+  for (let q = -10; q <= 10; q++) for (let r = -10; r <= 10; r++) {
+    if (L.isObstacle(q, r)) continue; Object.assign(s, { q, r, o: (q + r + 60) % 6 });
+    for (const o of L.allNavOptions(s)) { assert.ok(L.pathClear(q, r, o.q, o.r)); checked++; }
+  }
+  L.setTerrain(G.seed, "WASTE"); assert.ok(checked > 100);
+});
+
+// ---------- maps ----------
+test("maps: every map keeps starts, centre and exits connected", () => {
+  const D = [[0, -1], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0]];
+  for (const map of Object.keys(L.MAPS)) for (let seed = 1; seed <= 15; seed++) {
+    L.setTerrain(seed * 977, map);
+    const seen = new Set(["0,5"]), queue = [[0, 5]];
+    while (queue.length) { const [a, b] = queue.shift(); for (const [dq, dr] of D) { const k = (a + dq) + "," + (b + dr);
+      if (!seen.has(k) && L.hexDist(a + dq, b + dr) <= 18 && !L.isObstacle(a + dq, b + dr)) { seen.add(k); queue.push([a + dq, b + dr]); } } }
+    for (const k of ["0,0", "0,-5", "0,12", "0,-12"]) assert.ok(seen.has(k), `${map} seed ${seed}: ${k}`);
+  }
+  L.setTerrain(1, "WASTE");
+});
+test("maps: the canyon is narrow, the labyrinth in between", () => {
+  const open = map => { L.setTerrain(4242, map); let o = 0, n = 0; for (let q = -12; q <= 12; q++) for (let r = -12; r <= 12; r++) if (L.hexDist(q, r) <= 12) { n++; if (!L.isObstacle(q, r)) o++; } return o / n; };
+  const w = open("WASTE"), c = open("CANYON"), l = open("LABYRINTH"); L.setTerrain(1, "WASTE");
+  assert.ok(c < 0.4 && l < w && l > c, `waste ${w.toFixed(2)} canyon ${c.toFixed(2)} labyrinth ${l.toFixed(2)}`);
+});
+
+// ---------- Relic Race ----------
+test("relic: pick it up at the centre (−1 engine), bring it to your own exit to win", () => {
+  const G = face(drafted({ set: "WASTE:RELIC:CALM" })); const s = sh(G, 0);
+  assert.deepStrictEqual([G.relic.q, G.relic.r], [0, 0]); assert.strictEqual(G.exits, null);
+  plan(G, "NAV", "ATK", "ENG"); force(G, 20, v => v >= 3 && v <= 19); L.apply(G, "B:1:0");   // (0,1) -> (0,0)
+  assert.strictEqual(G.relic.carrier, 1); assert.ok(s.relic); assert.ok(G.exits);
+  s.sys.eng = 1; assert.strictEqual(require("../logic.js").navOption(s, 1, 0).dc, 8 + 1);    // engine 1 - relic 1 = no bonus
+  // teleport next to the exit and fly in
+  Object.assign(s, { q: 0, r: 11, o: 3 }); s.sys.eng = 0; G.st = "nav_pick";
+  force(G, 20, v => v >= 3 && v <= 19); L.apply(G, "B:1:0");
+  assert.strictEqual(G.st, "over"); assert.strictEqual(G.winner, 1);
+});
+
+// ---------- storms ----------
+test("storm: wind turns one step clockwise every two rounds", () => {
+  const G = face(drafted({ set: "WASTE:DUEL:STORM" })), w0 = G.windStart, seen = [];
+  for (let i = 0; i < 8; i++) { seen.push(L.windNow(G)); L.apply(G, "Q:NAV"); L.apply(G, "Q:ATK"); L.apply(G, "Q:ENG"); ["END", "END", "END"].forEach(m => L.apply(G, m)); }
+  assert.deepStrictEqual(seen, [0, 0, 0, 0, 1, 1, 1, 1].map(k => (w0 + k) % 6));  // turns 1..8 = rounds 1..4
+});
+test("storm: into the wind DC +2, with the wind DC −1 plus drag; Hauler turns are harder", () => {
+  const G = face(drafted({ set: "WASTE:DUEL:STORM" })); const s = sh(G, 0);
+  s.windFrom = 0;                                                            // wind from the north, ship faces north
+  const calm = Object.assign({}, s, { windFrom: null });
+  assert.strictEqual(L.navOption(s, 1, 0).dc, L.navOption(calm, 1, 0).dc + 2);
+  s.o = 3; calm.o = 3; assert.strictEqual(L.navOption(s, 1, 0).dc, L.navOption(calm, 1, 0).dc - 1);
+  const h = Object.assign({}, s, { cls: "HAULER", o: 1 }), hc = Object.assign({}, h, { windFrom: null });
+  assert.strictEqual(L.navOption(h, 1, 1).dc, L.navOption(hc, 1, 1).dc + 1);
+});
+test("storm: shots without a lock get −2", () => {
+  const G = toAttack(); G.cfg.storm = true; G.windStart = 0;               // storm rises once the ships are in position
+  L.apply(G, "TGT"); forceVal(G, 20, 10); L.apply(G, "FIRE");
+  assert.ok(G.roll.mods.some(m => m[1] === "storm" && m[0] === -2));
+});
+
+// ---------- skiff ----------
+test("skiff: small target (+1 AC), easy to fly (+2 drift), easy to patch (3 parts)", () => {
+  const c = L.CLASSES.SKIFF; assert.strictEqual(c.ac, 1); assert.strictEqual(c.dft, 2); assert.strictEqual(c.parts, 3);
+  const G = face(drafted({ c1: "DREAD", c2: "SKIFF", crew1: ["SPOTTER", "ACE", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
+  stableDrift(G); L.apply(G, "END"); L.apply(G, "TGT"); forceVal(G, 20, 10); L.apply(G, "FIRE");
+  assert.ok(/AC 11/.test(G.roll.vs), G.roll.vs);                             // AC 10 + range 1 (+0) + small (+1)
+});
+
 // ---------- terrain ----------
 test("terrain: centre and spawn hexes are always open", () => {
   for (let seed = 1; seed < 40; seed++) {
@@ -488,7 +648,7 @@ test("terrain: rock gets denser further from the centre", () => {
 // ---------- determinism & notation ----------
 test("replay: seed + move list reproduces whole games exactly", () => {
   for (let seed = 1; seed <= 30; seed++) {
-    const G = L.newGame(seed); let x = seed;
+    const G = fresh(seed); let x = seed;
     const rand = () => (x = (x * 1103515245 + 12345) % 2147483648) / 2147483648;
     for (let n = 0; n < 3000 && G.st !== "over"; n++) { const ls = L.legal(G); L.apply(G, ls[Math.floor(rand() * ls.length)]); }
     assert.strictEqual(L.stateHash(L.replay(seed, G.moves)), L.stateHash(G), "seed " + seed);

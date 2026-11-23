@@ -106,6 +106,8 @@ const BOT=`window.botMove=function(){
   {
     const p = await mk();
     await p.click("#btn-ai");
+    await p.click("#sel-map-CANYON"); await p.click("#sel-mode-RELIC"); await p.click("#m-confirm-setup");
+    assert.deepStrictEqual(await p.evaluate(() => G.cfg), { map: "CANYON", mode: "RELIC", storm: false });
     await p.click("#sel-HAULER"); await p.click("#sel-HEART"); await p.click("#m-confirm-ship");
     for (const k of ["CAPTAIN", "GUNNER", "MEDIC"]) await p.click("#sel-" + k);
     assert.ok(!(await p.$("#m-confirm-crew")), "Hauler needs 4 crew before confirming");

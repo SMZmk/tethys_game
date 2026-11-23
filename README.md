@@ -86,9 +86,9 @@ plus ship classes, a storyteller, and **online play by move codes**. Open it in 
 GitHub Pages; no install needed.
 
 ### Playing a friend online
-1. Click **Start online game**. You are Player 1: pick your ship and first crew member.
+1. Click **Start online game**. You are Player 1: pick the battlefield (map, mode, weather), then your ship and crew.
 2. The game shows a short message with a move code, like
-   `Tethys · move 1 · P1: C:SKIFF:WIND CREW:SELA,VEX,ORO` followed by `TETHYS-…`. Send it to your friend (chat, mail, anything).
+   `Tethys · move 1 · P1: SET:CANYON:DUEL:CALM C:SKIFF:WIND CREW:SELA,VEX,ORO` followed by `TETHYS-…`. Send it to your friend (chat, mail, anything).
 3. Your friend clicks **Load code** on the title screen and pastes it. Their game replays your moves, then it is their turn.
 4. They send their code back, you paste it under **Load their move**, and so on, like correspondence chess.
 
@@ -99,6 +99,7 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 ### Move notation
 | Move | Meaning |
 |---|---|
+| `SET:CANYON:RELIC:STORM` | Player 1 picks the map (WASTE, CANYON, LABYRINTH), mode (DUEL, RELIC) and weather (CALM, STORM) |
 | `C:SKIFF:WIND` | choose ship class (SKIFF, HAULER, DREAD, RELIC) and faction (MACHINE, HEART, WIND) |
 | `CREW:CAPTAIN,GUNNER,MEDIC` | choose the whole crew at once (3 names, Hauler 4) |
 | `Q:NAV,ATK,ENG` | plan the phase order |
@@ -107,7 +108,7 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 | `PIVOT:L` / `PIVOT:R` | turn in place (only when rocks block every course) |
 | `TGT`, `RLD`, `LOCK`, `AIM:WEAPONS`, `FIRE`, `DMG` | combat |
 | `+WPN`, `-ENG`, `REP` | engineering: power up/down a system, repair |
-| `O:2` | give an order to crew member 2 |
+| `O:2` | give an order to crew member 2 (`O:1:WPN`: HESK's Forge with the chosen stat) |
 | `END` | end the phase |
 
 ### Factions
@@ -127,7 +128,7 @@ See `ROADMAP.md` for the design behind this and what is planned next.
 ### Ship classes
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
-| Skiff | small regatta catamaran with a wing sail, hulls like skis | 13 | 3 | 2 | speed up to 4, +1 boost and drift, repairs +2, wrecks give 2 parts |
+| Skiff | small regatta catamaran with a wing sail, hulls like skis | 13 | 3 | 3 | small target (+1 AC), speed up to 4, +1 boost, +2 drift, repairs +2, wrecks give 2 parts |
 | Hauler | huge Chinese junk: battened sails, two smokestacks, a fluke at each side | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
 | Dreadnought | war junk: ram, bow gun, side cannons, smokestack, one fluke | 17 | 3 | 1 | twin guns: every shot rolls to hit twice, each hit half damage (+1 before halving); +1 attack |
 | Construct | small old-world manta ray with orbiting shards, one fluke | 15 | 5 | 2 | 5 energy |
@@ -141,24 +142,28 @@ Each faction has its own look: Nomads are wastelanders in leather jackets, sungl
 Scrappers wear helmets and face paint, have piercings and smoke; Drifters wear bedouin-like wraps and scarves, with
 mouth amplifiers that send a deep bass against the wind.
 
-15 crew, 5 per faction. Each player picks ship, faction and the whole crew in one turn (3 crew, Hauler 4; at most one captain);
+18 crew, 6 per faction, including two captains per faction (one offensive, one defensive). Each player picks ship,
+faction and the whole crew in one turn (3 crew, Hauler 4; at most one captain, and only of your own faction);
 both players may take the same people. Click cards to select, then confirm; you can undo (on one device any
 time during setup, online or against the computer until your turn is done). After an order a crew member sits out
 your next 2 turns.
 
 | Faction | Crew | Station | Passive | Order |
 |---|---|---|---|---|
-| Scrappers | VOSS, Iron Captain | ATK | +1 attack rolls | **Epic** Knock Them Down!: after a hit, stun a random enemy crew member (no lock) |
+| Scrappers | VOSS, Iron Captain (offensive) | ATK | +1 attack rolls | **Epic** Knock Them Down!: after a hit, stun a random enemy crew member (no lock) |
+| | HESK, Forge-Master (defensive captain) | ENG | +1 spare part at the start; repairs +1 | **Epic** Forge: spend 1 part for a permanent +1 BOOST, DRIFT or WEAPONS, or +2 hull (each once) |
 | | GRIT, Harpooner | ATK | +1 damage | **Epic** Chain Shot: after a hit (no lock), d6: 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 fire in the engines (enemy loses NAV or ENG next turn) |
 | | BRAKK, Engineer | ENG | repairs +1 | Field Fix: all system damage −1 |
 | | IVO, Reactor Tech | ENG | +1 energy cap | Surge: next roll +5 |
 | | SAL, Scavenger | ENG | +1 part, reload gives 2 ammo | Salvage: +2 parts |
-| Nomads | RHO, Captain | ANY | +1 to all rolls | **Epic** Battle Stations: repeat this phase |
+| Nomads | RHO, Captain (offensive) | ANY | +1 to all rolls | **Epic** Battle Stations: repeat this phase |
+| | TASSA, Caravan Mother (defensive captain) | ANY | while your drift holds, your crew can't be stunned | **Epic** All Hands: your next order this turn ignores rest |
 | | KAEL, Soldier | ATK | +2 attack rolls | Double Tap: +1 ammo, fire again |
 | | DOV, Bulwark | ATK | enemy attacks on you −1 | Brace: damage taken −3 until your next turn |
 | | FENN, Ecologist | NAV | rock crashes deal 1, not 3 | **Epic** Sandstorm: enemy −2 to all rolls next turn |
 | | ANA, Medic | ENG | stunned crew recover at your turn start | **Epic** Patch Up: heal 3 hull |
-| Drifters | SELA, Wind Captain | NAV | a failed drift still lets you set heading; **Epic** Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls | Tailwind: next boost DC −4 |
+| Drifters | KESTREL, Storm Rider (offensive captain) | NAV | ignores natural 1s (one reroll) and storm drag | Ram!: end the move on the enemy's hex: they take 6, you take 1 |
+| | SELA, Wind Captain (defensive) | NAV | a failed drift still lets you set heading; **Epic** Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls | Tailwind: next boost DC −4 |
 | | VEX, Ace Pilot | NAV | +2 boost rolls | Afterburn: next boost auto-succeeds |
 | | ORO, Wayfinder | NAV | +2 drift rolls | Evasive: enemy attacks −3 |
 | | NYX, Spotter | ATK | +3 lock rolls | Auto-Lock: lock with no roll |
@@ -169,7 +174,32 @@ Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 
 (+1 per kindred crew), base armour class is 10 (+2/+4 at range 2/3), so a ship goes down after 2–3 hits.
 In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rocks and rams deal 3, repairs heal d4.
 
-Balance (8,000 bot games with random builds): factions 49–52%, ship classes 46–53%, each crew member 45–57%.
+### Dice
+- **Natural 20** on a d20 check: +3 to your next roll this turn.
+- **Natural 1**: the roll fails and a mishap follows (d6): 1–2 turned around (stern to the enemy), 3–4 engine
+  stall (engine power drops to 1; a boost also overshoots 2×), 5 disaster on deck (1 damage, a crew member down,
+  a spare part lost), 6 lucky second chance (roll again).
+
+### Maps, modes and weather
+Player 1 picks them before choosing a ship. Courses must have a clear path; a failed boost stops in front of
+the first rock it hits and crashes.
+
+| Map | Plays like |
+|---|---|
+| Wastelands | open flats in the middle, rock thickening outward, canyons leading back in |
+| Canyon | one narrow gorge between the starts: fight or evade head-on at speed |
+| Labyrinth | a network of alleys; agile ships have the edge |
+
+- **Duel**: last ship flying wins.
+- **Relic Race** (capture the flag): the relic lies in the middle. End a move on it to take it (the carrier gets
+  −1 engine). Once it is taken, an exit opens behind each team's start; bring the relic to your own exit to win,
+  or sink the other ship.
+- **Storm** (optional): the wind turns one step clockwise every two rounds. Into the wind DC +2; with the wind
+  DC −1 and the ship is dragged 1 hex downwind; shots without a lock −2. Haulers ignore drag but turn worse;
+  KESTREL ignores drag.
+
+Balance (bot games with random builds on every map and mode, 1,500 per setting): ships 44–55%, factions 47–54%.
+The computer plays every map and mode the same way, so these numbers say more about the rules than about skill.
 
 ### Playing against the computer
 Click **Play vs computer**. The computer follows a short rule card and rolls d6s, so it could also be
@@ -182,6 +212,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 | Style (d6 each turn) | 1–3 easy: always the lowest DC. 4–6 risky: always the highest DC. |
 | Plan | Engage: NAV → ATK → ENG. Escape: ENG → NAV → ATK. |
 | Orders | Gives every crew order as soon as it can. |
+| Relic Race | While the relic is free it flies for it; carrying it, it flies for its own exit. |
 | NAV | Engage: a course ending 1–3 hexes from you, then face you. Escape: the course ending farthest away, then face away. |
 | ATK | Target you if in arc, reload when empty, lock on, fire as often as allowed. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew. |
 | ENG | Below half hull: repair while parts last. Then power WPN, BST, DFT (escaping: ENGINE, BST, DFT). |
@@ -194,7 +225,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 62 rules tests (setup, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 81 rules tests (setup, maps, Relic Race, storms, natural 20s and 1s, captains, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online, phone width.
 
 ### Source
