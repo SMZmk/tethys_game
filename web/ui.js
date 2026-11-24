@@ -712,8 +712,8 @@ function renderGame(){
   if(!cv||!cv.isConnected){
     app.innerHTML=`<div id="hdr"></div><div class="main"><div class="col">
       <div class="screen"><canvas id="map" width="${W}" height="${H}" aria-label="Battle map"></canvas><div class="hud" id="hud"></div><div id="ovl"></div></div>
-      <div id="storywrap"></div>
-      <div class="console" id="console"></div><div class="log" id="log" aria-live="polite"></div>
+      <div class="console" id="console"></div>
+      <div id="storywrap"></div><div class="log" id="log" aria-live="polite"></div>
       <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
       <details class="help"><summary>How the computer plays</summary><ul>
       <li>As Player 2 it picks the weather first: d6 1–4 calm, 5–6 storm.</li>

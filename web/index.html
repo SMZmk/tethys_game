@@ -180,6 +180,12 @@ button.ord{border-color:var(--any);background:#3a3210}
 .mapimg{width:100%;max-width:220px;height:auto;aspect-ratio:1;image-rendering:pixelated;border:2px solid #000;align-self:center}
 .forge{margin-top:4px;gap:4px}
 .forge button{padding:4px 5px;font-size:7px;border-color:var(--any);background:#3a3210}
+/* desktop: map and commands fit on one screen; the crew column scrolls on its own */
+@media (min-width:901px){
+  .screen{align-self:center;max-width:100%}
+  .screen canvas{aspect-ratio:384/264;width:max(440px,min(calc(min(100vw,1200px) - 420px),calc((100vh - 400px)*384/264)));max-width:100%;height:auto}
+  #side{position:sticky;top:8px;max-height:calc(100vh - 16px);overflow-y:auto;scrollbar-width:thin}
+}
 </style>
 
 <div class="app" id="app"></div>
@@ -1903,8 +1909,8 @@ function renderGame(){
   if(!cv||!cv.isConnected){
     app.innerHTML=`<div id="hdr"></div><div class="main"><div class="col">
       <div class="screen"><canvas id="map" width="${W}" height="${H}" aria-label="Battle map"></canvas><div class="hud" id="hud"></div><div id="ovl"></div></div>
-      <div id="storywrap"></div>
-      <div class="console" id="console"></div><div class="log" id="log" aria-live="polite"></div>
+      <div class="console" id="console"></div>
+      <div id="storywrap"></div><div class="log" id="log" aria-live="polite"></div>
       <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
       <details class="help"><summary>How the computer plays</summary><ul>
       <li>As Player 2 it picks the weather first: d6 1–4 calm, 5–6 storm.</li>
