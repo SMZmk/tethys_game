@@ -211,7 +211,7 @@ const CREW = [
   // Followers of the Heart — Nomads
   {key:"CAPTAIN",capt:true,f:"HEART",name:"RHO",role:"Captain",st:"ANY",epic:"DRIFT",passive:"+1 to all rolls",order:"Battle Stations",text:"Repeat this phase once",pal:["#e0b088","#e8d8b8","#7a4a2a","#2f8fb0"]},
   {key:"ELDER",capt:true,f:"HEART",name:"TASSA",role:"Caravan Mother",st:"ANY",epic:"DRIFT",passive:"While your drift holds, your crew can't be stunned",order:"All Hands",text:"Your next order this turn ignores rest",pal:["#c89a78","#d8c8a0","#6a3a24","#e85a30"]},
-  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#5a3a24","#6a4024","#d8402c"]},
+  {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",epic:"DRIFT",passive:"+1 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#5a3a24","#6a4024","#d8402c"]},
   {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#b08048","#4a3020","#e8b830"]},
   {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Rock crashes and scree deal only 1 damage",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#7a8a3a","#6a4a30","#3ab89a"]},
   {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#a04a2a","#7a3a28","#c84a9a"]},
@@ -292,7 +292,7 @@ function crewMods(s,kind,target,consume){
   if(kind==="BOOST"&&has(s,"ACE")) m.push([2,"VEX"]);
   if(kind==="BOOST"&&songOfWind(s)) m.push([2,"Song of the Wind"]);
   if(kind==="DRIFT"&&has(s,"DRIFTER")) m.push([2,"ORO"]);
-  if(kind==="ATK"&&has(s,"GUNNER")) m.push([2,"KAEL"]);
+  if(kind==="ATK"&&has(s,"GUNNER")) m.push([1,"KAEL"]);
   if(kind==="LOCK"&&has(s,"SPOTTER")) m.push([3,"NYX"]);
   if(s.surge>0){ m.push([s.surge,"surge"]); if(consume) s.surge=0; }
   if(s.momentum>0){ m.push([s.momentum,"natural 20"]); if(consume) s.momentum=0; }
@@ -387,13 +387,13 @@ const CREW_TALES={
   TECH:["IVO pulls a lever marked DON'T. {p}'s reactor screams with joy.","IVO pours raw power into {p}'s cables until they glow."],
   QM:["SAL drags a crate of scrap out of nowhere. \"Told you we'd need it.\""],
   CAPTAIN:["RHO stands at {p}'s bow. \"Battle stations! Again, together!\"","RHO's voice carries over the engines. Every Nomad on {p} moves at once."],
-  ELDER:["TASSA raises the caravan staff. \"All hands!\" Even the children on {p} grab a rope.","The Caravan Mother speaks once. Everyone on {p} listens."],
+  ELDER:["TASSA raises her staff. \"All hands!\" Even the children on {p} grab a rope.","The Caravan Mother speaks once. Everyone on {p} listens."],
   GUNNER:["KAEL fires twice before the first shell lands.","KAEL breathes out, slow. Then {p}'s gun barks twice."],
-  BULWARK:["DOV plants both feet on {p}'s deck. \"Brace! Let them come.\""],
+  BULWARK:["DOV plants his feet on {p}'s deck. \"Brace! Let them come.\""],
   ECO:["FENN reads the dunes and kicks the sand loose. A sandstorm swallows {t}.","FENN whispers to the desert. The desert answers, around {t}."],
   MEDIC:["ANA moves from wound to wound across {p}'s deck. Nobody is left lying.","ANA's hands are red to the elbow. {p}'s crew get back up."],
   WINDCAPT:["SELA sings one long note. The wind bends behind {p}'s sails.","SELA lifts her scarf to the gust. \"Tailwind, now.\""],
-  STORMCAPT:["KESTREL grins at {t}. \"Ram them. All the way through.\"","KESTREL seizes the helm of {p} and aims for the enemy's heart."],
+  STORMCAPT:["KESTREL grins at {t}. \"Ram them. All the way through.\"","KESTREL takes the helm of {p} herself and aims for the enemy's heart."],
   ACE:["VEX slams the throttle past the stop. {p} leaps like a startled animal.","\"Afterburn!\" VEX is laughing; nobody else on {p} is."],
   DRIFTER:["ORO reads the ripples and steers {p} into a dance {t} cannot follow."],
   SPOTTER:["NYX doesn't blink. \"Got them.\" {p}'s guns are already locked on {t}."],
@@ -867,7 +867,7 @@ function useOrder(G,i,arg){
 //          Intent: ENGAGE on 2+ while hull is at least half, on 4+ when below half; otherwise ESCAPE.
 //          Style:  1–3 EASY (always take the lowest DC), 4–6 RISKY (always take the highest DC).
 //  PLAN    Engage: NAV → ATK → ENG.   Escape: ENG → NAV → ATK.
-//  ORDERS  Whenever a crew order is possible, give it (first crew first).
+//  ORDERS  Whenever a crew order is possible, give it (first crew first). KAEL's Double Tap only after the first shot.
 //  NAV     Engage: a course ending 1–3 hexes from the enemy (none: the closest one).
 //          Escape: the course ending farthest from the enemy.
 //          Pick by Style (DC); ties: the straighter course, then the slower one.
@@ -914,7 +914,8 @@ function aiMove(G){
     return s.cls?defaultCrewMove(s,s.fac):`C:${su.cls}:${su.fac}`;
   }
   const s=S(G), o=other(G,s), P=aiPlan(G);
-  const ord=L.find(m=>m.startsWith("O:"));
+  const ord=L.find(m=>{ if(!m.startsWith("O:")) return false; const c=s.crew[+m.split(":")[1]-1];
+    return c.key!=="GUNNER"||(G.st==="atk_menu"&&s.f.shots>=1&&s.ammo<=0); });   // Double Tap only after the first shot
   if(ord&&!["atk_debuff","atk_dmg","nav_drift"].includes(G.st)) return ord;
   const toward=aiDirToward(s,o.q,o.r), want=P.engage?toward:mod(toward+3,6);
   switch(G.st){

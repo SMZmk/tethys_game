@@ -234,6 +234,14 @@ function toAttack(opts) {
   force(G, 20, v => v >= 19); L.apply(G, "DRIFT"); L.apply(G, "H:N"); L.apply(G, "END");
   return G;
 }
+test("crew: KAEL's Double Tap is epic (needs a stable drift); passive +1 attack", () => {
+  const G = toAttack({ f1: "HEART", crew1: ["GUNNER", "MECHANIC", "TECH"] }), s = sh(G, 0);   // drifted
+  L.apply(G, "TGT"); forceVal(G, 20, 2); L.apply(G, "FIRE"); assert.strictEqual(s.ammo, 0);
+  assert.ok(L.legal(G).includes("O:1")); L.apply(G, "O:1"); assert.ok(L.legal(G).includes("FIRE"));
+  assert.strictEqual(L.CREW_BY.GUNNER.epic, "DRIFT"); assert.strictEqual(L.CREW_BY.GUNNER.passive, "+1 attack rolls");
+  const H = face(drafted({ f1: "HEART", crew1: ["GUNNER", "MECHANIC", "TECH"] })); plan(H, "ATK", "NAV", "ENG");  // no drift yet
+  L.apply(H, "TGT"); forceVal(H, 20, 2); L.apply(H, "FIRE"); assert.ok(!L.legal(H).includes("O:1"));
+});
 test("combat: target, lock, cripple weapons, hit for d6+4", () => {
   const G = toAttack(), t = sh(G, 1), hp = t.hp;
   L.apply(G, "TGT");

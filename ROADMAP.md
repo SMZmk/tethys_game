@@ -16,7 +16,7 @@ Epic orders (no lock-on needed for the Scrapper ones):
 - Scrappers: **VOSS, Knock Them Down!** (after a hit, stun a random enemy crew member) and **GRIT, Chain Shot**
   (after a hit, d6: 1 speed, 2 boost, 3 drift, 4 weapons −1; 5–6 *fire in the engines*: the enemy loses NAV or ENG
   on its next turn, d6 1–3 NAV, 4–6 ENG).
-- Nomads: **RHO, Battle Stations** (repeat this phase), **FENN, Sandstorm** (enemy −2 to all rolls next turn), **ANA, Patch Up** (heal 3).
+- Nomads: **RHO, Battle Stations** (repeat this phase), **FENN, Sandstorm** (enemy −2 to all rolls next turn), **ANA, Patch Up** (heal 3), **KAEL, Double Tap** (fire again).
 - Drifters: **SELA, Song of the Wind** is a *passive* epic: below half hull, engine power no longer raises the DC
   and boost rolls get +2. Lore: a wounded Drifter shakes off pursuers, especially in difficult terrain.
   SELA also keeps her first passive: a failed drift still lets her ship set its heading.
@@ -71,6 +71,11 @@ Computer against computer, the factions win 44–56% against each other (before 
   all six captains included, now speaks their order in their own voice.
 - **Labyrinth rebuilt as Swiss cheese**: caves of 1–3 hex radius linked by 1-hex tunnels and some 3-hex passages
   (was a narrow mesh of alleys). Starts, centre and exits are always linked by wide passages.
+
+- **KAEL nerf** (a reported Scrapper Hauler build: VOSS, GRIT, KAEL, NYX): played well, Double Tap is a second
+  attack roll every few turns, and KAEL crews won 60% (KAEL + GRIT on Scrappers 65%). Double Tap is now an epic
+  order (only in a turn with a stable drift) and KAEL's passive is +1 attack (was +2): KAEL 54%, the combo 57%.
+  The computer now also saves Double Tap until after its first shot.
 
 Balance after this round (bot games, random builds, 1,500 per setting): ships 44–55%, factions 47–54%.
 Captains: SELA is the strongest (about 55–63%); TASSA and HESK are slightly below average (about 44–50%).

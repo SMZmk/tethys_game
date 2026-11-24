@@ -159,7 +159,7 @@ your next 2 turns.
 | | SAL, Scavenger | ENG | +1 part, reload gives 2 ammo | Salvage: +2 parts |
 | Nomads | RHO, Captain (offensive) | ANY | +1 to all rolls | **Epic** Battle Stations: repeat this phase |
 | | TASSA, Caravan Mother (defensive captain) | ANY | while your drift holds, your crew can't be stunned | **Epic** All Hands: your next order this turn ignores rest |
-| | KAEL, Soldier | ATK | +2 attack rolls | Double Tap: +1 ammo, fire again |
+| | KAEL, Soldier | ATK | +1 attack rolls | **Epic** Double Tap: +1 ammo, fire again |
 | | DOV, Bulwark | ATK | enemy attacks on you −1 | Brace: damage taken −3 until your next turn |
 | | FENN, Ecologist | NAV | rock crashes and scree deal only 1 damage | **Epic** Sandstorm: enemy −2 to all rolls next turn |
 | | ANA, Medic | ENG | stunned crew recover at your turn start | **Epic** Patch Up: heal 3 hull |
@@ -234,7 +234,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 91 rules tests (setup, maps, Relic Race, storms, natural 20s and 1s, captains, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 92 rules tests (setup, maps, Relic Race, storms, natural 20s and 1s, captains, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online, phone width.
 
 ### Source
