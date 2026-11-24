@@ -218,7 +218,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 | Intent (d6 each turn) | Engage on 2+ while its hull is at least half, on 4+ when below half; otherwise escape. |
 | Style (d6 each turn) | 1–3 easy: always the lowest DC. 4–6 risky: always the highest DC. |
 | Plan | Engage: NAV → ATK → ENG. Escape: ENG → NAV → ATK. |
-| Orders | Gives every crew order as soon as it can. |
+| Orders | Gives a crew order as soon as it is useful: KAEL's Double Tap after the first shot; RHO's Battle Stations repeats ATK after a shot (escaping: repeats NAV); IVO's Surge only with a NAV or ATK phase still to come; TASSA's All Hands only when a resting crew member could act; KESTREL's Ram! only with a course onto you (and then it rams); VEX and SELA only when a course is open; ANA at 3+ missing hull; DOV's Brace when you are within 6 hexes; HESK forges weapons, then hull. Everything else at once. |
 | Relic Race | While the relic is free it flies for it; carrying it, it flies for its own exit. |
 | NAV | Engage: a course ending 1–3 hexes from you, then face you. Escape: the course ending farthest away, then face away. |
 | Sight | When engaging, it prefers spots with no rock between it and you. |
@@ -234,7 +234,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 92 rules tests (setup, maps, Relic Race, storms, natural 20s and 1s, captains, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 95 rules tests (setup, maps, Relic Race, storms, natural 20s and 1s, captains, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online, phone width.
 
 ### Source

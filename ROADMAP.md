@@ -77,6 +77,11 @@ Computer against computer, the factions win 44–56% against each other (before 
   order (only in a turn with a stable drift) and KAEL's passive is +1 attack (was +2): KAEL 54%, the combo 57%.
   The computer now also saves Double Tap until after its first shot.
 
+- **Computer orders audit**: it no longer wastes orders. Before, it gave every order the moment it could:
+  IVO's Surge in the last phase (expired unused), KESTREL's Ram! without steering into you, TASSA's All Hands with
+  nobody resting, RHO's Battle Stations on a repeat NAV instead of a second shot, HESK forging boost first, ANA
+  healing 1 hull, DOV bracing far from the enemy. Crew win rates against each other now 46–57%.
+
 Balance after this round (bot games, random builds, 1,500 per setting): ships 44–55%, factions 47–54%.
 Captains: SELA is the strongest (about 55–63%); TASSA and HESK are slightly below average (about 44–50%).
 Simple buffs for TASSA and HESK were tested and made no measurable difference, so the agreed designs were kept.

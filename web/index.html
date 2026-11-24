@@ -1054,7 +1054,12 @@ function useOrder(G,i,arg){
 //          Intent: ENGAGE on 2+ while hull is at least half, on 4+ when below half; otherwise ESCAPE.
 //          Style:  1–3 EASY (always take the lowest DC), 4–6 RISKY (always take the highest DC).
 //  PLAN    Engage: NAV → ATK → ENG.   Escape: ENG → NAV → ATK.
-//  ORDERS  Whenever a crew order is possible, give it (first crew first). KAEL's Double Tap only after the first shot.
+//  ORDERS  Give a crew order as soon as it is useful (first crew first):
+//          KAEL Double Tap after the first shot. RHO Battle Stations: engaging, repeat ATK after a shot with the
+//          enemy in arc; escaping, repeat NAV. IVO Surge only with a NAV or ATK phase still to come. TASSA All
+//          Hands only when someone is resting. KESTREL Ram! only with a course onto the enemy (then takes it).
+//          VEX, SELA only when a course is open. ANA when 3+ hull is missing. DOV Brace when the enemy is
+//          within 6 hexes. HESK forges weapons, then hull (escaping: hull first). Everything else: at once.
 //  NAV     Engage: a course ending 1–3 hexes from the enemy (none: the closest one).
 //          Escape: the course ending farthest from the enemy.
 //          Pick by Style (DC); ties: the straighter course, then the slower one.
@@ -1092,6 +1097,28 @@ function aiDirToward(s,q,r){
   const x1=1.5*s.q, y1=Math.sqrt(3)/2*s.q+Math.sqrt(3)*s.r, x2=1.5*q, y2=Math.sqrt(3)/2*q+Math.sqrt(3)*r;
   return mod(Math.round(Math.atan2(x2-x1,-(y2-y1))*180/Math.PI/60),6);
 }
+// When an order is worth giving (see ORDERS in the rule card). Returns the order move or undefined.
+function aiOrder(G,s,o,P,L){
+  const later=p=>G.queue.slice(G.qi+1).includes(p), rams=()=>allNavOptions(s).some(x=>x.q===o.q&&x.r===o.r);
+  const ok=c=>{ switch(c.key){
+    case "GUNNER": return G.st==="atk_menu"&&s.f.shots>=1&&s.ammo<=0;                  // after the first shot
+    case "CAPTAIN": return P.engage?G.st==="atk_menu"&&s.f.shots>=1&&!!arcInfo(s,o)      // repeat ATK: reload, shoot again
+                                   :G.phase==="NAV"&&G.st==="done";                      // repeat NAV: run further
+    case "TECH": return later("NAV")||later("ATK");                                     // surge must have a roll left to boost
+    case "ELDER": { const keep=s.allHands; s.allHands=true;                              // someone resting whose order
+      const r=s.crew.some(x=>x!==c&&x.rest>0&&!orderBlock(G,s,x)&&ok(x)); s.allHands=keep; return r; }   // would be useful now
+    case "STORMCAPT": return rams();                                                    // only with a course onto the enemy
+    case "ACE": case "WINDCAPT": return allNavOptions(s).length>0;
+    case "MEDIC": return s.maxHp-s.hp>=3;
+    case "BULWARK": return hexDist(o.q-s.q,o.r-s.r)<=6;                                 // they can reach and shoot
+    default: return true; } };
+  const ms=L.filter(m=>m.startsWith("O:")&&ok(s.crew[+m.split(":")[1]-1]));
+  if(!ms.length) return undefined;
+  const forge=ms.filter(m=>m.split(":").length===3);
+  if(forge.length&&ms[0].split(":").length===3){                                          // HESK: weapons and hull first
+    for(const k of P.engage?["WPN","HULL","BST","DFT"]:["HULL","BST","DFT","WPN"]){ const m=forge.find(x=>x.endsWith(":"+k)); if(m) return m; } }
+  return ms[0];
+}
 function aiMove(G){
   const L=legal(G); if(!L.length) return null;
   if(G.st==="draft"){
@@ -1101,13 +1128,13 @@ function aiMove(G){
     return s.cls?defaultCrewMove(s,s.fac):`C:${su.cls}:${su.fac}`;
   }
   const s=S(G), o=other(G,s), P=aiPlan(G);
-  const ord=L.find(m=>{ if(!m.startsWith("O:")) return false; const c=s.crew[+m.split(":")[1]-1];
-    return c.key!=="GUNNER"||(G.st==="atk_menu"&&s.f.shots>=1&&s.ammo<=0); });   // Double Tap only after the first shot
+  const ord=aiOrder(G,s,o,P,L);
   if(ord&&!["atk_debuff","atk_dmg","nav_drift"].includes(G.st)) return ord;
   const toward=aiDirToward(s,o.q,o.r), want=P.engage?toward:mod(toward+3,6);
   switch(G.st){
     case "cmd": { const plan=P.engage?["NAV","ATK","ENG"]:["ENG","NAV","ATK"]; return "Q:"+plan.find(p=>!G.queue.includes(p)&&p!==s.lostPhase); }
     case "nav_pick": {
+      if(s.ram){ const r=allNavOptions(s).find(x=>x.q===o.q&&x.r===o.r); if(r) return `B:${r.speed}:${r.side>0?"+":""}${r.side}`; }   // KESTREL: ram
       const all=allNavOptions(s), hz=x=>landDmg(s,terrain(x.q,x.r)), low=Math.min(...all.map(hz)), opts=all.filter(x=>hz(x)===low);   // land where it hurts least
       if(!opts.length){
         if(s.aiTurnDir) return s.aiTurnDir;                               // keep turning the same way
@@ -1886,7 +1913,8 @@ function renderGame(){
       <li>Engage: NAV → ATK → ENG, flying to a hex 1–3 from you and turning to face you. Escape: ENG → NAV → ATK, flying as far away as it can and turning away.</li>
       <li>It never turns its bow straight into rock: if rock lies right ahead, it takes the nearest open direction. Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. It lands where it hurts least: sand before dunes, dunes before scree.</li>
       <li>Relic Race: while the relic is free it flies for it; carrying it, it flies for its exit.</li>
-      <li>It gives every crew order as soon as it can. It targets you when you are in its arc, reloads when empty, locks on, then fires as often as it may. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.</li>
+      <li>It gives a crew order as soon as it is useful: KAEL's Double Tap after the first shot, RHO's Battle Stations for a second shot, IVO's Surge only if a roll is still coming, TASSA's All Hands only to call up someone resting, KESTREL's Ram! only when it can reach you (and then it rams), ANA at 3+ missing hull, DOV's Brace when you are close, HESK forges weapons first.</li>
+      <li>It targets you when you are in its arc, reloads when empty, locks on, then fires as often as it may. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.</li>
       <li>Engineering: below half hull it repairs while it has parts, then powers up WPN, BST, DFT (escaping: ENGINE, BST, DFT).</li>
       <li>Its dice come from the game seed, so the same game always plays out the same way. You can run it with real dice using these rules.</li></ul></details>
       <details class="help"><summary>Rules quick reference</summary><ul>

@@ -532,6 +532,26 @@ test("computer: after a drift it does not face straight into rock", () => {
     } }
   L.setTerrain(1, "WASTE"); assert.ok(checked > 100);
 });
+test("computer: IVO's Surge only with a NAV or ATK phase still to come", () => {
+  const G = face(drafted({ f1: "MACHINE", c1: "DREAD", crew1: ["TECH", "MECHANIC", "QM"] })); const s = sh(G, 0);
+  plan(G, "NAV", "ATK", "ENG"); L.apply(G, "END"); L.apply(G, "END");          // skip NAV and ATK: ENG is last
+  assert.strictEqual(G.phase, "ENG"); assert.ok(L.legal(G).includes("O:1")); assert.notStrictEqual(L.aiMove(G), "O:1");
+  const H = face(drafted({ f1: "MACHINE", c1: "DREAD", crew1: ["TECH", "MECHANIC", "QM"] }));
+  plan(H, "ENG", "NAV", "ATK"); assert.strictEqual(L.aiMove(H), "O:1");
+});
+test("computer: KESTREL's Ram! only with a course onto the enemy, and then it rams", () => {
+  const G = face(drafted({ crew1: ["STORMCAPT", "MECHANIC", "TECH"] })); const [s, o] = G.ships; plan(G, "NAV", "ATK", "ENG");
+  Object.assign(o, { q: 6, r: -6 }); assert.ok(L.legal(G).includes("O:1")); assert.ok(!L.aiMove(G).startsWith("O:"));
+  const op = L.allNavOptions(s)[0]; Object.assign(o, { q: op.q, r: op.r });
+  assert.strictEqual(L.aiMove(G), "O:1"); L.apply(G, "O:1");
+  const m = L.aiMove(G); assert.ok(m.startsWith("B:")); const hp = o.hp; force(G, 20, v => v >= 19); L.apply(G, m);
+  assert.strictEqual(o.hp, hp - 6);
+});
+test("computer: TASSA's All Hands only when a resting crew member could act", () => {
+  const G = face(drafted({ f1: "HEART", crew1: ["ELDER", "MECHANIC", "QM"] })); const s = sh(G, 0);
+  plan(G, "NAV", "ATK", "ENG"); s.f.drift = true;
+  assert.ok(L.legal(G).includes("O:1")); assert.notStrictEqual(L.aiMove(G), "O:1");     // nobody resting
+});
 test("computer: engages on 2+ when healthy, on 4+ when hurt; style 4+ is risky", () => {
   const G = face(drafted());
   for (let t = 0; t < 30; t++) {

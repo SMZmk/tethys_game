@@ -722,7 +722,8 @@ function renderGame(){
       <li>Engage: NAV → ATK → ENG, flying to a hex 1–3 from you and turning to face you. Escape: ENG → NAV → ATK, flying as far away as it can and turning away.</li>
       <li>It never turns its bow straight into rock: if rock lies right ahead, it takes the nearest open direction. Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. It lands where it hurts least: sand before dunes, dunes before scree.</li>
       <li>Relic Race: while the relic is free it flies for it; carrying it, it flies for its exit.</li>
-      <li>It gives every crew order as soon as it can. It targets you when you are in its arc, reloads when empty, locks on, then fires as often as it may. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.</li>
+      <li>It gives a crew order as soon as it is useful: KAEL's Double Tap after the first shot, RHO's Battle Stations for a second shot, IVO's Surge only if a roll is still coming, TASSA's All Hands only to call up someone resting, KESTREL's Ram! only when it can reach you (and then it rams), ANA at 3+ missing hull, DOV's Brace when you are close, HESK forges weapons first.</li>
+      <li>It targets you when you are in its arc, reloads when empty, locks on, then fires as often as it may. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.</li>
       <li>Engineering: below half hull it repairs while it has parts, then powers up WPN, BST, DFT (escaping: ENGINE, BST, DFT).</li>
       <li>Its dice come from the game seed, so the same game always plays out the same way. You can run it with real dice using these rules.</li></ul></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
