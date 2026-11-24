@@ -64,6 +64,8 @@ Computer against computer, the factions win 44–56% against each other (before 
   3 damage); scree patches can be flown over, but ending a move on them deals 2; dunes run in light stripes
   across the map (about 5 hexes apart, angle set by the seed) and deal 1 when you end a move on them.
   The computer lands where it hurts least.
+- **Rock blocks shots** (line of sight); scree and dunes don't. The firing arc shows only visible hexes.
+- **Blowing sand follows the weather**: calm = a few slow grains; storm = dense streaks downwind and a dusty haze.
 - **Labyrinth rebuilt as Swiss cheese**: caves of 1–3 hex radius linked by 1-hex tunnels and some 3-hex passages
   (was a narrow mesh of alleys). Starts, centre and exits are always linked by wide passages.
 

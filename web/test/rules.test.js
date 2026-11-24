@@ -174,6 +174,19 @@ test("rock: ending a move on dunes deals 1 damage; dunes run in stripes on every
     assert.ok(n / k > 0.04 && n / k < 0.15, `${map}: dunes ${(n / k).toFixed(2)}`); }
   L.setTerrain(1, "WASTE");
 });
+test("rock: no shooting through rock; scree and dunes don't block", () => {
+  const G = face(drafted()); const [a, b] = G.ships; let blocked = 0, open = 0;
+  for (let q = -10; q <= 10; q++) for (let r = -10; r <= 10; r++) for (let o = 0; o < 6; o++) {
+    if (L.terrain(q, r) !== 0) continue; const D = [[0, -1], [1, -1], [1, 0], [0, 1], [-1, 1], [-1, 0]][o];
+    const tq = q + D[0] * 2, tr = r + D[1] * 2, mq = q + D[0], mr = r + D[1];        // target 2 straight ahead
+    if (L.isObstacle(tq, tr)) continue; Object.assign(a, { q, r, o }); Object.assign(b, { q: tq, r: tr });
+    if (L.isObstacle(mq, mr)) { assert.strictEqual(L.arcInfo(a, b), null, `rock at ${mq},${mr}`); blocked++; }
+    else { assert.ok(L.arcInfo(a, b)); if (L.terrain(mq, mr) !== 0) open++; }
+  }
+  assert.ok(blocked > 5 && open > 5, `blocked ${blocked}, over scree/dunes ${open}`);
+  // the combat menu follows: no TGT while rock is in the way
+  face(G); plan(G, "ATK", "NAV", "ENG"); assert.ok(L.legal(G).includes("TGT"));
+});
 test("rock: rock blocks courses; a failed boost bounces back off it (3 damage)", () => {
   const G = drafted(); plan(G, "NAV", "ATK", "ENG"); const s = sh(G, 0);
   // a course that is clear, but whose 50% overshoot runs into black rock

@@ -169,7 +169,7 @@ const PAL={sandA:[196,170,118],sandB:[180,154,104],
 function initCanvas(el){
   cv=el; ctx=cv.getContext("2d"); ctx.imageSmoothingEnabled=false; terrainKey="";
   img=ctx.createImageData(W,H); qBuf=new Int32Array(W*H); rBuf=new Int32Array(W*H);
-  if(!dust.length) for(let i=0;i<70;i++) dust.push({x:Math.random()*W,y:Math.random()*H,s:.2+Math.random()*.5,c:Math.random()});
+  if(!dust.length) for(let i=0;i<220;i++) dust.push({x:Math.random()*W,y:Math.random()*H,s:.2+Math.random()*.5,c:Math.random(),ph:Math.random()*6.28});
   cv.addEventListener("pointermove",e=>{ hover=screenToHex(e); });
   cv.addEventListener("pointerleave",()=>{ hover=null; });
   cv.addEventListener("click",e=>{ const h=screenToHex(e); if(h) onHexClick(h[0],h[1]); });
@@ -417,8 +417,19 @@ function frame(now){
   floats=floats.filter(f=>{ f.l--; f.y-=.35; const tw=ctx.measureText(f.t).width, x=Math.round(f.x-cam.x+W/2-tw/2), y=Math.round(f.y-cam.y+H/2);
     ctx.fillStyle="#000"; ctx.fillText(f.t,x+1,y+1); ctx.fillStyle=f.c; ctx.fillText(f.t,x,y); return f.l>0; });
   const moving=Object.values(disp).some(d=>d.anim);
-  for(const p of dust){ p.x+=p.s*(moving?6:1); p.y+=p.s*(moving?6:1)*.6; if(p.x>W) p.x-=W; if(p.y>H) p.y-=H;
-    ctx.fillStyle=p.c<.33?"#8a7a5a":p.c<.66?"#b8a078":"#e0caa0"; ctx.fillRect(p.x|0,p.y|0,1,1); }
+  // blowing sand follows the weather: calm = a few slow grains drifting lazily; storm = dense streaks
+  // racing downwind (the way the WIND arrow points), with a dusty haze over the map
+  const wind=G&&G.cfg?windNow(G):null, storm=wind!==null, k=moving?6:1;
+  const ang=storm?mod(wind+3,6)*Math.PI/3:0, wx=Math.sin(ang), wy=-Math.cos(ang);
+  if(storm){ ctx.fillStyle="rgba(196,150,90,.10)"; ctx.fillRect(0,0,W,H); }
+  const n=storm?dust.length:45, tnow=performance.now()/1000;
+  for(let i=0;i<n;i++){ const p=dust[i];
+    if(storm){ const sp=(2.2+p.s*5)*k; p.x+=wx*sp+Math.sin(tnow*3+p.ph)*.4; p.y+=wy*sp+Math.cos(tnow*3+p.ph)*.4; }
+    else { p.x+=(.12+p.s*.25)*k+Math.sin(tnow*.7+p.ph)*.08; p.y+=Math.sin(tnow*.5+p.ph)*.06*k+.02*k; }
+    if(p.x>W) p.x-=W; if(p.x<0) p.x+=W; if(p.y>H) p.y-=H; if(p.y<0) p.y+=H;
+    ctx.fillStyle=p.c<.33?"#8a7a5a":p.c<.66?"#b8a078":"#e0caa0";
+    if(storm){ const len=2+Math.round(p.s*6); for(let j=0;j<len;j++) ctx.fillRect((p.x-wx*j)|0,(p.y-wy*j)|0,1,1); }
+    else ctx.fillRect(p.x|0,p.y|0,1,1); }
   cam.x=saved.x; cam.y=saved.y;
   const hud=document.getElementById("hud");
   if(hud){
@@ -427,7 +438,7 @@ function frame(now){
       const [q,r]=hover, ob=terrain(q,r);
       if(G.st==="nav_heading"&&showHints()&&(q!==s.q||r!==s.r)) t=`TAP TO FACE ${DIR_NAMES[dirToward(s,q,r)]}`;
       if(G.st==="nav_pick"&&showHints()){ const op=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(op) t=`SPEED ${op.speed} · TURN ${op.side>0?"+":""}${op.side} · DC ${op.dc}`; }
-      if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r); if(sh&&sh!==s){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(q-s.q,r-s.r)} HEX · ${ai?"IN ARC, RANGE "+ai.range:"OUT OF ARC"}`; } }
+      if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r); if(sh&&sh!==s){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(q-s.q,r-s.r)} HEX · ${ai?"IN ARC, RANGE "+ai.range:rockBlocks(s,sh)?"ROCK BLOCKS THE SHOT":"OUT OF ARC"}`; } }
       if(!t&&ob) t=ob===4?(G.looted.includes(q+","+r)?"PICKED-CLEAN WRECK":"OLD-WORLD WRECK · +1 PART"):(ob===2?"SCREE · FLY OVER · LANDING "+R.SCREE_DMG+" DMG":ob===5?"DUNES · FLY OVER · LANDING "+R.DUNE_DMG+" DMG":TERRAIN_NAMES[ob].toUpperCase()+" · BLOCKS · CRASH "+R.CRASH_DMG+" DMG");
     }
     if(hud.textContent!==t) hud.textContent=t;
@@ -508,6 +519,10 @@ function undoLast(){
   G=replay(G.seed,G.moves.slice(0,-1)); UI.pickCrew=[]; UI.handoff=false; save();
 }
 const isCapt=k=>!!CREW_BY[k].capt;
+// in the front arc (range 1-3) but rock in between?
+const rockBlocks=(s,t)=>!!t&&t.hp>0&&inFrontArc(s,t)&&!lineOfSight(s.q,s.r,t.q,t.r);
+function inFrontArc(s,t){ const d=hexDist(t.q-s.q,t.r-s.r); return d>=1&&d<=3&&arcHexesAll(s).some(([q,r])=>q===t.q&&r===t.r); }
+function arcHexesAll(s){ const h=[]; for(let d=1;d<=3;d++) for(let sd=-3;sd<=3;sd++){ const [q,r]=navToCoords(s.o,sd,d-1); h.push([s.q+q,s.r+r]); } return h; }
 // small top-down preview of a map's terrain (same seed as the game)
 function paintMaps(){
   document.querySelectorAll("canvas[data-map]").forEach(c=>{
@@ -648,13 +663,13 @@ function actionsHTML(){
     case "nav_heading": {
       const h=previewHeading(), t=other(G,s), ai=t.hp>0?arcInfo({...s,o:h},t):null, can=L.length>0;
       p="NAVIGATION · CHOOSE HEADING";
-      sub=`Pick a direction or tap the map, check the preview, then confirm. Facing ${DIR_NAMES[h]}${h===s.o?" (unchanged)":""}: ${ai?`P${t.pid} would be in your firing arc at range ${ai.range}.`:`P${t.pid} would be outside your firing arc.`}`;
+      sub=`Pick a direction or tap the map, check the preview, then confirm. Facing ${DIR_NAMES[h]}${h===s.o?" (unchanged)":""}: ${ai?`P${t.pid} would be in your firing arc at range ${ai.range}.`:rockBlocks({...s,o:h},t)?`Rock would block your shot at P${t.pid}.`:`P${t.pid} would be outside your firing arc.`}`;
       rows.push(`<div class="btnrow"><span class="lab">FACE</span>${DIR_NAMES.map((d,i)=>`<button data-ui="heading" data-v="${i}" id="ui-heading-${d}" class="${h===i?"sel":""}" ${can?"":"disabled"} aria-pressed="${h===i}"><span class="arr" aria-hidden="true">${ARROWS[i]}</span> ${d}</button>`).join("")}</div>`);
       rows.push(`<div class="btnrow">${btn("H:"+DIR_NAMES[h],`Confirm heading ${DIR_NAMES[h]} ▸`,"go",L)}</div>`);
       break; }
     case "done": p="PHASE COMPLETE"; rows.push(`<div class="btnrow">${end()}</div>`); break;
     case "atk_acquire": { const t=other(G,s), ai=arcInfo(s,t);
-      p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:`No ship in your arc (front, range 1–3). You can still reload.`;
+      p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:rockBlocks(s,t)?`Rock blocks your shot at P${t.pid}. You can still reload.`:`No ship in your arc (front, range 1–3). You can still reload.`;
       rows.push(`<div class="btnrow">${btn("TGT",`Target P${t.pid}`,"atk",L)}${btn("RLD","Reload","",L)}${end()}</div>`); break; }
     case "atk_menu": { const t=tgt(G), ai=arcInfo(s,t);
       p=`COMBAT · P${t.pid} AT RANGE ${ai?ai.range:"—"}`;
@@ -717,6 +732,7 @@ function renderGame(){
       <li>Relic Race: end a move on the relic to take it (carrier −1 engine); bring it to your own exit to win.</li>
       <li>Storm: the wind turns every two rounds. Into the wind DC +2; with the wind DC −1 and drag 1 hex; shots without a lock −2.</li>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
+      <li>Rock blocks shots: no firing through it (scree and dunes don't block). The red arc shows only hexes you can see.</li>
       <li>Rock crashes and rams deal 3 damage, landing on scree 2, on dunes 1. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>

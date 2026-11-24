@@ -150,6 +150,15 @@ function hexLine(q1,r1,q2,r2){
   return out;
 }
 const pathClear=(q1,r1,q2,r2)=>hexLine(q1,r1,q2,r2).every(([q,r])=>!isObstacle(q,r));
+// line of sight: no rock between the two hexes (scree and dunes don't block). A line running exactly
+// along a hex edge counts as clear if either side of it is clear.
+function lineOfSight(q1,r1,q2,r2){
+  const n=hexDist(q2-q1,r2-r1);
+  for(const e of [1e-6,-1e-6]){ let ok=true;
+    for(let i=1;i<n&&ok;i++){ const f=i/n, [q,r]=hexRound(q1+(q2-q1)*f+e,r1+(r2-r1)*f+e); if(isObstacle(q,r)) ok=false; }
+    if(ok) return true; }
+  return false;
+}
 const dirOf=(dq,dr)=>{ const x=1.5*dq, y=Math.sqrt(3)/2*dq+Math.sqrt(3)*dr; return mod(Math.round(Math.atan2(x,-y)*180/Math.PI/60),6); };
 const isObstacle=(q,r)=>{ const t=terrain(q,r); return t===1||t===3; };
 const isScree=(q,r)=>terrain(q,r)===2;
@@ -461,9 +470,11 @@ function arcInfo(s,t){
   if(!t||t.hp<=0) return null;
   const [side,sp]=relInfo(t.q-s.q,t.r-s.r,s.o);
   if(side===null||sp<0||sp>2||Math.abs(side)>3) return null;
+  if(!lineOfSight(s.q,s.r,t.q,t.r)) return null;                       // rock blocks the shot
   return {range:sp+1,side};
 }
-function arcHexes(s){ const h=[]; for(let d=1;d<=3;d++) for(let sd=-3;sd<=3;sd++){ const [q,r]=navToCoords(s.o,sd,d-1); h.push([s.q+q,s.r+r]); } return h; }
+function arcHexes(s){ const h=[]; for(let d=1;d<=3;d++) for(let sd=-3;sd<=3;sd++){ const [q,r]=navToCoords(s.o,sd,d-1), x=s.q+q, y=s.r+r;
+  if(!isObstacle(x,y)&&lineOfSight(s.q,s.r,x,y)) h.push([x,y]); } return h; }
 
 function damage(G,s,n){
   s.hp=Math.max(0,s.hp-n); ev(G,{t:"hit",pid:s.pid,n});
@@ -805,6 +816,7 @@ function useOrder(G,i,arg){
 //          Pick by Style (DC); ties: the straighter course, then the slower one.
 //          After a stable drift, face the enemy (Escape: face away), unless rock lies right ahead:
 //          then take the nearest direction with two open hexes in front.
+//  SIGHT:  when engaging, prefers spots with no rock between it and you (rock blocks shots).
 //  GROUND: lands where it hurts least: sand before dunes, dunes before scree.
 //  BOXED IN (rock blocks every course): pivot toward the side with fewer rocks ahead (tie: right),
 //          and keep turning that way on the next turns until a course opens.
@@ -862,7 +874,7 @@ function aiMove(G){
       // Relic Race: a free relic is the goal; the carrier heads for its exit
       const goal=G.relic&&!G.relic.carrier?G.relic:s.relic&&G.exits?G.exits[s.pid-1]:null;
       if(goal){ const gd=x=>hexDist(goal.q-x.q,goal.r-x.r), m=Math.min(...opts.map(gd)); pool=opts.filter(x=>gd(x)===m); }
-      else if(P.engage){ pool=opts.filter(x=>dist(x)>=1&&dist(x)<=3); if(!pool.length){ const m=Math.min(...opts.map(dist)); pool=opts.filter(x=>dist(x)===m); } }
+      else if(P.engage){ pool=opts.filter(x=>dist(x)>=1&&dist(x)<=3); const seen=pool.filter(x=>lineOfSight(x.q,x.r,o.q,o.r)); if(seen.length) pool=seen; if(!pool.length){ const m=Math.min(...opts.map(dist)); pool=opts.filter(x=>dist(x)===m); } }
       else { const m=Math.max(...opts.map(dist)); pool=opts.filter(x=>dist(x)===m); }
       pool.sort((a,b)=>(P.risky?b.dc-a.dc:a.dc-b.dc)||Math.abs(a.side)-Math.abs(b.side)||a.speed-b.speed);
       const c=pool[0]; return `B:${c.speed}:${c.side>0?"+":""}${c.side}`;
@@ -902,4 +914,4 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={MAPS,EXITS,windNow,pathClear,hexLine,forgeChoices,setTerrain,songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,isScree,isDune,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={MAPS,EXITS,windNow,pathClear,hexLine,forgeChoices,setTerrain,songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,lineOfSight,isScree,isDune,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};

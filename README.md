@@ -187,6 +187,8 @@ Player 1 picks the map and mode before choosing a ship; Player 2 picks the weath
   first rock it hits (the ship stops in front of it and takes 3 damage).
 - **Scree** (loose grey or brown rubble, in patches) can be flown over, but ending a move on it deals 2 damage.
 - **Dunes** (light sand) run in long stripes across the map. Fly over them freely; ending a move on one deals 1 damage.
+- **Rock blocks shots**: you can't fire at a ship with rock between you (scree and dunes don't block).
+  The red firing arc shows only the hexes you can see.
 
 | Map | Plays like |
 |---|---|
@@ -219,6 +221,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 | Orders | Gives every crew order as soon as it can. |
 | Relic Race | While the relic is free it flies for it; carrying it, it flies for its own exit. |
 | NAV | Engage: a course ending 1–3 hexes from you, then face you. Escape: the course ending farthest away, then face away. |
+| Sight | When engaging, it prefers spots with no rock between it and you. |
 | Rock | It never faces straight into rock (it takes the nearest open direction). Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. It lands where it hurts least: sand before dunes, dunes before scree. |
 | ATK | Target you if in arc, reload when empty, lock on, fire as often as allowed. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew. |
 | ENG | Below half hull: repair while parts last. Then power WPN, BST, DFT (escaping: ENGINE, BST, DFT). |
@@ -231,7 +234,7 @@ canyons lead back toward the centre, and old-world wrecks (+1 spare part) lie in
 You can leave, but the desert makes coming back the easy way.
 
 ### Tests
-- `node web/test/rules.test.js`: 89 rules tests (setup, maps, Relic Race, storms, natural 20s and 1s, captains, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
+- `node web/test/rules.test.js`: 91 rules tests (setup, maps, Relic Race, storms, natural 20s and 1s, captains, factions, Hauler and Dreadnought, the computer's rule card, movement, drift and heading, combat, every crew order, terrain, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online, phone width.
 
 ### Source
