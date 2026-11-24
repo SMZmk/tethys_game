@@ -78,7 +78,7 @@ const BOT=`window.botMove=function(){
       const text = await cur.evaluate(() => UI.shareText); assert.ok(text.includes("TETHYS"), "share text has a code");
       if (first) { await nxt.fill("#join-code", text); await nxt.click("#btn-join"); first = false; }
       else { await nxt.fill("#reply-code", text); await nxt.click("#btn-reply"); }
-      await nxt.waitForFunction(() => !UI.busy && (myTurn() || G.st === "over"), null, { timeout: 60000 });
+      await nxt.waitForFunction(() => G && !UI.busy && (myTurn() || G.st === "over"), null, { timeout: 60000 });
       if (handoffs === 3) {                                                    // the waiting player still sees the map
         const view = await cur.evaluate(() => ({ st: G.st, map: !!document.getElementById("map"), ovl: (document.getElementById("ovl") || {}).innerHTML || "", panel: !!document.getElementById("reply-code") }));
         if (view.st !== "draft") { assert.ok(view.map && view.ovl === "" && view.panel, "map visible while waiting"); console.log("ok   online: map stays visible while waiting"); }
