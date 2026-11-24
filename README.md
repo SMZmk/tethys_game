@@ -106,7 +106,7 @@ Codes trust both players: someone could peek at upcoming rolls by reloading, so 
 | `Q:NAV,ATK,ENG` | plan the phase order |
 | `B:2:+1` | boost at speed 2, turn +1 (rolls d20) |
 | `DRIFT`, `H:NE` | drift roll; after a stable drift, preview a heading and confirm it |
-| `PIVOT:L` / `PIVOT:R` | turn in place (only when black rock blocks every course) |
+| `PIVOT:L` / `PIVOT:R` | turn in place (only when rock blocks every course) |
 | `TGT`, `RLD`, `LOCK`, `AIM:WEAPONS`, `FIRE`, `DMG` | combat |
 | `+WPN`, `-ENG`, `REP` | engineering: power up/down a system, repair |
 | `O:2` | give an order to crew member 2 (`O:1:WPN`: HESK's Forge with the chosen stat) |
@@ -173,7 +173,7 @@ your next 2 turns.
 ### Fight length
 Once the guns are in range a fight is meant to be short: a hit does d6+4 (about 8), ships have 15 hull (Skiff 13)
 (+1 per kindred crew), base armour class is 10 (+2/+4 at range 2/3), so a ship goes down after 2–3 hits.
-In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Black-rock crashes and rams deal 3, landing on scree 2, repairs heal d4.
+In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Rock crashes and rams deal 3, landing on scree 2 and on dunes 1, repairs heal d4.
 
 ### Dice
 - **Natural 20** on a d20 check: +3 to your next roll this turn.
@@ -182,10 +182,11 @@ In 2,000 bot games a fight lasted a median of 2.5 exchanges of fire. Black-rock 
   a spare part lost), 6 lucky second chance (roll again).
 
 ### Maps, modes and weather
-Player 1 picks the map and mode before choosing a ship; Player 2 picks the weather before choosing theirs. There are two kinds of rock:
-- **Black rock** blocks: courses must not cross it, and a failed boost bounces back off the first black rock
-  it hits (the ship stops in front of it and takes 3 damage).
-- **Scree** (loose rubble) can be flown over, but ending a move on it deals 2 damage.
+Player 1 picks the map and mode before choosing a ship; Player 2 picks the weather before choosing theirs. Terrain:
+- **Rock** (grey slate, brown mesa) blocks: courses must not cross it, and a failed boost bounces back off the
+  first rock it hits (the ship stops in front of it and takes 3 damage).
+- **Scree** (loose grey or brown rubble, in patches) can be flown over, but ending a move on it deals 2 damage.
+- **Dunes** (light sand) run in long stripes across the map. Fly over them freely; ending a move on one deals 1 damage.
 
 | Map | Plays like |
 |---|---|
@@ -218,7 +219,7 @@ run on a real table with real dice. Its rolls are shown in the log.
 | Orders | Gives every crew order as soon as it can. |
 | Relic Race | While the relic is free it flies for it; carrying it, it flies for its own exit. |
 | NAV | Engage: a course ending 1–3 hexes from you, then face you. Escape: the course ending farthest away, then face away. |
-| Rock | It never faces straight into rock (it takes the nearest open direction). Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. It never lands on scree if another course is open. |
+| Rock | It never faces straight into rock (it takes the nearest open direction). Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. It lands where it hurts least: sand before dunes, dunes before scree. |
 | ATK | Target you if in arc, reload when empty, lock on, fire as often as allowed. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew. |
 | ENG | Below half hull: repair while parts last. Then power WPN, BST, DFT (escaping: ENGINE, BST, DFT). |
 

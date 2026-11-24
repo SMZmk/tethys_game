@@ -60,8 +60,10 @@ Computer against computer, the factions win 44–56% against each other (before 
 - **Computer and cliffs**: it never turns its bow straight into rock after a drift, and when boxed in it keeps
   pivoting one way until a course opens (before: left, right, left… back into the cliff, in 152 of 900 games).
 
-- **Two kinds of rock**: black rock blocks courses (a failed boost bounces back off it, 3 damage); scree can be
-  flown over, but ending a move on it deals 2. The computer avoids landing on scree.
+- **Terrain you can fly over**: rock (grey slate, brown mesa) blocks courses (a failed boost bounces back off it,
+  3 damage); scree patches can be flown over, but ending a move on them deals 2; dunes run in light stripes
+  across the map (about 5 hexes apart, angle set by the seed) and deal 1 when you end a move on them.
+  The computer lands where it hurts least.
 - **Labyrinth rebuilt as Swiss cheese**: caves of 1–3 hex radius linked by 1-hex tunnels and some 3-hex passages
   (was a narrow mesh of alleys). Starts, centre and exits are always linked by wide passages.
 

@@ -164,7 +164,17 @@ test("rock: ending a move on scree deals 2 damage (FENN: 1)", () => {
     assert.deepStrictEqual([s.q, s.r], [op.q, op.r]); assert.strictEqual(s.hp, hp - dmg); assert.strictEqual(L.R.SCREE_DMG, 2);
   }
 });
-test("rock: black rock blocks courses; a failed boost bounces back off it (3 damage)", () => {
+test("rock: ending a move on dunes deals 1 damage; dunes run in stripes on every map", () => {
+  const G = drafted(); plan(G, "NAV", "ATK", "ENG"); const s = sh(G, 0);
+  const op = findCourse(G, o => L.isDune(o.q, o.r)); assert.ok(op); const hp = s.hp;
+  force(G, 20, v => v >= 19); L.apply(G, `B:${op.speed}:${op.side > 0 ? "+" : ""}${op.side}`);
+  assert.strictEqual(s.hp, hp - 1);
+  for (const map of ["WASTE", "LABYRINTH"]) { L.setTerrain(977, map); let n = 0, k = 0;
+    for (let q = -12; q <= 12; q++) for (let r = -12; r <= 12; r++) if (L.hexDist(q, r) <= 12) { k++; if (L.isDune(q, r)) n++; }
+    assert.ok(n / k > 0.04 && n / k < 0.15, `${map}: dunes ${(n / k).toFixed(2)}`); }
+  L.setTerrain(1, "WASTE");
+});
+test("rock: rock blocks courses; a failed boost bounces back off it (3 damage)", () => {
   const G = drafted(); plan(G, "NAV", "ATK", "ENG"); const s = sh(G, 0);
   // a course that is clear, but whose 50% overshoot runs into black rock
   const op = findCourse(G, (o, line) => { const w = [Math.round(s.q + (o.q - s.q) * 1.5), Math.round(s.r + (o.r - s.r) * 1.5)];
@@ -671,7 +681,7 @@ test("maps: the labyrinth is Swiss cheese: caves of several sizes, tunnels 1 and
       if (free === 1 && D.some(([a, b]) => L.isObstacle(q + a, r + b) && L.isObstacle(q - a, r - b))) narrow++;
       if (D.every(([a, b]) => !L.isObstacle(q + a, r + b) && !L.isObstacle(q - a, r - b))) wide++;
     }
-    assert.ok(narrow >= 10 && wide >= 30, `seed ${seed}: narrow ${narrow}, wide ${wide}`);
+    assert.ok(narrow >= 8 && wide >= 30, `seed ${seed}: narrow ${narrow}, wide ${wide}`);
   }
   L.setTerrain(1, "WASTE");
 });

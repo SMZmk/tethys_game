@@ -165,7 +165,7 @@ let cv,ctx,img,qBuf,rBuf,cam={x:0,y:0},hover=null,dust=[],parts=[],floats=[],sha
 const BAYER=[0,8,2,10,12,4,14,6,3,11,1,9,15,7,13,5].map(v=>v/16);
 function hash2(x,y){ let h=(x*374761393+y*668265263)|0; h=(h^(h>>>13))*1274126177|0; return ((h^(h>>>16))>>>0)/4294967295; }
 const PAL={sandA:[196,170,118],sandB:[180,154,104],
-  o1:[[34,32,40],[62,58,70],[16,14,20]],o2:[[132,76,44],[170,106,64],[92,50,30]],o3:[[26,24,34],[52,48,72],[12,10,16]],fog:[13,11,20]};
+  o1:[[62,68,84],[92,100,118],[40,44,56]],o2:[[132,76,44],[170,106,64],[92,50,30]],o3:[[26,24,34],[52,48,72],[12,10,16]],fog:[13,11,20]};
 function initCanvas(el){
   cv=el; ctx=cv.getContext("2d"); ctx.imageSmoothingEnabled=false; terrainKey="";
   img=ctx.createImageData(W,H); qBuf=new Int32Array(W*H); rBuf=new Int32Array(W*H);
@@ -238,7 +238,7 @@ function drawTerrain(cs){
       const t=terrain(q,r), b=BAYER[(wy&3)*4+(wx&3)], n=hash2(wx,wy);
       let c;
       if(t===1||t===3){
-        const p=PAL.o1, [hx,hy]=hexPx(q,r), dy=wy-hy, dx=wx-hx;
+        const p=t===1?PAL.o1:PAL.o2, [hx,hy]=hexPx(q,r), dy=wy-hy, dx=wx-hx;
         c=dy<-HS*0.45?p[1]:(dy>HS*0.55||dx>HS*0.75)?p[2]:p[0];
         if(n>0.86) c=c===p[1]?p[0]:p[1];
       } else {
@@ -249,8 +249,10 @@ function drawTerrain(cs){
         if(t===4){ const [hx,hy]=hexPx(q,r), dd=Math.hypot(wx-hx,wy-hy);
           if(!looted.has(q+","+r)){ if(dd<6&&n>0.45) c=n>0.8?[200,120,60]:n>0.62?[120,110,104]:[70,58,52]; }
           else if(dd<6&&n>0.88) c=[96,84,70]; }
-        if(t===2){ const rb=hash2(wx>>1,wy>>1);                          // scree: loose rust-grey rubble on the sand
-          if(rb>0.5) c=rb>0.85?[168,142,112]:rb>0.68?[122,98,80]:[84,70,62]; }
+        if(t===2){ const rb=hash2(wx>>2,wy>>2), rs=hash2(wx>>1,wy>>1), p=((q*5+r*3)&3)<2?PAL.o1:PAL.o2;   // scree: grey or brown rubble over the whole hex
+          c=[c[0]-30,c[1]-30,c[2]-26]; if(rb>0.4) c=rs>0.75?p[1]:rs>0.3?p[0]:p[2]; }
+        if(t===5){ const crest=Math.sin(wx*0.42+wy*0.21);                                  // dunes: pale sand with ripples
+          c=crest>0.6?[250,232,186]:crest<-0.55?[200,166,110]:[232,206,152]; }
       }
       let R0=c[0],G0=c[1],B0=c[2];
       const h=hl.get(q*10007+r);
@@ -426,7 +428,7 @@ function frame(now){
       if(G.st==="nav_heading"&&showHints()&&(q!==s.q||r!==s.r)) t=`TAP TO FACE ${DIR_NAMES[dirToward(s,q,r)]}`;
       if(G.st==="nav_pick"&&showHints()){ const op=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(op) t=`SPEED ${op.speed} · TURN ${op.side>0?"+":""}${op.side} · DC ${op.dc}`; }
       if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r); if(sh&&sh!==s){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(q-s.q,r-s.r)} HEX · ${ai?"IN ARC, RANGE "+ai.range:"OUT OF ARC"}`; } }
-      if(!t&&ob) t=ob===4?(G.looted.includes(q+","+r)?"PICKED-CLEAN WRECK":"OLD-WORLD WRECK · +1 PART"):(ob===2?"SCREE · FLY OVER · LANDING "+R.SCREE_DMG+" DMG":"BLACK ROCK · BLOCKS · CRASH "+R.CRASH_DMG+" DMG");
+      if(!t&&ob) t=ob===4?(G.looted.includes(q+","+r)?"PICKED-CLEAN WRECK":"OLD-WORLD WRECK · +1 PART"):(ob===2?"SCREE · FLY OVER · LANDING "+R.SCREE_DMG+" DMG":ob===5?"DUNES · FLY OVER · LANDING "+R.DUNE_DMG+" DMG":TERRAIN_NAMES[ob].toUpperCase()+" · BLOCKS · CRASH "+R.CRASH_DMG+" DMG");
     }
     if(hud.textContent!==t) hud.textContent=t;
   }
@@ -513,7 +515,7 @@ function paintMaps(){
     setTerrain(G.seed,map); x.fillStyle="#0d0b14"; x.fillRect(0,0,c.width,c.height);
     for(let q=-R0;q<=R0;q++) for(let r=-R0;r<=R0;r++){ if(hexDist(q,r)>R0) continue;
       const px=Math.round(c.width/2+q*1.5*1.6), py=Math.round(c.height/2+(q/2+r)*1.75*1.6), t=terrain(q,r);
-      x.fillStyle=t===0?((q+r)&1?"#c4a470":"#b89660"):t===4?"#7a5a40":t===2?"#8a7060":"#1e1a24"; x.fillRect(px-1,py-1,3,3); }
+      x.fillStyle=t===0?((q+r)&1?"#c4a470":"#b89660"):t===4?"#7a5a40":t===2?"#8a7060":t===5?"#e0c48a":t===1?"#4a5060":"#8a4a2a"; x.fillRect(px-1,py-1,3,3); }
     for(const [q,r,col] of [[0,5,P_COLORS[0]],[0,-5,P_COLORS[1]]]){ x.fillStyle=col; x.fillRect(Math.round(c.width/2+q*2.4)-2,Math.round(c.height/2+r*2.8)-2,4,4); }
     setTerrain(keep[0],keep[1]);
   });
@@ -703,7 +705,7 @@ function renderGame(){
       <li>Setup: faction d6 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff). Crew: a fixed list for its faction.</li>
       <li>Each turn it rolls two d6. Intent: engage on 2+ while its hull is at least half, on 4+ when below half; otherwise it escapes. Style: 1–3 easy (always the lowest DC), 4–6 risky (always the highest DC).</li>
       <li>Engage: NAV → ATK → ENG, flying to a hex 1–3 from you and turning to face you. Escape: ENG → NAV → ATK, flying as far away as it can and turning away.</li>
-      <li>It never turns its bow straight into rock: if rock lies right ahead, it takes the nearest open direction. Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. It never lands on scree if another course is open.</li>
+      <li>It never turns its bow straight into rock: if rock lies right ahead, it takes the nearest open direction. Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. It lands where it hurts least: sand before dunes, dunes before scree.</li>
       <li>Relic Race: while the relic is free it flies for it; carrying it, it flies for its exit.</li>
       <li>It gives every crew order as soon as it can. It targets you when you are in its arc, reloads when empty, locks on, then fires as often as it may. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.</li>
       <li>Engineering: below half hull it repairs while it has parts, then powers up WPN, BST, DFT (escaping: ENGINE, BST, DFT).</li>
@@ -711,11 +713,11 @@ function renderGame(){
       <details class="help"><summary>Rules quick reference</summary><ul>
       <li>Hauler: room for 4 crew. Dreadnought: twin guns, every shot rolls to hit twice, each hit does half damage. Skiff: hard to hit (+1 AC). One captain per crew, of your own faction.</li>
       <li>Natural 20: +3 to your next roll this turn. Natural 1: the roll fails and a mishap follows (d6): 1–2 turned around, 3–4 engine stall (a boost also overshoots 2×), 5 disaster on deck, 6 lucky second chance.</li>
-      <li>Two kinds of rock. <b>Black rock</b> blocks: courses must not cross it, and a failed boost bounces back off the first black rock it hits (crash, 3 damage). <b>Scree</b> (loose rubble) can be flown over, but ending a move on it deals 2 damage.</li>
+      <li><b>Rock</b> (grey slate, brown mesa) blocks: courses must not cross it, and a failed boost bounces back off the first rock it hits (crash, 3 damage). <b>Scree</b> (loose rubble) and <b>dunes</b> (light sand stripes) can be flown over, but ending a move on them deals 2 (scree) or 1 (dunes) damage.</li>
       <li>Relic Race: end a move on the relic to take it (carrier −1 engine); bring it to your own exit to win.</li>
       <li>Storm: the wind turns every two rounds. Into the wind DC +2; with the wind DC −1 and drag 1 hex; shots without a lock −2.</li>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
-      <li>Black-rock crashes and rams deal 3 damage, landing on scree 2. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
+      <li>Rock crashes and rams deal 3 damage, landing on scree 2, on dunes 1. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>

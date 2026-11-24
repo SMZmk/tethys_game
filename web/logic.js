@@ -8,7 +8,7 @@ const R = {
   START_ENERGY:3, START_PARTS:2, START_AMMO:1,
   DC_BASE:8, DC_MOD_EASY:1, DC_MOD_HARD:2, ENG_DIST_BONUS:2, ENG_DC_MULT:0.5,
   BASE_AC:10, AC_DIST:[0,2,4], DMG_BONUS:4, LOCK_DC:8, LOCK_BONUS:4,
-  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:3, SCREE_DMG:2, REST:2,   // REST = own turns a crew member sits out after an order
+  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:3, SCREE_DMG:2, DUNE_DMG:1, REST:2,   // REST = own turns a crew member sits out after an order
 };
 const DIRS = [[0,-1],[1,-1],[1,0],[0,1],[-1,1],[-1,0]];
 const DIR_NAMES = ["N","NE","SE","S","SW","NW"];
@@ -65,14 +65,23 @@ function setPull(v){ T_PULL=v; T_CACHE=new Map(); }
 function setTerrain(seed,map){ map=map||"WASTE"; if(seed!==T_SEED||map!==T_MAP){ T_SEED=seed; T_MAP=map; T_CACHE=new Map(); } }
 function setTerrainSeed(seed){ setTerrain(seed,T_MAP); }
 function noise(q,r,scale,seed){ const v=Math.sin((q/scale)*12.9898+(r/scale)*78.233+seed)*43758.5453; return Math.abs(v-Math.trunc(v)); }
-// 1 black rock: blocks every course; fly into it and you bounce back off it (crash damage).
-// 2 scree: loose rubble you can fly over, but ending a move on it hurts (SCREE_DMG). 4 wreck: salvage.
-const TERRAIN_NAMES=["Open sand","Black rock","Scree","Black rock","Old-world wreck"];
+// 1 slate rock, 3 rust mesa: block every course; fly into them and you bounce back off (crash damage).
+// 2 scree: loose rubble you can fly over, but ending a move on it hurts (SCREE_DMG).
+// 5 dunes: long sand ridges in stripes across the map; fly over, ending a move on them costs DUNE_DMG. 4 wreck: salvage.
+const TERRAIN_NAMES=["Open sand","Slate rock","Scree","Rust mesa","Old-world wreck","Dunes"];
 function terrain(q,r){
   const k=(q+4096)*8192+(r+4096); let v=T_CACHE.get(k); if(v!==undefined) return v;
   v=computeTerrain(q,r); T_CACHE.set(k,v); return v;
 }
-function rockType(){ return 1; }
+// blocking rock comes in grey slate and brown rust-mesa patches (looks only, both block)
+function rockType(q,r,so){ return noise(Math.floor((q+60)/4),Math.floor((r+60)/4),1,42.13+so)<0.5?1:3; }
+// dunes: wavy stripes about 5 hexes apart, crossing the map at an angle set by the seed, with gaps
+function dune(q,r,so){
+  const a=(T_SEED%180)*Math.PI/180, x=1.5*q, y=Math.sqrt(3)*(r+q/2), u=x*Math.cos(a)+y*Math.sin(a), v=-x*Math.sin(a)+y*Math.cos(a);
+  return mod(u+1.6*Math.sin(v*0.22+so),9)<1.5&&noise(Math.floor((q+60)/3),Math.floor((r+60)/3),1,5.55+so)>0.2;
+}
+// open ground: dunes, scree patches or plain sand
+function ground(q,r,so,d,sc){ if(d<3) return 0; if(dune(q,r,so)) return 5; return scree(q,r,so,sc)?2:0; }
 // scree lies in patches (3x3-hex cells) on open ground
 function scree(q,r,so,dens){ return noise(Math.floor((q+60)/3),Math.floor((r+60)/3),1,11.11+so)>1-dens&&noise(q,r,1,22.2+so)>0.35; }
 // Labyrinth layout: caves (round holes) linked by tunnels 1 or 3 hexes wide. Built once per seed.
@@ -81,10 +90,10 @@ function labLayout(){
   if(LAB&&LAB.seed===T_SEED) return LAB;
   let a=(T_SEED*2654435761)>>>0; const rn=()=>{ a=(a+0x6D2B79F5)>>>0; let x=a; x=Math.imul(x^x>>>15,x|1); x^=x+Math.imul(x^x>>>7,x|61); return ((x^x>>>14)>>>0)/4294967296; };
   const caves=[[0,0,3],[0,5,2],[0,-5,2],[0,12,1],[0,-12,1]];
-  for(let tries=0;caves.length<19&&tries<400;tries++){
+  for(let tries=0;caves.length<23&&tries<600;tries++){
     const q=Math.round(rn()*28-14), r=Math.round(rn()*28-14), d=hexDist(q,r);
     if(d>13||d<4) continue;
-    const rad=rn()<0.35?1:rn()<0.6?2:3;
+    const rad=rn()<0.25?1:rn()<0.55?2:3;
     if(caves.some(([cq,cr,cr2])=>hexDist(q-cq,r-cr)<rad+cr2+2)) continue;
     caves.push([q,r,rad]);
   }
@@ -98,7 +107,7 @@ function labLayout(){
   const linked=caves.slice(0,5);
   for(const c of caves.slice(5)){
     const near=linked.slice().sort((x,y)=>hexDist(x[0]-c[0],x[1]-c[1])-hexDist(y[0]-c[0],y[1]-c[1]));
-    tunnel(c,near[0],rn()<0.35?1:0); if(rn()<0.5) tunnel(c,near[1],rn()<0.25?1:0);
+    tunnel(c,near[0],rn()<0.25?1:0); if(rn()<0.7) tunnel(c,near[1],0);
     linked.push(c);
   }
   LAB={seed:T_SEED,open,caves}; return LAB;
@@ -112,14 +121,14 @@ function computeTerrain(q,r){
     // one gorge along the line between the starts (q = 0), wiggling a little; walls rise fast outside it
     const y=q/2+r, centre=Math.sin(y*0.22+so)*1.4, half=2.4+0.8*Math.sin(y*0.37+so*2);
     const out=Math.abs(q-centre)-half;
-    if(out<=0){ if(Math.abs(y)>=4&&noise(q,r,1,77.7+so)>0.93) return 4; if(noise(q,r,1.3,5.5+so)>0.94) return 1; return d>=3&&scree(q,r,so,0.2)?2:0; }
-    return out<1&&noise(q,r,1.5,9.876+so)<0.45?(scree(q,r,so,0.5)?2:0):1;
+    if(out<=0){ if(Math.abs(y)>=4&&noise(q,r,1,77.7+so)>0.93) return 4; if(noise(q,r,1.3,5.5+so)>0.94) return rockType(q,r,so); return ground(q,r,so,d,0.15); }
+    return out<1&&noise(q,r,1.5,9.876+so)<0.45?(scree(q,r,so,0.5)?2:0):rockType(q,r,so);
   }
   if(T_MAP==="LABYRINTH"){
     // Swiss cheese: solid rock, holed with caves of all sizes and linked by tunnels
-    if(d>15||!labLayout().open.has(q+","+r)) return 1;
+    if(d>15||!labLayout().open.has(q+","+r)) return rockType(q,r,so);
     if(d>=4&&noise(q,r,1,77.7+so)>0.95) return 4;
-    return d>=3&&scree(q,r,so,0.22)?2:0;
+    return ground(q,r,so,d,0.15);
   }
   if(T_PULL&&d>=3&&d<=8&&noise(q,r,1,77.7+so)>0.955) return 4;
   let th=T_PULL?0.72-Math.min(0.40,Math.max(0,(d-8)*0.05)):0.72;
@@ -131,8 +140,8 @@ function computeTerrain(q,r){
     if(gap*d<1.1) th=0.97;
   }
   const c=noise(q,r,5,0.123+so)*0.7+noise(q,r,1.5,9.876+so)*0.3;
-  if(c<=th) return T_PULL&&d>=4&&scree(q,r,so,0.22)?2:0;
-  return 1;
+  if(c<=th) return T_PULL?ground(q,r,so,d,0.15):0;
+  return rockType(q,r,so);
 }
 // hexes on the straight line from (q1,r1) to (q2,r2), excluding the start
 function hexLine(q1,r1,q2,r2){
@@ -144,6 +153,8 @@ const pathClear=(q1,r1,q2,r2)=>hexLine(q1,r1,q2,r2).every(([q,r])=>!isObstacle(q
 const dirOf=(dq,dr)=>{ const x=1.5*dq, y=Math.sqrt(3)/2*dq+Math.sqrt(3)*dr; return mod(Math.round(Math.atan2(x,-y)*180/Math.PI/60),6); };
 const isObstacle=(q,r)=>{ const t=terrain(q,r); return t===1||t===3; };
 const isScree=(q,r)=>terrain(q,r)===2;
+const isDune=(q,r)=>terrain(q,r)===5;
+const landDmg=(s,t)=>t===2?(has(s,"ECO")?1:R.SCREE_DMG):t===5?R.DUNE_DMG:0;   // damage for ending a move here
 function angleDifficulty(dir,tq,tr,sq,sr){
   if(isObstacle(sq+tq,sr+tr)) return [0,false];
   const [side,speed]=relInfo(tq,tr,dir);
@@ -655,7 +666,7 @@ function doBoost(G,speed,side){
   s.q=dest.q; s.r=dest.r;
   const tt=terrain(s.q,s.r);
   if(crashed){ log(G,`${shipName(s)} crashed into black rock and bounced back!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?1:R.CRASH_DMG); }
-  if(tt===2&&moved&&s.hp>0){ log(G,`${shipName(s)} grinds down on scree: ${has(s,"ECO")?1:R.SCREE_DMG} damage.`,"bad"); damage(G,s,has(s,"ECO")?1:R.SCREE_DMG); }
+  if(landDmg(s,tt)&&moved&&s.hp>0){ log(G,tt===2?`${shipName(s)} grinds down on scree.`:`${shipName(s)} ploughs into a dune.`,"bad"); damage(G,s,landDmg(s,tt)); }
   const k=s.q+","+s.r;
   if(tt===4&&!G.looted.includes(k)){ const n=cls(s).salvage||1; G.looted.push(k); s.parts+=n; log(G,`${shipName(s)} salvages a wreck: +${n} spare part${n>1?"s":""}.`,"ok"); tell(G,"wreck",{p:cname(s)},s.fac); }
   const o=other(G,s);
@@ -794,7 +805,7 @@ function useOrder(G,i,arg){
 //          Pick by Style (DC); ties: the straighter course, then the slower one.
 //          After a stable drift, face the enemy (Escape: face away), unless rock lies right ahead:
 //          then take the nearest direction with two open hexes in front.
-//  SCREE: never lands on scree if any other course is open.
+//  GROUND: lands where it hurts least: sand before dunes, dunes before scree.
 //  BOXED IN (rock blocks every course): pivot toward the side with fewer rocks ahead (tie: right),
 //          and keep turning that way on the next turns until a course opens.
 //  ATK     Target if in arc. Out of ammo: reload. Lock on if possible, then fire while possible.
@@ -840,7 +851,7 @@ function aiMove(G){
   switch(G.st){
     case "cmd": { const plan=P.engage?["NAV","ATK","ENG"]:["ENG","NAV","ATK"]; return "Q:"+plan.find(p=>!G.queue.includes(p)&&p!==s.lostPhase); }
     case "nav_pick": {
-      const all=allNavOptions(s), safe=all.filter(x=>!isScree(x.q,x.r)), opts=safe.length?safe:all;   // avoid landing on scree
+      const all=allNavOptions(s), hz=x=>landDmg(s,terrain(x.q,x.r)), low=Math.min(...all.map(hz)), opts=all.filter(x=>hz(x)===low);   // land where it hurts least
       if(!opts.length){
         if(s.aiTurnDir) return s.aiTurnDir;                               // keep turning the same way
         const l=rocksAhead(s,mod(s.o-1,6)), r=rocksAhead(s,mod(s.o+1,6));
@@ -891,4 +902,4 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={MAPS,EXITS,windNow,pathClear,hexLine,forgeChoices,setTerrain,songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,isScree,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={MAPS,EXITS,windNow,pathClear,hexLine,forgeChoices,setTerrain,songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,isScree,isDune,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
