@@ -8,7 +8,7 @@ const R = {
   START_ENERGY:3, START_PARTS:2, START_AMMO:1,
   DC_BASE:8, DC_MOD_EASY:1, DC_MOD_HARD:2, ENG_DIST_BONUS:2, ENG_DC_MULT:0.5,
   BASE_AC:10, AC_DIST:[0,2,4], DMG_BONUS:4, LOCK_DC:8, LOCK_BONUS:4,
-  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:3, REST:2,   // REST = own turns a crew member sits out after an order
+  HP_CRIT:0.40, HP_FAIL:0.20, CRASH_DMG:3, SCREE_DMG:2, REST:2,   // REST = own turns a crew member sits out after an order
 };
 const DIRS = [[0,-1],[1,-1],[1,0],[0,1],[-1,1],[-1,0]];
 const DIR_NAMES = ["N","NE","SE","S","SW","NW"];
@@ -58,19 +58,51 @@ const EXITS=[[0,12],[0,-12]];
 const MAPS={
   WASTE:{name:"Wastelands",text:"Open flats in the middle, rock thickening outward, winding canyons leading back in."},
   CANYON:{name:"Canyon",text:"One wide gorge between the starts. Open for a few hexes, then mountains: fight or evade at full speed."},
-  LABYRINTH:{name:"Labyrinth",text:"A network of narrow alleys. Quick, agile ships have the edge."},
+  LABYRINTH:{name:"Labyrinth",text:"Swiss cheese: rock riddled with caves, linked by tight tunnels and a few wider passages."},
 };
 let T_SEED=1, T_MAP="WASTE", T_CACHE=new Map(), T_PULL=true;
 function setPull(v){ T_PULL=v; T_CACHE=new Map(); }
 function setTerrain(seed,map){ map=map||"WASTE"; if(seed!==T_SEED||map!==T_MAP){ T_SEED=seed; T_MAP=map; T_CACHE=new Map(); } }
 function setTerrainSeed(seed){ setTerrain(seed,T_MAP); }
 function noise(q,r,scale,seed){ const v=Math.sin((q/scale)*12.9898+(r/scale)*78.233+seed)*43758.5453; return Math.abs(v-Math.trunc(v)); }
-const TERRAIN_NAMES=["Open sand","Slate rock","Rust mesa","Tar pit","Old-world wreck"];
+// 1 black rock: blocks every course; fly into it and you bounce back off it (crash damage).
+// 2 scree: loose rubble you can fly over, but ending a move on it hurts (SCREE_DMG). 4 wreck: salvage.
+const TERRAIN_NAMES=["Open sand","Black rock","Scree","Black rock","Old-world wreck"];
 function terrain(q,r){
   const k=(q+4096)*8192+(r+4096); let v=T_CACHE.get(k); if(v!==undefined) return v;
   v=computeTerrain(q,r); T_CACHE.set(k,v); return v;
 }
-function rockType(q,r,so){ const b=noise(q,r,15,42.1337+so); return b<0.33?1:b<0.66?2:3; }
+function rockType(){ return 1; }
+// scree lies in patches (3x3-hex cells) on open ground
+function scree(q,r,so,dens){ return noise(Math.floor((q+60)/3),Math.floor((r+60)/3),1,11.11+so)>1-dens&&noise(q,r,1,22.2+so)>0.35; }
+// Labyrinth layout: caves (round holes) linked by tunnels 1 or 3 hexes wide. Built once per seed.
+let LAB=null;
+function labLayout(){
+  if(LAB&&LAB.seed===T_SEED) return LAB;
+  let a=(T_SEED*2654435761)>>>0; const rn=()=>{ a=(a+0x6D2B79F5)>>>0; let x=a; x=Math.imul(x^x>>>15,x|1); x^=x+Math.imul(x^x>>>7,x|61); return ((x^x>>>14)>>>0)/4294967296; };
+  const caves=[[0,0,3],[0,5,2],[0,-5,2],[0,12,1],[0,-12,1]];
+  for(let tries=0;caves.length<19&&tries<400;tries++){
+    const q=Math.round(rn()*28-14), r=Math.round(rn()*28-14), d=hexDist(q,r);
+    if(d>13||d<4) continue;
+    const rad=rn()<0.35?1:rn()<0.6?2:3;
+    if(caves.some(([cq,cr,cr2])=>hexDist(q-cq,r-cr)<rad+cr2+2)) continue;
+    caves.push([q,r,rad]);
+  }
+  const open=new Set(), K=(q,r)=>q+","+r;
+  for(const [q,r,rad] of caves) for(let dq=-rad;dq<=rad;dq++) for(let dr=-rad;dr<=rad;dr++) if(hexDist(dq,dr)<=rad) open.add(K(q+dq,r+dr));
+  const tunnel=(c1,c2,w)=>{ for(const [q,r] of [[c1[0],c1[1]],...hexLine(c1[0],c1[1],c2[0],c2[1])]){ open.add(K(q,r));
+    if(w) for(const [dq,dr] of DIRS) open.add(K(q+dq,r+dr)); } };
+  // the starts, the centre and the exits are always linked by wide passages
+  tunnel(caves[0],caves[1],1); tunnel(caves[0],caves[2],1); tunnel(caves[1],caves[3],1); tunnel(caves[2],caves[4],1);
+  // every other cave joins its nearest linked cave: mostly tight tunnels, some wide
+  const linked=caves.slice(0,5);
+  for(const c of caves.slice(5)){
+    const near=linked.slice().sort((x,y)=>hexDist(x[0]-c[0],x[1]-c[1])-hexDist(y[0]-c[0],y[1]-c[1]));
+    tunnel(c,near[0],rn()<0.35?1:0); if(rn()<0.5) tunnel(c,near[1],rn()<0.25?1:0);
+    linked.push(c);
+  }
+  LAB={seed:T_SEED,open,caves}; return LAB;
+}
 function computeTerrain(q,r){
   const so=(T_SEED%9973)/131.7, d=hexDist(q,r);
   if(d<=2) return 0;
@@ -80,16 +112,14 @@ function computeTerrain(q,r){
     // one gorge along the line between the starts (q = 0), wiggling a little; walls rise fast outside it
     const y=q/2+r, centre=Math.sin(y*0.22+so)*1.4, half=2.4+0.8*Math.sin(y*0.37+so*2);
     const out=Math.abs(q-centre)-half;
-    if(out<=0){ if(Math.abs(y)>=4&&noise(q,r,1,77.7+so)>0.93) return 4; return noise(q,r,1.3,5.5+so)>0.94?rockType(q,r,so):0; }
-    return out<1&&noise(q,r,1.5,9.876+so)<0.45?0:rockType(q,r,so);
+    if(out<=0){ if(Math.abs(y)>=4&&noise(q,r,1,77.7+so)>0.93) return 4; if(noise(q,r,1.3,5.5+so)>0.94) return 1; return d>=3&&scree(q,r,so,0.2)?2:0; }
+    return out<1&&noise(q,r,1.5,9.876+so)<0.45?(scree(q,r,so,0.5)?2:0):1;
   }
   if(T_MAP==="LABYRINTH"){
-    // alleys along the three hex axes, every 4th line (through the centre and both starts), walls between them
-    if(d>15) return rockType(q,r,so);
-    const s3=-q-r, P=5;
-    const alley=mod(q,P)===0||mod(r+2,P)===0||mod(s3-2,P)===0;
-    if(alley){ if(d>=4&&noise(q,r,1,77.7+so)>0.95) return 4; return 0; }
-    return noise(q,r,1.2,3.3+so)>0.96?0:rockType(q,r,so);     // a rare gap in the walls
+    // Swiss cheese: solid rock, holed with caves of all sizes and linked by tunnels
+    if(d>15||!labLayout().open.has(q+","+r)) return 1;
+    if(d>=4&&noise(q,r,1,77.7+so)>0.95) return 4;
+    return d>=3&&scree(q,r,so,0.22)?2:0;
   }
   if(T_PULL&&d>=3&&d<=8&&noise(q,r,1,77.7+so)>0.955) return 4;
   let th=T_PULL?0.72-Math.min(0.40,Math.max(0,(d-8)*0.05)):0.72;
@@ -101,8 +131,8 @@ function computeTerrain(q,r){
     if(gap*d<1.1) th=0.97;
   }
   const c=noise(q,r,5,0.123+so)*0.7+noise(q,r,1.5,9.876+so)*0.3;
-  if(c<=th) return 0;
-  return rockType(q,r,so);
+  if(c<=th) return T_PULL&&d>=4&&scree(q,r,so,0.22)?2:0;
+  return 1;
 }
 // hexes on the straight line from (q1,r1) to (q2,r2), excluding the start
 function hexLine(q1,r1,q2,r2){
@@ -112,7 +142,8 @@ function hexLine(q1,r1,q2,r2){
 }
 const pathClear=(q1,r1,q2,r2)=>hexLine(q1,r1,q2,r2).every(([q,r])=>!isObstacle(q,r));
 const dirOf=(dq,dr)=>{ const x=1.5*dq, y=Math.sqrt(3)/2*dq+Math.sqrt(3)*dr; return mod(Math.round(Math.atan2(x,-y)*180/Math.PI/60),6); };
-const isObstacle=(q,r)=>{ const t=terrain(q,r); return t>=1&&t<=3; };
+const isObstacle=(q,r)=>{ const t=terrain(q,r); return t===1||t===3; };
+const isScree=(q,r)=>terrain(q,r)===2;
 function angleDifficulty(dir,tq,tr,sq,sr){
   if(isObstacle(sq+tq,sr+tr)) return [0,false];
   const [side,speed]=relInfo(tq,tr,dir);
@@ -162,7 +193,7 @@ const CREW = [
   {key:"ELDER",capt:true,f:"HEART",name:"TASSA",role:"Caravan Mother",st:"ANY",epic:"DRIFT",passive:"While your drift holds, your crew can't be stunned",order:"All Hands",text:"Your next order this turn ignores rest",pal:["#c89a78","#d8c8a0","#6a3a24","#e85a30"]},
   {key:"GUNNER",f:"HEART",name:"KAEL",role:"Soldier",st:"ATK",passive:"+2 attack rolls",order:"Double Tap",text:"+1 ammo, fire again",pal:["#d09870","#5a3a24","#6a4024","#d8402c"]},
   {key:"BULWARK",f:"HEART",name:"DOV",role:"Bulwark",st:"ATK",passive:"Enemy attacks on you −1",order:"Brace",text:"Damage you take −3 until your next turn",pal:["#8a5a40","#b08048","#4a3020","#e8b830"]},
-  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Crashing into rock deals 1, not 3",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#7a8a3a","#6a4a30","#3ab89a"]},
+  {key:"ECO",f:"HEART",name:"FENN",role:"Ecologist",st:"NAV",epic:"DRIFT",passive:"Rock crashes and scree deal only 1 damage",order:"Sandstorm",text:"Enemy −2 to all rolls on their next turn",pal:["#c8a078","#7a8a3a","#6a4a30","#3ab89a"]},
   {key:"MEDIC",f:"HEART",name:"ANA",role:"Medic",st:"ENG",epic:"DRIFT",passive:"Your stunned crew recover at the start of your turn",order:"Patch Up",text:"Heal 3 hull, no parts needed",pal:["#f0c8a8","#a04a2a","#7a3a28","#c84a9a"]},
   // Followers of the Wind — Drifters
   {key:"WINDCAPT",capt:true,f:"WIND",name:"SELA",role:"Wind Captain",st:"NAV",passive:"A failed drift still lets you set your heading. Epic, Song of the Wind: below half hull, engine power adds no DC and +2 to boost rolls",order:"Tailwind",text:"Next boost this turn: DC −4",pal:["#d8b090","#f0e6cc","#d8c08a","#5ad8e8"]},
@@ -620,9 +651,11 @@ function doBoost(G,speed,side){
     if(isObstacle(q,r)) crashed=terrain(q,r); else { dest={q,r}; log(G,"The storm drags the ship one hex downwind.","bad"); }
   }
   ev(G,{t:"move",pid:s.pid,from:{q:s.q,r:s.r},to:dest});
+  const moved=dest.q!==s.q||dest.r!==s.r;
   s.q=dest.q; s.r=dest.r;
   const tt=terrain(s.q,s.r);
-  if(crashed){ log(G,`${shipName(s)} crashed into ${TERRAIN_NAMES[crashed].toLowerCase()}!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?1:R.CRASH_DMG); }
+  if(crashed){ log(G,`${shipName(s)} crashed into black rock and bounced back!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?1:R.CRASH_DMG); }
+  if(tt===2&&moved&&s.hp>0){ log(G,`${shipName(s)} grinds down on scree: ${has(s,"ECO")?1:R.SCREE_DMG} damage.`,"bad"); damage(G,s,has(s,"ECO")?1:R.SCREE_DMG); }
   const k=s.q+","+s.r;
   if(tt===4&&!G.looted.includes(k)){ const n=cls(s).salvage||1; G.looted.push(k); s.parts+=n; log(G,`${shipName(s)} salvages a wreck: +${n} spare part${n>1?"s":""}.`,"ok"); tell(G,"wreck",{p:cname(s)},s.fac); }
   const o=other(G,s);
@@ -761,6 +794,7 @@ function useOrder(G,i,arg){
 //          Pick by Style (DC); ties: the straighter course, then the slower one.
 //          After a stable drift, face the enemy (Escape: face away), unless rock lies right ahead:
 //          then take the nearest direction with two open hexes in front.
+//  SCREE: never lands on scree if any other course is open.
 //  BOXED IN (rock blocks every course): pivot toward the side with fewer rocks ahead (tie: right),
 //          and keep turning that way on the next turns until a course opens.
 //  ATK     Target if in arc. Out of ammo: reload. Lock on if possible, then fire while possible.
@@ -806,7 +840,7 @@ function aiMove(G){
   switch(G.st){
     case "cmd": { const plan=P.engage?["NAV","ATK","ENG"]:["ENG","NAV","ATK"]; return "Q:"+plan.find(p=>!G.queue.includes(p)&&p!==s.lostPhase); }
     case "nav_pick": {
-      const opts=allNavOptions(s);
+      const all=allNavOptions(s), safe=all.filter(x=>!isScree(x.q,x.r)), opts=safe.length?safe:all;   // avoid landing on scree
       if(!opts.length){
         if(s.aiTurnDir) return s.aiTurnDir;                               // keep turning the same way
         const l=rocksAhead(s,mod(s.o-1,6)), r=rocksAhead(s,mod(s.o+1,6));
@@ -857,4 +891,4 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={MAPS,EXITS,windNow,pathClear,hexLine,forgeChoices,setTerrain,songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={MAPS,EXITS,windNow,pathClear,hexLine,forgeChoices,setTerrain,songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,isScree,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};

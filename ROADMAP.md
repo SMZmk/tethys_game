@@ -60,6 +60,11 @@ Computer against computer, the factions win 44–56% against each other (before 
 - **Computer and cliffs**: it never turns its bow straight into rock after a drift, and when boxed in it keeps
   pivoting one way until a course opens (before: left, right, left… back into the cliff, in 152 of 900 games).
 
+- **Two kinds of rock**: black rock blocks courses (a failed boost bounces back off it, 3 damage); scree can be
+  flown over, but ending a move on it deals 2. The computer avoids landing on scree.
+- **Labyrinth rebuilt as Swiss cheese**: caves of 1–3 hex radius linked by 1-hex tunnels and some 3-hex passages
+  (was a narrow mesh of alleys). Starts, centre and exits are always linked by wide passages.
+
 Balance after this round (bot games, random builds, 1,500 per setting): ships 44–55%, factions 47–54%.
 Captains: SELA is the strongest (about 55–63%); TASSA and HESK are slightly below average (about 44–50%).
 Simple buffs for TASSA and HESK were tested and made no measurable difference, so the agreed designs were kept.

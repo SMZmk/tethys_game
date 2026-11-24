@@ -139,6 +139,42 @@ test("nav: ramming the other ship costs both 3 hull", () => {
   force(G, 20, v => v >= 19); L.apply(G, "B:1:0");
   assert.strictEqual(a.hp, ha - L.R.CRASH_DMG); assert.strictEqual(b.hp, hb - L.R.CRASH_DMG); assert.strictEqual(L.R.CRASH_DMG, 3);
 });
+// find a spot (P1 at q,r,o; P2 far away) where `want(option, line)` holds for some course
+const hexRoundOk = (s, o, w) => { const f = 1.5, x = s.q + (o.q - s.q) * f, y = s.r + (o.r - s.r) * f; return Number.isInteger(x) && Number.isInteger(y); };
+function findCourse(G, want) {
+  const s = sh(G, 0); Object.assign(G.ships[1], { q: 30, r: -30 });
+  for (let q = -14; q <= 14; q++) for (let r = -14; r <= 14; r++) for (let o = 0; o < 6; o++) {
+    if (L.terrain(q, r) !== 0) continue; Object.assign(s, { q, r, o });
+    for (const op of L.allNavOptions(s)) if (want(op, L.hexLine(q, r, op.q, op.r))) return op;
+  }
+  return null;
+}
+test("rock: scree can be flown over without damage", () => {
+  const G = drafted(); plan(G, "NAV", "ATK", "ENG"); const s = sh(G, 0);
+  const op = findCourse(G, (o, line) => L.terrain(o.q, o.r) === 0 && line.some(([q, r]) => L.isScree(q, r)));
+  assert.ok(op); const hp = s.hp;
+  force(G, 20, v => v >= 19); L.apply(G, `B:${op.speed}:${op.side > 0 ? "+" : ""}${op.side}`);
+  assert.deepStrictEqual([s.q, s.r], [op.q, op.r]); assert.strictEqual(s.hp, hp);
+});
+test("rock: ending a move on scree deals 2 damage (FENN: 1)", () => {
+  for (const [crew, dmg] of [[["GUNNER", "MECHANIC", "TECH"], 2], [["ECO", "MECHANIC", "TECH"], 1]]) {
+    const G = drafted({ f1: "HEART", crew1: crew }); plan(G, "NAV", "ATK", "ENG"); const s = sh(G, 0);
+    const op = findCourse(G, o => L.isScree(o.q, o.r)); assert.ok(op); const hp = s.hp;
+    force(G, 20, v => v >= 19); L.apply(G, `B:${op.speed}:${op.side > 0 ? "+" : ""}${op.side}`);
+    assert.deepStrictEqual([s.q, s.r], [op.q, op.r]); assert.strictEqual(s.hp, hp - dmg); assert.strictEqual(L.R.SCREE_DMG, 2);
+  }
+});
+test("rock: black rock blocks courses; a failed boost bounces back off it (3 damage)", () => {
+  const G = drafted(); plan(G, "NAV", "ATK", "ENG"); const s = sh(G, 0);
+  // a course that is clear, but whose 50% overshoot runs into black rock
+  const op = findCourse(G, (o, line) => { const w = [Math.round(s.q + (o.q - s.q) * 1.5), Math.round(s.r + (o.r - s.r) * 1.5)];
+    const l2 = L.hexLine(s.q, s.r, w[0], w[1]), i = l2.findIndex(([q, r]) => L.isObstacle(q, r));
+    return i > 0 && hexRoundOk(s, o, w) && !l2.slice(0, i).some(([q, r]) => L.terrain(q, r) >= 2); });
+  assert.ok(op); const hp = s.hp, w = [Math.round(s.q + (op.q - s.q) * 1.5), Math.round(s.r + (op.r - s.r) * 1.5)];
+  const l2 = L.hexLine(s.q, s.r, w[0], w[1]), stop = l2[l2.findIndex(([q, r]) => L.isObstacle(q, r)) - 1];
+  forceVal(G, 20, 2); L.apply(G, `B:${op.speed}:${op.side > 0 ? "+" : ""}${op.side}`);
+  assert.deepStrictEqual([s.q, s.r], stop); assert.strictEqual(s.hp, hp - 3);
+});
 test("nav: pivot is offered only when rocks block every course", () => {
   const G = face(drafted()); plan(G, "NAV", "ATK", "ENG");
   assert.ok(!L.legal(G).some(m => m.startsWith("PIVOT")));
@@ -622,6 +658,20 @@ test("maps: every map keeps starts, centre and exits connected", () => {
     while (queue.length) { const [a, b] = queue.shift(); for (const [dq, dr] of D) { const k = (a + dq) + "," + (b + dr);
       if (!seen.has(k) && L.hexDist(a + dq, b + dr) <= 18 && !L.isObstacle(a + dq, b + dr)) { seen.add(k); queue.push([a + dq, b + dr]); } } }
     for (const k of ["0,0", "0,-5", "0,12", "0,-12"]) assert.ok(seen.has(k), `${map} seed ${seed}: ${k}`);
+  }
+  L.setTerrain(1, "WASTE");
+});
+test("maps: the labyrinth is Swiss cheese: caves of several sizes, tunnels 1 and 3 hexes wide", () => {
+  for (const seed of [977, 4242, 31337]) {
+    L.setTerrain(seed, "LABYRINTH"); let narrow = 0, wide = 0;
+    for (let q = -13; q <= 13; q++) for (let r = -13; r <= 13; r++) {
+      if (L.hexDist(q, r) > 13 || L.isObstacle(q, r)) continue;
+      // a 1-wide spot: rock on both sides along some axis
+      const D = [[0, -1], [1, -1], [1, 0]], free = D.filter(([a, b]) => !L.isObstacle(q + a, r + b) && !L.isObstacle(q - a, r - b)).length;
+      if (free === 1 && D.some(([a, b]) => L.isObstacle(q + a, r + b) && L.isObstacle(q - a, r - b))) narrow++;
+      if (D.every(([a, b]) => !L.isObstacle(q + a, r + b) && !L.isObstacle(q - a, r - b))) wide++;
+    }
+    assert.ok(narrow >= 10 && wide >= 30, `seed ${seed}: narrow ${narrow}, wide ${wide}`);
   }
   L.setTerrain(1, "WASTE");
 });
