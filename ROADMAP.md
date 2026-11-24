@@ -66,6 +66,9 @@ Computer against computer, the factions win 44–56% against each other (before 
   The computer lands where it hurts least.
 - **Rock blocks shots** (line of sight); scree and dunes don't. The firing arc shows only visible hexes.
 - **Blowing sand follows the weather**: calm = a few slow grains; storm = dense streaks downwind and a dusty haze.
+- **Chronicle updated**: lines for each map and the weather, the storm turning, rock hiding the enemy, scree and
+  dunes, natural 20s, lucky second chances, KESTREL's ram, and the Relic Race per faction. Every crew member,
+  all six captains included, now speaks their order in their own voice.
 - **Labyrinth rebuilt as Swiss cheese**: caves of 1–3 hex radius linked by 1-hex tunnels and some 3-hex passages
   (was a narrow mesh of alleys). Starts, centre and exits are always linked by wide passages.
 

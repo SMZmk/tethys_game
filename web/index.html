@@ -505,7 +505,7 @@ function rollCheck(G,label,sides,mods,vs,vsLabel,pid,second){
   log(G,`${label}: d${sides} ${v}${m.map(x=>` ${x[0]>0?"+":""}${x[0]} ${x[1]}`).join("")} = ${total} vs ${vsLabel} ${vs}${nat===20?" (natural 20!)":nat===1?" (natural 1!)":""}`,ok?"ok":"bad");
   ev(G,{t:"roll",roll:{...G.roll}});
   G.nat=nat;
-  if(nat===20&&s){ s.momentum=3; log(G,"Natural 20: +3 to your next roll this turn.","ok"); }
+  if(nat===20&&s){ s.momentum=3; log(G,"Natural 20: +3 to your next roll this turn.","ok"); tell(G,"nat20",{p:cname(s)},s.fac); }
   if(nat===1&&s&&!second){
     const r=rnd(G,6), o=other(G,s);
     if(r<=2){ s.o=mod(aiDirToward(s,o.q,o.r)+3,6); log(G,`Mishap d6 ${r}: turned around! ${shipName(s)} shows its stern to the enemy.`,"bad"); tell(G,"mishap",{p:cname(s)}); }
@@ -513,7 +513,7 @@ function rollCheck(G,label,sides,mods,vs,vsLabel,pid,second){
     else if(r===5){ log(G,`Mishap d6 ${r}: disaster on deck! 1 damage, a crew member down, a spare part lost.`,"bad"); s.parts=Math.max(0,s.parts-1);
       const pool=s.crew.filter(c=>!c.stun); if(pool.length&&!(has(s,"ELDER")&&s.f.drift)){ const c=pool[rnd(G,pool.length)-1]; c.stun=true; log(G,`${CREW_BY[c.key].name} is down.`,"bad"); }
       tell(G,"mishap",{p:cname(s)}); damage(G,s,1); }
-    else { log(G,`Mishap d6 ${r}: lucky second chance! Roll again.`,"ok"); return rollCheck(G,label,sides,mods,vs,vsLabel,pid,true); }
+    else { log(G,`Mishap d6 ${r}: lucky second chance! Roll again.`,"ok"); tell(G,"lucky",{p:cname(s)}); return rollCheck(G,label,sides,mods,vs,vsLabel,pid,true); }
   }
   return ok;
 }
@@ -546,6 +546,45 @@ const TALES={
   mishap:["Everything goes wrong at once on {p}.","A bad gust, a snapped line, a scream: {p} is in trouble."],
   relic:["{p} hauls the relic aboard. It hums. Somewhere, two gates in the dunes light up."],
   escape:["{p} carries the relic through the gate. The road to Europa opens for them alone."],
+  // the battlefield (Player 1's choice) and the weather (Player 2's)
+  mapWASTE:["The Wastelands: open flats ringed by broken stone. Canyons wind back toward the middle, and every crew knows them.",
+            "Salt flats, then rubble, then mountains. In the Wastelands you can run, but the desert always brings you back."],
+  mapCANYON:["The Canyon: one gorge, walls of slate and rust on both sides. There is no going around. Only through.",
+             "Somewhere above the gorge, birds circle. Down in the Canyon, two ships can already hear each other's engines."],
+  mapLABYRINTH:["The Labyrinth: a mountain eaten hollow. Caves open into caves, linked by tunnels barely wider than a hull.",
+                "Old miners called it the Cheese. Nobody who calls it that has ever flown through it at speed."],
+  calm:["The air is still. Dust hangs over the dunes like breath on glass.","No wind today. Every engine can be heard for miles."],
+  storm:["A wall of sand rises on the horizon. The storm will turn, and keep turning, until one of you is gone.",
+         "The sky goes brown at noon. Grit hisses against the hulls. Fly with the wind, or fight it."],
+  windTurn:["The storm swings round. The sand that pushed {p} now pushes against it.","A howl from a new direction: the wind has turned."],
+  turnHidden:["{p} can hear the enemy behind the rock, but cannot see it. Stone takes no sides.",
+              "A ridge of rock stands between the two ships. {p} waits for the enemy to show itself."],
+  scree:["{p} sets down on loose rubble. Stones grind into the hull."],
+  dune:["{p} ploughs into a dune. Sand bursts over the deck and into every seam."],
+  nat20:["Everything lines up on {p}: wind, hands, steel. For a moment the ship cannot fail."],
+  lucky:["Disaster was one breath away. {p} gets a second chance and takes it."],
+  ramKestrel:["KESTREL laughs into the storm and drives {p}'s bow straight into the enemy hull."],
+};
+// Orders, in the crew member's own voice. {p} = their ship, {t} = the enemy.
+const CREW_TALES={
+  IRONCAPT:["VOSS on {p}: \"Knock them down! I want them crawling!\"","VOSS strikes the rail with a fist of iron. \"Their crew. Now.\""],
+  FORGE:["HESK fires the forge on {p}'s deck. Sparks fly; the ship comes out harder than it went in.","\"Metal remembers every blow,\" says HESK, and hammers {p} into a better shape."],
+  HARPOON:["GRIT swings the chain gun round. \"Hold still, {t}.\"","GRIT spits, aims, and lets the chains fly."],
+  MECHANIC:["BRAKK dives into {p}'s engine room with a wrench in each hand.","\"She's not dying on my watch,\" BRAKK growls, welding as {p} shakes."],
+  TECH:["IVO pulls a lever marked DON'T. {p}'s reactor screams with joy.","IVO pours raw power into {p}'s cables until they glow."],
+  QM:["SAL drags a crate of scrap out of nowhere. \"Told you we'd need it.\""],
+  CAPTAIN:["RHO stands at {p}'s bow. \"Battle stations! Again, together!\"","RHO's voice carries over the engines. Every Nomad on {p} moves at once."],
+  ELDER:["TASSA raises the caravan staff. \"All hands!\" Even the children on {p} grab a rope.","The Caravan Mother speaks once. Everyone on {p} listens."],
+  GUNNER:["KAEL fires twice before the first shell lands.","KAEL breathes out, slow. Then {p}'s gun barks twice."],
+  BULWARK:["DOV plants both feet on {p}'s deck. \"Brace! Let them come.\""],
+  ECO:["FENN reads the dunes and kicks the sand loose. A sandstorm swallows {t}.","FENN whispers to the desert. The desert answers, around {t}."],
+  MEDIC:["ANA moves from wound to wound across {p}'s deck. Nobody is left lying.","ANA's hands are red to the elbow. {p}'s crew get back up."],
+  WINDCAPT:["SELA sings one long note. The wind bends behind {p}'s sails.","SELA lifts her scarf to the gust. \"Tailwind, now.\""],
+  STORMCAPT:["KESTREL grins at {t}. \"Ram them. All the way through.\"","KESTREL seizes the helm of {p} and aims for the enemy's heart."],
+  ACE:["VEX slams the throttle past the stop. {p} leaps like a startled animal.","\"Afterburn!\" VEX is laughing; nobody else on {p} is."],
+  DRIFTER:["ORO reads the ripples and steers {p} into a dance {t} cannot follow."],
+  SPOTTER:["NYX doesn't blink. \"Got them.\" {p}'s guns are already locked on {t}."],
+  JAMMER:["ZED's mouth-amp drops into a bass so deep that {t}'s targeting glass cracks.","ZED hums. On {t}, every screen fills with static."],
 };
 const FACTION_TALES={
   MACHINE:{
@@ -563,6 +602,11 @@ const FACTION_TALES={
     repair:["{p}'s Scrappers stitch the hull with scrap and sing to the engine while they work."],
     win:["{p} rolls over the wreck, already stripping it. The Machine is fed. Europa waits."],
     fire:["\"Fire in the engines!\" {p}'s Scrappers howl as flames gut {t}'s {s}. They want it to burn."],
+    relic:["{p}'s Scrappers drag the relic aboard and bolt it to the deck. Nobody asks what it is. It is theirs."],
+    escape:["{p} smashes through the gate, relic chained to the deck. The Machine has fed well today."],
+    windTurn:["The storm turns. {p}'s Scrappers lean into it and gun the engine. Wind is just another enemy."],
+    nat20:["{p}'s engine hits a note the Scrappers have only dreamed of. They weep, then howl."],
+    scree:["{p} grinds onto scree. The Scrappers feel every stone in their own bones."],
   },
   HEART:{
     turnFar:["{p}'s Nomads share the last of the water and watch the dunes together.","Around a small stove on {p}'s deck, the Nomads tell stories of Europa while the lookout watches."],
@@ -578,6 +622,11 @@ const FACTION_TALES={
     crit:["{t}'s Nomads call to each other over the noise: the {s} is hurt, but everyone is alive."],
     repair:["{p}'s Nomads patch the hull together, passing tools hand to hand."],
     win:["{p}'s Nomads stand on deck, counting every face. All here. Now, Europa."],
+    relic:["{p}'s Nomads lift the relic aboard together, carefully, the way you carry a sleeping child."],
+    escape:["{p} passes the gate with the relic. The Nomads will tell this story for a hundred years."],
+    windTurn:["The storm turns. On {p}, the Nomads tie each other to the rails and keep going."],
+    nat20:["For one moment every Nomad on {p} moves as one body. Nothing can stop them."],
+    dune:["{p} ploughs into a dune. The Nomads dig her out by hand, laughing, sand in every hat."],
   },
   WIND:{
     turnFar:["{p}'s sails catch a gust that smells of salt and somewhere else.","The Drifters on {p} pull their scarves tight and read the dune ripples like a map.","A low bass thrums from {p}'s deck, carried against the wind. Somewhere out there, other Drifters answer."],
@@ -593,6 +642,11 @@ const FACTION_TALES={
     crit:["{t}'s Drifters groan as their {s} sputters. The wind turns its back."],
     repair:["{p}'s Drifters patch the sails and tie new knots, singing to the breeze."],
     win:["{p}'s sails fill. The Drifters turn toward the horizon. Europa is a direction, not a place."],
+    relic:["{p} snatches the relic in passing. The Drifters' bass drops to a single, triumphant note."],
+    escape:["{p} slips through the gate like a breath of wind. The relic is gone, and so are they."],
+    windTurn:["The storm turns, and {p}'s Drifters turn with it, already humming the new song."],
+    nat20:["The wind and {p} want the same thing. The Drifters stop singing and simply fly."],
+    dune:["{p} skims a dune too low. The Drifters shake the sand from their scarves and pretend it was on purpose."],
   },
 };
 function tell(G,key,vars,fac){
@@ -609,7 +663,7 @@ const kindred=s=>s.crew.filter(c=>CREW_BY[c.key].f===s.fac).length;
 // ---------------- TURN FLOW ----------------
 function startTurn(G,idx){
   G.active=idx; const s=S(G); G.turn++;
-  const w=windNow(G); s.windFrom=w; if(w!==null&&G.turn>1&&w!==G.lastWind) log(G,`The storm turns: wind from the ${DIR_NAMES[w]}.`,"bad"); G.lastWind=w;
+  const w=windNow(G); s.windFrom=w; if(w!==null&&G.turn>1&&w!==G.lastWind){ log(G,`The storm turns: wind from the ${DIR_NAMES[w]}.`,"bad"); tell(G,"windTurn",{p:cname(s)},s.fac); } G.lastWind=w;
   s.f={targeted:false,reloaded:false,shots:0,drift:false,locked:false,debuff:null};
   s.evasive=false; s.brace=false; s.crew.forEach(c=>{ if(c.rest>0) c.rest--; });
   if(has(s,"MEDIC")&&s.crew.some(c=>c.stun)){ s.crew.forEach(c=>c.stun=false); log(G,`ANA tends the wounded: ${shipName(s)} crew back on their feet.`,"ok"); }
@@ -620,7 +674,8 @@ function startTurn(G,idx){
   if(s.storm) log(G,`${shipName(s)} is caught in a sandstorm: −2 to all rolls this turn.`,"bad");
   integrity(G,s);
   const o=other(G,s);
-  tell(G,hexDist(o.q-s.q,o.r-s.r)<=4?"turnNear":"turnFar",{p:cname(s)},s.fac);
+  const near=hexDist(o.q-s.q,o.r-s.r)<=4;
+  tell(G,near&&!lineOfSight(s.q,s.r,o.q,o.r)?"turnHidden":near?"turnNear":"turnFar",{p:cname(s)},s.fac);
   ev(G,{t:"turn",pid:s.pid});
 }
 function endTurn(G){
@@ -789,10 +844,10 @@ function apply(G,a){
   const [head,arg,arg2]=a.split(":");
   switch(G.st){
     case "draft":
-      if(head==="SET"){ G.cfg={map:arg,mode:arg2,storm:null}; setTerrain(G.seed,arg);
+      if(head==="SET"){ G.cfg={map:arg,mode:arg2,storm:null}; setTerrain(G.seed,arg); tell(G,"map"+arg,{});
         if(arg2==="RELIC") G.relic={q:0,r:0,carrier:null};
         log(G,`P1 picks the map: ${MAPS[arg].name}. Mode: ${arg2==="RELIC"?"Relic Race":"Duel"}.`); break; }
-      if(head==="WX"){ G.cfg.storm=arg==="STORM"; if(G.cfg.storm) G.windStart=hashStr("wind"+G.seed)%6;
+      if(head==="WX"){ G.cfg.storm=arg==="STORM"; tell(G,G.cfg.storm?"storm":"calm",{}); if(G.cfg.storm) G.windStart=hashStr("wind"+G.seed)%6;
         log(G,G.cfg.storm?"P2 calls up a storm.":"P2 picks calm weather."); break; }
       draftMove(G,head,arg,arg2); break;
     case "cmd":
@@ -863,13 +918,13 @@ function doBoost(G,speed,side){
   const moved=dest.q!==s.q||dest.r!==s.r;
   s.q=dest.q; s.r=dest.r;
   const tt=terrain(s.q,s.r);
-  if(crashed){ log(G,`${shipName(s)} crashed into black rock and bounced back!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?1:R.CRASH_DMG); }
-  if(landDmg(s,tt)&&moved&&s.hp>0){ log(G,tt===2?`${shipName(s)} grinds down on scree.`:`${shipName(s)} ploughs into a dune.`,"bad"); damage(G,s,landDmg(s,tt)); }
+  if(crashed){ log(G,`${shipName(s)} crashed into ${TERRAIN_NAMES[crashed].toLowerCase()} and bounced back!`,"bad"); tell(G,"crash",{p:cname(s)},s.fac); damage(G,s,has(s,"ECO")?1:R.CRASH_DMG); }
+  if(landDmg(s,tt)&&moved&&s.hp>0){ log(G,tt===2?`${shipName(s)} grinds down on scree.`:`${shipName(s)} ploughs into a dune.`,"bad"); tell(G,tt===2?"scree":"dune",{p:cname(s)},s.fac); damage(G,s,landDmg(s,tt)); }
   const k=s.q+","+s.r;
   if(tt===4&&!G.looted.includes(k)){ const n=cls(s).salvage||1; G.looted.push(k); s.parts+=n; log(G,`${shipName(s)} salvages a wreck: +${n} spare part${n>1?"s":""}.`,"ok"); tell(G,"wreck",{p:cname(s)},s.fac); }
   const o=other(G,s);
   if(o.hp>0&&o.q===s.q&&o.r===s.r){
-    if(s.ram){ log(G,"Ram! KESTREL drives the bow straight into the enemy.","bad"); tell(G,"ram",{}); damage(G,o,6); damage(G,s,1); }
+    if(s.ram){ log(G,"Ram! KESTREL drives the bow straight into the enemy.","bad"); tell(G,"ramKestrel",{p:cname(s)}); damage(G,o,6); damage(G,s,1); }
     else { log(G,"Collision! Both ships rammed.","bad"); tell(G,"ram",{}); damage(G,s,R.CRASH_DMG); damage(G,o,R.CRASH_DMG); }
   }
   s.ram=false;
@@ -877,9 +932,9 @@ function doBoost(G,speed,side){
   // Relic Race: pick the relic up by ending a move on it; bring it to your own exit to win
   if(G.relic&&s.hp>0){
     if(!G.relic.carrier&&s.q===G.relic.q&&s.r===G.relic.r){ G.relic.carrier=s.pid; s.relic=true; G.exits=EXITS.map(e=>({q:e[0],r:e[1]}));
-      log(G,`${shipName(s)} takes the relic! The exits open. The carrier gets −1 engine.`,"ok"); tell(G,"relic",{p:cname(s)}); }
+      log(G,`${shipName(s)} takes the relic! The exits open. The carrier gets −1 engine.`,"ok"); tell(G,"relic",{p:cname(s)},s.fac); }
     const ex=G.exits&&G.exits[s.pid-1];
-    if(s.relic&&ex&&s.q===ex.q&&s.r===ex.r){ G.winner=s.pid; G.st="over"; G.phase="OVER"; log(G,`${shipName(s)} escapes with the relic!`,"ok"); tell(G,"escape",{p:cname(s)}); return; }
+    if(s.relic&&ex&&s.q===ex.q&&s.r===ex.r){ G.winner=s.pid; G.st="over"; G.phase="OVER"; log(G,`${shipName(s)} escapes with the relic!`,"ok"); tell(G,"escape",{p:cname(s)},s.fac); return; }
   }
   G.st="nav_drift";
 }
@@ -978,7 +1033,9 @@ function useOrder(G,i,arg){
   // counts down at the start of each of your turns: rest n+1 now = sits out your next n turns
   c.rest=(s.fac==="WIND"?1:R.REST)+1; c.used=G.turn;
   log(G,`Order: ${d.name} — ${d.order}. ${d.text}.`,"crew");
-  tell(G,"order",{c:d.name,p:cname(s),o:d.order},s.fac);
+  if(CREW_TALES[d.key]){ const o=CREW_TALES[d.key], h=hashStr(G.seed+":"+G.moves.length+":"+d.key); let x=o[h%o.length];
+    for(const [k,v] of [["p",cname(s)],["t",cname(other(G,s))]]) x=x.split("{"+k+"}").join(v); G.story.unshift(x); if(G.story.length>40) G.story.pop(); ev(G,{t:"story",text:x}); }
+  else tell(G,"order",{c:d.name,p:cname(s),o:d.order},s.fac);
   ev(G,{t:"order",pid:s.pid,text:d.order});
 }
 
