@@ -5,17 +5,22 @@
 let G=null;
 let MODE={mode:"local",seat:0};                 // local hotseat, or online with my seat (0/1)
 const UI={screen:"title",speed:1,side:0,handoff:false,busy:false,rolling:null,shown:null,
-  focus:null,heading:null,pickCls:null,pickFac:null,pickCrew:null,share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
+  focus:null,heading:null,pickMap:null,pickMode:null,pickStorm:null,pickCls:null,pickFac:null,pickCrew:[],aiNote:"",share:null,shareText:"",msg:"",msgErr:false,joinMsg:"",lastSeenTurn:0};
 const SAVE_KEY="tethys.v2";
 const P_COLORS=["#ffcf4a","#5fd0ff"];
 const ST_COLOR={NAV:"var(--nav)",ATK:"var(--atk)",ENG:"var(--eng)",ANY:"var(--any)"};
-const PORTRAIT=["...hhhhhh...","..hhhhhhhh..",".hhhsssshhh.",".hhssssssh..","..sesssesa..","..ssssssss..",
-  "...ssaass...","....ssss....","..uuuaauuu..",".uuuuaauuuu.","uuuauuuuauuu","uuuuuuuuuuuu"];
+// 16x16 crew portraits, one template per faction (lowercase = colour from the crew palette).
+// Nomads: wastelanders with cowboy hats, sunglasses, bandanas, leather jackets.
+// Scrappers: helmets, smoke, painted faces, piercings.  Drifters: bedouin wraps, face scarves and
+// mouth amplifiers that send a deep bass against the wind.
+const PORTRAITS={"HEART": ["....hhhhhhhh....","...hhhhhhhhhh...","...hhHHHHHHhh...","hhhhhhhhhhhhhhhh",".hhhhhhhhhhhhhh.","....ssssssss....","...sggggggggs...","...sgGgssgGgs...","....ssssnsss....","....sssssss.....",".....snnnns.....","....bbbbbbbb....","..uubbbbbbbbuu..",".uuuUUbbbbUUuuu.","uuuuuuUbbUuuuuuu","uuuuuuuUUuuuuuuu"],"MACHINE": [".....mmmmmm...k.","....mhhhhhhm.k..","...mhhhhhhhhm.k.","...mHhhhhhhHm..k","...mmmmmmmmmm.k.","...ssssssssss...","...sppppppppsk..","...speppppeps...","...sppppppppsi..","....ssssnssss...","....sspsspssk...",".....siaaaiswk..","......ssssss....","..uuuuuUUuuuuu..",".uuuummuummuuuu.","uuuuuuuuuuuuuuuu"],"WIND": ["....hhhhhhhh....","...hhhhhhhhhh...","..hhhHHHHHHhhh..","..hhHssssssHhh..","..hhseesseeshh..","..hhssssssssh...","..huuuuuuuuuuha.","..huuUmaamUuuh.a","..huuumGGmuuuh.a","..huuuuaauuuuh.a","...uuuuuuuuuu.a.","..huuuuuuuuuuh..",".hhuuuUUUUuuuhh.","hhhuuuuuuuuuuhhh","hhuuuuuuuuuuuuhh","huuuuuuuuuuuuuuh"]};
 const HP_LOW=0.4;
 const reduceMotion=()=>matchMedia("(prefers-reduced-motion: reduce)").matches;
 const sleep=ms=>new Promise(r=>setTimeout(r,reduceMotion()?Math.min(ms,60):ms));
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const myTurn=()=>G&&G.st!=="over"&&(MODE.mode==="local"||actor(G)===MODE.seat);
+const AI_SEAT=1;
+const aiTurn=()=>G&&MODE.mode==="ai"&&G.st!=="over"&&actor(G)===AI_SEAT;
 
 // ---------------- SAVE / LOAD ----------------
 function save(){ try{ localStorage.setItem(SAVE_KEY,JSON.stringify({seed:G.seed,moves:G.moves,mode:MODE.mode,seat:MODE.seat,share:UI.share,shareText:UI.shareText})); }catch(e){} }
@@ -56,13 +61,42 @@ async function makeShare(){
 // ---------------- PLAYING MOVES ----------------
 async function act(m){
   if(UI.busy||!myTurn()) return;
-  if(!legal(G).includes(m)) return;
+  if(!isLegal(G,m)) return;
   const before=actor(G);
-  apply(G,m); const evs=G.ev; G.ev=[]; UI.heading=null; UI.pickCls=null; UI.pickFac=null; UI.pickCrew=null;
+  apply(G,m); const evs=G.ev; G.ev=[]; UI.heading=null; UI.pickCls=null; UI.pickFac=null; UI.pickCrew=[];
   save();
   await present(evs);
   if(MODE.mode==="online"&&before===MODE.seat&&actor(G)!==MODE.seat) await makeShare();
   render();
+  if(aiTurn()) await runAI();
+}
+// The computer plays its moves one by one, with the same animations as a player.
+let aiRunning=false;
+async function runAI(){
+  if(aiRunning) return; aiRunning=true;
+  try{
+    while(aiTurn()){
+      if(G.st==="draft"&&G.cfg&&G.cfg.storm===null){
+        UI.aiNote=`Computer rolls for the weather: d6 ${aiD6(G,"weather")} → ${aiD6(G,"weather")>=5?"storm (5–6)":"calm (1–4)"}.`;
+        log(G,UI.aiNote,"crew");
+      } else if(G.st==="draft"&&!G.ships[AI_SEAT].cls){
+        const su=aiSetup(G);
+        UI.aiNote=`Computer rolls: faction d6 ${su.rolls[0]} → ${FACTIONS[su.fac].name}, ship d6 ${su.rolls[1]} → ${CLASSES[su.cls].name}.`;
+        log(G,UI.aiNote,"crew");
+      }
+      if(G.st==="cmd"&&!G.queue.length){
+        const p=aiPlan(G);
+        UI.aiNote=`Computer rolls: intent d6 ${p.intent} → ${p.engage?"ENGAGE":"ESCAPE"}${p.healthy?"":" (hurt: needs 4+)"}, style d6 ${p.style} → ${p.risky?"RISKY":"EASY"}.`;
+        log(G,UI.aiNote,"crew");
+      }
+      render();
+      await sleep(G.st==="draft"?500:280);
+      const m=aiMove(G); if(!m) break;
+      apply(G,m); const evs=G.ev; G.ev=[]; save();
+      await present(evs);
+    }
+  } finally { aiRunning=false; }
+  UI.handoff=false; render();
 }
 async function present(evs){
   if(!evs.length){ return; }
@@ -135,7 +169,7 @@ const PAL={sandA:[196,170,118],sandB:[180,154,104],
 function initCanvas(el){
   cv=el; ctx=cv.getContext("2d"); ctx.imageSmoothingEnabled=false; terrainKey="";
   img=ctx.createImageData(W,H); qBuf=new Int32Array(W*H); rBuf=new Int32Array(W*H);
-  if(!dust.length) for(let i=0;i<70;i++) dust.push({x:Math.random()*W,y:Math.random()*H,s:.2+Math.random()*.5,c:Math.random()});
+  if(!dust.length) for(let i=0;i<220;i++) dust.push({x:Math.random()*W,y:Math.random()*H,s:.2+Math.random()*.5,c:Math.random(),ph:Math.random()*6.28});
   cv.addEventListener("pointermove",e=>{ hover=screenToHex(e); });
   cv.addEventListener("pointerleave",()=>{ hover=null; });
   cv.addEventListener("click",e=>{ const h=screenToHex(e); if(h) onHexClick(h[0],h[1]); });
@@ -185,8 +219,8 @@ function highlights(){
   return hl;
 }
 function drawTerrain(cs){
-  setTerrainSeed(G.seed);
-  const key=[G.seed,cam.x.toFixed(2),cam.y.toFixed(2),hover&&hover.join(","),G.st,UI.speed,UI.side,UI.heading,G.moves.length,showHints(),cs.q.toFixed(2),cs.r.toFixed(2)].join("|");
+  setTerrain(G.seed,G.cfg?G.cfg.map:"WASTE");
+  const key=[G.seed,G.cfg&&G.cfg.map,cam.x.toFixed(2),cam.y.toFixed(2),hover&&hover.join(","),G.st,UI.speed,UI.side,UI.heading,G.moves.length,showHints(),cs.q.toFixed(2),cs.r.toFixed(2)].join("|");
   if(key===terrainKey){ ctx.putImageData(img,0,0); return; }
   terrainKey=key;
   const d=img.data, hl=highlights(), hv=hover&&showHints()?hover[0]*10007+hover[1]:null;
@@ -203,8 +237,8 @@ function drawTerrain(cs){
       const i=y*W+x, q=qBuf[i], r=rBuf[i], wx=Math.floor(x+ox);
       const t=terrain(q,r), b=BAYER[(wy&3)*4+(wx&3)], n=hash2(wx,wy);
       let c;
-      if(t>=1&&t<=3){
-        const p=t===1?PAL.o1:t===2?PAL.o2:PAL.o3, [hx,hy]=hexPx(q,r), dy=wy-hy, dx=wx-hx;
+      if(t===1||t===3){
+        const p=t===1?PAL.o1:PAL.o2, [hx,hy]=hexPx(q,r), dy=wy-hy, dx=wx-hx;
         c=dy<-HS*0.45?p[1]:(dy>HS*0.55||dx>HS*0.75)?p[2]:p[0];
         if(n>0.86) c=c===p[1]?p[0]:p[1];
       } else {
@@ -215,6 +249,10 @@ function drawTerrain(cs){
         if(t===4){ const [hx,hy]=hexPx(q,r), dd=Math.hypot(wx-hx,wy-hy);
           if(!looted.has(q+","+r)){ if(dd<6&&n>0.45) c=n>0.8?[200,120,60]:n>0.62?[120,110,104]:[70,58,52]; }
           else if(dd<6&&n>0.88) c=[96,84,70]; }
+        if(t===2){ const rb=hash2(wx>>2,wy>>2), rs=hash2(wx>>1,wy>>1), p=((q*5+r*3)&3)<2?PAL.o1:PAL.o2;   // scree: grey or brown rubble over the whole hex
+          c=[c[0]-30,c[1]-30,c[2]-26]; if(rb>0.4) c=rs>0.75?p[1]:rs>0.3?p[0]:p[2]; }
+        if(t===5){ const crest=Math.sin(wx*0.42+wy*0.21);                                  // dunes: pale sand with ripples
+          c=crest>0.6?[250,232,186]:crest<-0.55?[200,166,110]:[232,206,152]; }
       }
       let R0=c[0],G0=c[1],B0=c[2];
       const h=hl.get(q*10007+r);
@@ -229,36 +267,39 @@ function drawTerrain(cs){
     } }
   ctx.putImageData(img,0,0);
 }
-// Ship silhouettes, facing north. A = player colour, F = faction colour.
-// Skiff: twin-hull sand-catamaran. Hauler: diesel barge with stacks. Dreadnought: riveted gunboat. Construct: old-world relic.
-const SHIP_ART={
-  SKIFF:["..oo....oo..",".oAAo..oAAo.",".oAAo..oAAo.",".oAAo..oAAo.",".oAAooooAAo.",".oAAmccmAAo.",
-         ".oAAmccmAAo.",".oAAmFFmAAo.",".oAAooooAAo.",".osAo..oAso.",".osAo..oAso.",".osso..osso.","..ff....ff.."],
-  HAULER:["....oooooooooo....","...oAAAAAAAAAAo...","..oAAwwwwwwwwAAo..","..oAwwddwwddwwAo..","..oAwwddwwddwwAo..",
-          "..oAwwwwccwwwwAo..","..oAwwwmccmwwwAo..","..oAwddwwwwddwAo..","..oAwddwwwwddwAo..","..oAwwwwwwwwwwAo..",
-          "..oAwwkkwwkkwwAo..","..oAwwkkwwkkwwAo..","..oAFFFFFFFFFFAo..","..oAssssssssssAo..","..oAAAAAAAAAAAAo..",
-          "...oooooooooooo...","....f..f..f..f...."],
-  DREAD:[".......oo.......","......omdo......","......omdo......",".....oAmdAo.....","....oAAddAAo....",
-         "....oAmddmAo....","...oAAAmmAAAo...","...oAdAAAAdAo...","..oAAdAkkAdAAo..","..oAAAAkkAAAAo..",
-         "..oAFFFFFFFFAo..","..oAssssssssAo..",".oAAsAAAAAAsAAo.",".oAsoooooooosAo.","oAso........osAo",
-         "oso..........oso","o..f........f..o"],
-  RELIC:["......oo......",".....oggo.....","....ogAAgo....","...ogAssAgo...","..ogAsGGsAgo..",".ogAsGFFGsAgo.",
-         "ogAsGFFFFGsAgo","ogAsGFFFFGsAgo",".ogAsGFFGsAgo.","..ogAsGGsAgo..","...ogAssAgo...","....ogAAgo....",
-         ".....oggo.....","......oo......"],
-};
-const STACKS={HAULER:[[6,10],[11,10]],DREAD:[[7,8]]};   // smokestack pixels (x,y) in the sprite
+// Ships, seen from above with the bow up. Skiff: regatta catamaran. Hauler and Dreadnought: Chinese junks
+// with battened sails. Construct: an old-world manta ray. They hover over the dune sea (shadow + glow).
+// A = player colour, S = sail in the faction's colours, F = faction stripe.
+const SHIP_ART={"SKIFF": ["..o.....o..", ".oAo...oAo.", ".oAo...oAo.", ".oAo.S.oAo.", ".oAooSooAo.", ".oAotStoAo.", ".oAotmtoAo.", ".oAotStoAo.", ".oAooSooAo.", ".oAo.F.oAo.", ".osAo.oAso.", ".oso...oso.", "..g.....g.."], "HAULER": [".K......oooo......K.", ".K.....oAAAAo.....K.", ".K....oAwwwwAo....K.", ".K...oAwwwwwwAo...K.", ".K..oAwSSSSSSwAo..K.", ".K..oAwrrrrrrwAo..K.", ".K.oAwwSSSSSSwwAo.K.", ".K.oAwSSSSSSSSwAo.K.", ".K.oAwrrrrrrrrwAo.K.", ".K.oAwSSSSSSSSwAo.K.", ".K.oAwwxxmmxxwwAo.K.", ".K.oAwwxxwwxxwwAo.K.", ".K.oAwSSSSSSSSwAo.K.", ".K.oAwrrrrrrrrwAo.K.", ".K.oAwSSSSSSSSwAo.K.", ".K.oAddddddddddAo.K.", ".K.oAdFFFFFFFFdAo.K.", ".K.oAAAAAAAAAAAAo.K.", ".K..oooooooooooo..K.", ".....g..g..g..g....."], "DREAD": ["........oo........", ".......oAAo.......", ".......omdo.......", "......oAmmAo......", ".....oAwwwwAo.....", "....oAwSSSSwAo....", "...moAwrrrrwAom...", "....oAwSSSSwAo....", "....oAwwmmwwAo....", "...moAwSSSSwAom...", "....oAwrrrrwAo....", "....oAwwxxwwAo....", "...moAwwxxwwAom...", "....oAddddddAo....", "....oAdFFFFdAo....", "....oAAAAAAAAo....", ".....oooooooo.....", "........K.........", "......g...g......."], "RELIC": ["...oo...oo...", "...oAo.oAo...", "....oAoAo....", "..ooAGGGAoo..", ".oAAGFFFGAAo.", "oAAsAGGGAsAAo", "oAssAAAAAssAo", ".oo.oAAAo.oo.", ".....oAo.....", "......o......", "......o......", "......g......"]};
+// Side views for the ship choice (bow to the right).
+const SHIP_SIDE={"SKIFF": ["..........o...........", "..........oSo.........", "..........oSSo........", "..........oSrSo.......", "..........oSSSSo......", "..........oSSrSSo.....", "..........oSSSSSSo....", "..........oSSSrSSSo...", "..........ommmmmmmmo..", "....ooooooooooooooooo.", "..ooAAAAAAAAAAAAAAAAoo", "...oAAFFFFAAAAAAAAoo..", "....ossssssssssssoo...", ".....oooooooooooo.....", "......m.......m...K...", "....KKKKKKKKKKKKKKK...", "......g.......g.......", ".....kkkkkkkkkkkkk....", "..y........y.......y.."], "HAULER": ["..................zz.............", "........oo.......zz..oo..........", "........oSoo....zz...oSoo........", ".......oSSSSoo...zz.oSSSSoo......", ".......orrrrrro..xx.orrrrrro..oo.", ".......oSSSSSSo..xx.oSSSSSSo.oSo.", "......oSSSSSSSo..xxoSSSSSSSooSSo.", "......orrrrrrro..xxorrrrrrroorro.", "......oSSSSSSSo..xxoSSSSSSSooSSo.", ".....oSSSSSSSSo..xoSSSSSSSSooSSo.", ".....orrrrrrrro..xorrrrrrrroorro.", ".....ooooooooom..xooooooooomoooo.", "..oooo.......m...x.........m..m..", "..oddo.......m...x.........m..m..", "..oddddooooooooooooooooooooooooo.", "..oddddwwwwwwwwwwwwwwwwwwwwwwwwo.", "..oAAAAAAAAAAAAAAAAAAAAAAAAAAAo..", "..oAAFFFFFFFFFFFFFFFFFFFFFAAAo...", "...osssssssssssssssssssssssso....", "....oooooooooooooooooooooooo.....", "......m.........m.........m.K....", "...dKKKKKKKKKKKKKKKKKKKKKKKKK....", "....KKKKKKKKKKKKKKKKKKKKKKKKK.K..", "......g.....g.....g.....g........", ".....kkkkkkkkkkkkkkkkkkkkkkkk....", "..y.........y.........y.......y.."], "DREAD": ["...................zz..........", "..........oo......zz..oo.......", "..........oSoo...zz...oSoo.....", ".........oSSSSoo..zz.oSSSSoo...", ".........orrrrrro.xx.orrrrrro..", ".........oSSSSSSo.xx.oSSSSSSo..", "........oSSSSSSSo.xxoSSSSSSSo..", "........orrrrrrro.xxorrrrrrro..", "........oSSSSSSSo.xxoSSSSSSSo..", "........oooooooom.xxoooooooom..", "...ooo..........m.xx........m..", "...odo..........m.xx........m..", "...oddoooooooooooooooooooooo...", "...oddwwwwwwwwwwwwwwwwwwwwwwmmm", "...oAAAAAAAAAAAAAAAAAAAAAAAAoo.", "...oAmAAAmAAAmAAAmAAAmAAAAAAAoo", "...oAAFFFFFFFFFFFFFFFFFFFAAoo..", "....ossssssssssssssssssssoo....", ".....oooooooooooooooooooooo....", ".......m.........m.......m.K...", ".....KKKKKKKKKKKKKKKKKKKKKKK...", ".......g......g......g.........", "......kkkkkkkkkkkkkkkkkkkkk....", "..y.........y........y.......y."], "RELIC": ["......oooooo..........", "....ooAAAAAAoo........", "..ooAAAGGGAAAAoo....oo", ".oAAAsAGFGAAsAAAoooAAo", "oAAAAssAGAAssAAAAAAAAo", ".ooAAAAAAAAAAAAAAAoo.o", "...oooAAAAAAAAAooo....", "o.....ooooooooo.......", ".oGo......m...........", "..oGGo..KKKKKK.K......", "..........g...........", "......kkkkkkkkkk......", "..y........y.......y.."]};
+const STACKS={HAULER:[[7,10],[12,10]],DREAD:[[8,11]]};   // smokestack pixels (x,y) in the map sprites
+const SAILS={MACHINE:["#9a4a24"],HEART:["#d8402c","#2f9fb0","#e8b830"],WIND:["#ecdcb4"]};
 const shipSprites={};
 function shade(hex,amt){ const n=parseInt(hex.slice(1),16); const f=v=>Math.max(0,Math.min(255,Math.round(v*(1+amt)))); return `rgb(${f(n>>16)},${f(n>>8&255)},${f(n&255)})`; }
+function artColors(color,fac,frame){
+  const fc=(FACTIONS[fac]||{color:"#c0a070"}).color;
+  return {o:"#120e18",A:color,s:shade(color,-0.45),c:"#7fe8ff",m:"#8a909c",d:"#5a3a24",w:"#a8865a",t:"#3a3028",
+    F:fc,g:frame?"#ffd890":"#c08a40",G:frame?"#e0ffff":"#a0f0ff",k:"rgba(40,22,10,.35)",y:"#e8d0a0",
+    K:"#5a5a66",x:"#2a2622",z:"rgba(96,90,96,.8)"};
+}
+function sailColor(fac,y){ const c=SAILS[fac]||["#d8c8a0"]; return c[Math.floor(y/2)%c.length]; }
+function paintArt(x,art,map,fac,ox=0,oy=0,scale=1){
+  art.forEach((row,yy)=>[...row].forEach((ch,xx)=>{
+    let col=map[ch];
+    if(ch==="S") col=sailColor(fac,yy); else if(ch==="r") col=shade(sailColor(fac,yy),-0.4);
+    if(col){ x.fillStyle=col; x.fillRect(ox+xx*scale,oy+yy*scale,scale,scale); }
+  }));
+}
 function shipSprite(cls,color,fac,frame){
   cls=SHIP_ART[cls]?cls:"SKIFF";
   const k=cls+color+fac+frame; if(shipSprites[k]) return shipSprites[k];
-  const art=SHIP_ART[cls], w=Math.max(...art.map(r=>r.length)), h=art.length;
-  const c=document.createElement("canvas"); c.width=w; c.height=h; const x=c.getContext("2d");
-  const fc=(FACTIONS[fac]||{color:"#c0c0c0"}).color;
-  const map={o:"#120e18",A:color,s:shade(color,-0.45),c:"#7fe8ff",m:"#8a909c",d:"#4a4e58",w:"#a8865a",k:"#2a2a30",
-    F:fc,f:frame?"#ffffff":"#ffb040",g:frame?"#60f0ff":"#3ab0e0",G:frame?"#e0ffff":"#a0f0ff"};
-  if(cls==="SKIFF") map.f=frame?"#ffffff":"#3fd8ff";
-  art.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(map[ch]){ x.fillStyle=map[ch]; x.fillRect(xx,yy,1,1);} }));
+  const art=SHIP_ART[cls], c=document.createElement("canvas"); c.width=art[0].length; c.height=art.length;
+  const x=c.getContext("2d"); paintArt(x,art,artColors(color,fac,frame),fac);
+  // hover shadow: the same silhouette, dark and transparent
+  const sh=document.createElement("canvas"); sh.width=c.width; sh.height=c.height; const y=sh.getContext("2d");
+  y.drawImage(c,0,0); y.globalCompositeOperation="source-in"; y.fillStyle="rgba(30,16,6,.45)"; y.fillRect(0,0,sh.width,sh.height);
+  c.shadow=sh;
   return shipSprites[k]=c;
 }
 function paintShips(){
@@ -267,8 +308,19 @@ function paintShips(){
     x.clearRect(0,0,c.width,c.height); x.imageSmoothingEnabled=false;
     x.drawImage(sp,Math.floor((c.width-sp.width)/2),Math.floor((c.height-sp.height)/2));
   });
+  document.querySelectorAll("canvas[data-side]").forEach(c=>{
+    const art=SHIP_SIDE[c.dataset.side], x=c.getContext("2d"), fac=c.dataset.fac||"";
+    x.imageSmoothingEnabled=false;
+    // dune sea backdrop: dusk sky, a far dune line, near sand
+    const sky=x.createLinearGradient(0,0,0,c.height); sky.addColorStop(0,"#2a1c2a"); sky.addColorStop(.55,"#b8643a"); sky.addColorStop(.56,"#c89058"); sky.addColorStop(1,"#a8743e");
+    x.fillStyle=sky; x.fillRect(0,0,c.width,c.height);
+    x.fillStyle="#9a6634"; for(let i=0;i<c.width;i++){ const h=Math.round(Math.sin(i/6)*1.5+Math.sin(i/2.3)*.6); x.fillRect(i,12+h,1,2); }
+    x.fillStyle="#f0d8a0"; x.fillRect(5,3,2,2);
+    paintArt(x,art,artColors(P_COLORS[+c.dataset.pid-1]||P_COLORS[0],fac,0),fac,Math.floor((c.width-art[0].length)/2),c.height-art.length);
+  });
 }
 const shipCanvas=(cls,pid,fac,cl="")=>`<canvas class="shipimg ${cl}" width="20" height="20" data-ship="${cls}" data-pid="${pid}" data-fac="${fac||""}" aria-hidden="true"></canvas>`;
+const sideCanvas=(cls,pid,fac)=>`<canvas class="sideimg" width="36" height="28" data-side="${cls}" data-pid="${pid}" data-fac="${fac||""}" aria-hidden="true"></canvas>`;
 function toScreen(q,r){ const [x,y]=hexPx(q,r); return [Math.round(x-cam.x+W/2),Math.round(y-cam.y+H/2)]; }
 const fx={
   shot(a,b){ const pa=shipPos(G.ships[a-1]),pb=shipPos(G.ships[b-1]); shots.push({a:hexPx(pa.q,pa.r),b:hexPx(pb.q,pb.r),t0:performance.now(),col:P_COLORS[a-1]}); },
@@ -278,6 +330,26 @@ const fx={
   text(pid,t,c){ const p=shipPos(G.ships[pid-1]), [x,y]=hexPx(p.q,p.r); floats.push({x,y:y-10,t,c,l:70}); },
 };
 function drawX(x,y,c){ ctx.fillStyle=c; for(let k=-4;k<=4;k++){ ctx.fillRect(x+k,y+k,1,1); ctx.fillRect(x+k,y-k,1,1);} }
+// Relic Race: the relic (a glowing old-world shard) and, once it is taken, one gate per team.
+function drawRelicRace(now){
+  if(!G.relic) return;
+  const pulse=(Math.sin(now/200)+1)/2;
+  if(G.exits) G.exits.forEach((e,i)=>{ const [x,y]=toScreen(e.q,e.r);
+    ctx.strokeStyle=P_COLORS[i]; ctx.lineWidth=1; hexOutline(x,y,HS-1); hexOutline(x,y,HS-3-Math.round(pulse*2));
+    ctx.fillStyle=P_COLORS[i]; ctx.font='7px "Press Start 2P"'; const t="EXIT"; ctx.fillText(t,x-Math.round(ctx.measureText(t).width/2),y+3); });
+  if(!G.relic.carrier){ const [x,y]=toScreen(G.relic.q,G.relic.r);
+    ctx.fillStyle="#120e18"; ctx.fillRect(x-3,y-5,7,10);
+    ctx.fillStyle=pulse>.5?"#e0ffff":"#60f0ff"; ctx.fillRect(x-2,y-4,5,8); ctx.fillStyle="#ffffff"; ctx.fillRect(x-1,y-2,3,3);
+    ctx.strokeStyle="rgba(96,240,255,"+(0.3+pulse*0.5)+")"; hexOutline(x,y,HS-2); }
+}
+function drawWind(){
+  const w=windNow(G); if(w===null) return;
+  const x=W-18, y=18, a=(w+3)*Math.PI/3;                       // arrow points where the wind blows to
+  ctx.fillStyle="rgba(18,14,24,.75)"; ctx.fillRect(x-14,y-14,28,28);
+  ctx.save(); ctx.translate(x,y); ctx.rotate(a); ctx.fillStyle="#e8d0a0";
+  ctx.fillRect(-1,-7,3,12); ctx.beginPath(); ctx.moveTo(-5,-5); ctx.lineTo(0,-11); ctx.lineTo(6,-5); ctx.closePath(); ctx.fill(); ctx.restore();
+  ctx.fillStyle="#e8d0a0"; ctx.font='6px "Press Start 2P"'; ctx.fillText("WIND",x-11,y+12);
+}
 function hexOutline(x,y,s){ ctx.beginPath(); for(let i=0;i<6;i++){ const a=Math.PI/3*i; const px=x+s*Math.cos(a)+.5, py=y+s*Math.sin(a)+.5; i?ctx.lineTo(px,py):ctx.moveTo(px,py);} ctx.closePath(); ctx.stroke(); }
 function frame(now){
   requestAnimationFrame(frame);
@@ -293,23 +365,33 @@ function frame(now){
   if(G.st==="nav_pick"&&showHints()){ const o=navOption(s,UI.speed,UI.side); if(o) drawX(...toScreen(o.q,o.r),"#ff2a6a"); }
   if(G.st==="nav_drift"&&G.aim) drawX(...toScreen(G.aim.q,G.aim.r),"#ff2a6a");
   const fr=(now/120|0)%2;
+  drawRelicRace(now);
   for(const sh of G.ships){
     if(sh.hp<=0&&!disp[sh.pid]) continue;
     const p=shipPos(sh), [x,y]=toScreen(p.q,p.r);
     if(sh===s&&G.st!=="over"){ ctx.strokeStyle=fr?"#ffffff":P_COLORS[sh.pid-1]; ctx.lineWidth=1; hexOutline(x,y,HS-1); }
     if(G.target===sh.pid&&G.phase==="ATK"){ ctx.strokeStyle=s.f.locked?"#3dff6a":"#ff4040"; hexOutline(x,y,HS-1); hexOutline(x,y,HS-3); }
-    ctx.save(); ctx.translate(x,y); ctx.rotate((sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3); const spr=shipSprite(sh.cls,P_COLORS[sh.pid-1],sh.fac,fr), sw=spr.width, sh2=spr.height;
+    const ang=(sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3;
+    const spr=shipSprite(sh.cls,P_COLORS[sh.pid-1],sh.fac,fr), sw=spr.width, sh2=spr.height;
+    ctx.save(); ctx.translate(x+2,y+3); ctx.rotate(ang); ctx.drawImage(spr.shadow,-Math.floor(sw/2),-Math.floor(sh2/2)); ctx.restore();   // hover shadow
+    ctx.save(); ctx.translate(x,y); ctx.rotate(ang);
     ctx.drawImage(spr,-Math.floor(sw/2),-Math.floor(sh2/2));
+    // bow marker: a small arrow in the player's colour, always ahead of the ship
+    const by=-Math.floor(sh2/2)-2;
+    ctx.fillStyle="#120e18"; ctx.beginPath(); ctx.moveTo(0,by-6); ctx.lineTo(-5,by+1); ctx.lineTo(5,by+1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle=P_COLORS[sh.pid-1]; ctx.beginPath(); ctx.moveTo(0,by-4.5); ctx.lineTo(-3.5,by); ctx.lineTo(3.5,by); ctx.closePath(); ctx.fill();
+    for(const [px,py] of (STACKS[sh.cls]||[])) if(Math.random()<0.06&&!reduceMotion()){
+      const lx=px-sw/2, ly=py-sh2/2, [wx,wy]=hexPx(p.q,p.r);
+      parts.push({x:wx+lx*Math.cos(ang)-ly*Math.sin(ang),y:wy+lx*Math.sin(ang)+ly*Math.cos(ang),vx:.12+Math.random()*.2,vy:-.22,l:40,c:Math.random()<.5?"#6a6466":"#4a4448"}); }
     if(sh.cls==="RELIC"){ const a=now/400; for(let k=0;k<3;k++){ const b=a+k*2.094; ctx.fillStyle=k?"#60f0ff":"#e0ffff"; ctx.fillRect(Math.round(Math.cos(b)*9)-1,Math.round(Math.sin(b)*9)-1,2,2); } }
-    for(const [px,py] of (STACKS[sh.cls]||[])) if(Math.random()<0.05&&!reduceMotion()){
-      const ang=(sh===s&&G.st==="nav_heading"&&showHints()?previewHeading():sh.o)*Math.PI/3, lx=px-sw/2, ly=py-sh2/2;
-      const [wx,wy]=hexPx(p.q,p.r); parts.push({x:wx+lx*Math.cos(ang)-ly*Math.sin(ang),y:wy+lx*Math.sin(ang)+ly*Math.cos(ang),vx:.15+Math.random()*.2,vy:-.25,l:40,c:Math.random()<.5?"#5a5660":"#3a3840"}); }
     ctx.restore();
-    const w=16, f=Math.ceil(w*sh.hp/sh.maxHp), top=y-Math.ceil(Math.max(sw,sh2)/2)-4;
+    const w=16, f=Math.ceil(w*sh.hp/sh.maxHp), top=y-Math.ceil(Math.max(sw,sh2)/2)-11;
     ctx.fillStyle="#000"; ctx.fillRect(x-w/2-1,top,w+2,4);
     ctx.fillStyle=sh.hp/sh.maxHp<HP_LOW?"#ff4d5e":"#5be37a"; ctx.fillRect(x-w/2,top+1,f,2);
     if(sh.evasive){ ctx.fillStyle="#7fe8ff"; ctx.fillRect(x+9,top+1,2,2); }
+    if(sh.relic){ ctx.fillStyle="#120e18"; ctx.fillRect(x-12,top-1,5,7); ctx.fillStyle=fr?"#e0ffff":"#60f0ff"; ctx.fillRect(x-11,top,3,5); }
   }
+  drawWind();
   const o=other(G,fs);
   if(o&&o.hp>0){
     const op=shipPos(o), [x,y]=toScreen(op.q,op.r);
@@ -335,8 +417,19 @@ function frame(now){
   floats=floats.filter(f=>{ f.l--; f.y-=.35; const tw=ctx.measureText(f.t).width, x=Math.round(f.x-cam.x+W/2-tw/2), y=Math.round(f.y-cam.y+H/2);
     ctx.fillStyle="#000"; ctx.fillText(f.t,x+1,y+1); ctx.fillStyle=f.c; ctx.fillText(f.t,x,y); return f.l>0; });
   const moving=Object.values(disp).some(d=>d.anim);
-  for(const p of dust){ p.x+=p.s*(moving?6:1); p.y+=p.s*(moving?6:1)*.6; if(p.x>W) p.x-=W; if(p.y>H) p.y-=H;
-    ctx.fillStyle=p.c<.33?"#8a7a5a":p.c<.66?"#b8a078":"#e0caa0"; ctx.fillRect(p.x|0,p.y|0,1,1); }
+  // blowing sand follows the weather: calm = a few slow grains drifting lazily; storm = dense streaks
+  // racing downwind (the way the WIND arrow points), with a dusty haze over the map
+  const wind=G&&G.cfg?windNow(G):null, storm=wind!==null, k=moving?6:1;
+  const ang=storm?mod(wind+3,6)*Math.PI/3:0, wx=Math.sin(ang), wy=-Math.cos(ang);
+  if(storm){ ctx.fillStyle="rgba(196,150,90,.10)"; ctx.fillRect(0,0,W,H); }
+  const n=storm?dust.length:45, tnow=performance.now()/1000;
+  for(let i=0;i<n;i++){ const p=dust[i];
+    if(storm){ const sp=(2.2+p.s*5)*k; p.x+=wx*sp+Math.sin(tnow*3+p.ph)*.4; p.y+=wy*sp+Math.cos(tnow*3+p.ph)*.4; }
+    else { p.x+=(.12+p.s*.25)*k+Math.sin(tnow*.7+p.ph)*.08; p.y+=Math.sin(tnow*.5+p.ph)*.06*k+.02*k; }
+    if(p.x>W) p.x-=W; if(p.x<0) p.x+=W; if(p.y>H) p.y-=H; if(p.y<0) p.y+=H;
+    ctx.fillStyle=p.c<.33?"#8a7a5a":p.c<.66?"#b8a078":"#e0caa0";
+    if(storm){ const len=2+Math.round(p.s*6); for(let j=0;j<len;j++) ctx.fillRect((p.x-wx*j)|0,(p.y-wy*j)|0,1,1); }
+    else ctx.fillRect(p.x|0,p.y|0,1,1); }
   cam.x=saved.x; cam.y=saved.y;
   const hud=document.getElementById("hud");
   if(hud){
@@ -345,8 +438,8 @@ function frame(now){
       const [q,r]=hover, ob=terrain(q,r);
       if(G.st==="nav_heading"&&showHints()&&(q!==s.q||r!==s.r)) t=`TAP TO FACE ${DIR_NAMES[dirToward(s,q,r)]}`;
       if(G.st==="nav_pick"&&showHints()){ const op=allNavOptions(s).find(x=>x.q===q&&x.r===r); if(op) t=`SPEED ${op.speed} · TURN ${op.side>0?"+":""}${op.side} · DC ${op.dc}`; }
-      if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r); if(sh&&sh!==s){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(q-s.q,r-s.r)} HEX · ${ai?"IN ARC, RANGE "+ai.range:"OUT OF ARC"}`; } }
-      if(!t&&ob) t=ob===4?(G.looted.includes(q+","+r)?"PICKED-CLEAN WRECK":"OLD-WORLD WRECK · +1 PART"):TERRAIN_NAMES[ob].toUpperCase()+" · 5 DMG";
+      if(!t){ const sh=G.ships.find(x=>x.hp>0&&x.q===q&&x.r===r); if(sh&&sh!==s){ const ai=arcInfo(s,sh); t=`P${sh.pid} · ${hexDist(q-s.q,r-s.r)} HEX · ${ai?"IN ARC, RANGE "+ai.range:rockBlocks(s,sh)?"ROCK BLOCKS THE SHOT":"OUT OF ARC"}`; } }
+      if(!t&&ob) t=ob===4?(G.looted.includes(q+","+r)?"PICKED-CLEAN WRECK":"OLD-WORLD WRECK · +1 PART"):(ob===2?"SCREE · FLY OVER · LANDING "+R.SCREE_DMG+" DMG":ob===5?"DUNES · FLY OVER · LANDING "+R.DUNE_DMG+" DMG":TERRAIN_NAMES[ob].toUpperCase()+" · BLOCKS · CRASH "+R.CRASH_DMG+" DMG");
     }
     if(hud.textContent!==t) hud.textContent=t;
   }
@@ -363,12 +456,14 @@ function onHexClick(q,r){
 // HTML UI
 // ======================================================================
 const app=document.getElementById("app");
-const faceCanvas=key=>`<canvas width="12" height="12" data-face="${key}"></canvas>`;
+const faceCanvas=key=>`<canvas width="16" height="16" data-face="${key}"></canvas>`;
 function paintFaces(){
   document.querySelectorAll("canvas[data-face]").forEach(c=>{
-    const d=CREW_BY[c.dataset.face], x=c.getContext("2d"); x.clearRect(0,0,12,12);
-    const m={s:d.pal[0],h:d.pal[1],u:d.pal[2],a:d.pal[3],e:"#101018"};
-    PORTRAIT.forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(m[ch]){ x.fillStyle=m[ch]; x.fillRect(xx,yy,1,1);} }));
+    const d=CREW_BY[c.dataset.face], x=c.getContext("2d"); x.clearRect(0,0,16,16);
+    const [skin,head,cloth,acc]=d.pal;
+    const m={s:skin,n:shade(skin,-0.18),e:"#101018",h:head,H:shade(head,-0.35),u:cloth,U:shade(cloth,-0.35),a:acc,b:acc,p:acc,
+      g:"#0c0c12",G:"#e8f4ff",m:"#9aa0a8",i:"#f0f0f8",k:"#8a8a90",w:"#f8e8c8"};
+    PORTRAITS[d.f].forEach((row,yy)=>[...row].forEach((ch,xx)=>{ if(m[ch]){ x.fillStyle=m[ch]; x.fillRect(xx,yy,1,1);} }));
   });
 }
 function header(){
@@ -377,14 +472,14 @@ function header(){
     const s=S(G), slots=["CMD",...G.queue]; while(slots.length<1+slotsAllowed(G)) slots.push("···");
     track=`<div class="track" aria-label="Phase plan">`+slots.map((p,i)=>{ const on=G.phase==="CMD"?i===0:i===G.qi+1; const col=p==="NAV"?"var(--nav)":p==="ATK"?"var(--atk)":p==="ENG"?"var(--eng)":"var(--dim)";
       return `<span class="slot ${on?"on":""}" style="border-color:${col};${on?`background:${col}`:""}">${p}</span>`; }).join("")+`</div>`;
-    const who=MODE.mode==="online"?(myTurn()?"YOUR TURN":`WAITING · P${s.pid}`):`PLAYER ${s.pid}`;
+    const who=MODE.mode==="online"?(myTurn()?"YOUR TURN":`WAITING · P${s.pid}`):MODE.mode==="ai"?(myTurn()?"YOUR TURN":"COMPUTER'S TURN"):`PLAYER ${s.pid}`;
     track+=`<span class="turnchip" style="color:${P_COLORS[s.pid-1]}">${G.st==="over"?"GAME OVER":who}</span>`;
   }
   const seatChip=G&&MODE.mode==="online"&&MODE.seat!==null?`<span class="turnchip" style="color:${P_COLORS[MODE.seat]}">YOU ARE P${MODE.seat+1}</span>`:"";
   return `<div class="top"><div class="logo">TETHYS<small>DESERT DRIFTER · THE ROAD TO EUROPA</small></div>${track}${seatChip}</div>`;
 }
-const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull and a faction, then draft 3 crew from 15 (picks go 1-2-2-1-1-2). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
-  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. A jammed ship gets only 2 phases."],
+const RULES=[["var(--sand)","1 · Ships & crew","Pick a hull, a faction and your whole crew in one go (3 crew, Hauler 4). Crew of your own faction add hull. Once the guns are in range, a fight is over in 2–3 rounds."],
+  ["var(--any)","2 · Plan the turn","Choose the order of NAV, ATK and ENG. Player 1 picks the map and mode (Duel or Relic Race); Player 2 picks the weather."],
   ["var(--nav)","NAV","Pick speed and turn. Roll BOOST to reach the hex, then DRIFT to hold your heading."],
   ["var(--atk)","ATK","Target a ship in your front arc. Lock on to cripple a system or stun crew, then fire."],
   ["var(--eng)","ENG","Spend energy on ENGINE, BOOST, DRIFT, WEAPONS. Repair with spare parts (d4 hull each)."],
@@ -398,7 +493,7 @@ function renderTitle(){
   const sv=loadSave();
   app.innerHTML=header()+`<section class="full"><div class="hero"><div><h1>TETHYS<small>DESERT DRIFTER</small></h1></div>
   <div style="display:flex;flex-direction:column;gap:14px"><p>The old world is sand and scrap. Somewhere beyond the dunes lies Europa. Two ships have heard the same rumour of a relic that points the way, and only one will carry it home.</p>
-  <div class="btnrow"><button class="go" data-ui="local" id="btn-local">Play on this device</button><button data-ui="online" id="btn-online">Start online game</button>${sv?`<button data-ui="continue" id="btn-continue">Continue saved game</button>`:""}</div>
+  <div class="btnrow"><button class="go" data-ui="ai" id="btn-ai">Play vs computer</button><button data-ui="local" id="btn-local">Two players, one device</button><button data-ui="online" id="btn-online">Start online game</button>${sv?`<button data-ui="continue" id="btn-continue">Continue saved game</button>`:""}</div>
   <div class="join"><label class="prompt" for="join-code">JOIN A FRIEND'S GAME<span class="sub">Paste the move code your friend sent you.</span></label>
   <textarea id="join-code" class="code" placeholder="TETHYS-…"></textarea>
   <div class="btnrow"><button data-ui="join" id="btn-join">Load code</button><span class="msg ${UI.joinMsg?"err":""}">${esc(UI.joinMsg)}</span></div></div>
@@ -414,46 +509,80 @@ function waitingPanel(){
 function canUndo(){
   if(!G||UI.busy||!G.moves.length) return false;
   const last=G.moves[G.moves.length-1];
-  if(!/^[CR]:/.test(last)) return false;
+  if(!/^(SET|WX|C|CREW):/.test(last)) return false;
   if(MODE.mode==="local") return true;
   const prev=replay(G.seed,G.moves.slice(0,-1));
   return actor(prev)===MODE.seat&&actor(G)===MODE.seat;      // online: only inside your own, unsent turn
 }
 function undoLast(){
   if(!canUndo()) return;
-  G=replay(G.seed,G.moves.slice(0,-1)); UI.pickCrew=null; UI.handoff=false; save();
+  G=replay(G.seed,G.moves.slice(0,-1)); UI.pickCrew=[]; UI.handoff=false; save();
+}
+const isCapt=k=>!!CREW_BY[k].capt;
+// in the front arc (range 1-3) but rock in between?
+const rockBlocks=(s,t)=>!!t&&t.hp>0&&inFrontArc(s,t)&&!lineOfSight(s.q,s.r,t.q,t.r);
+function inFrontArc(s,t){ const d=hexDist(t.q-s.q,t.r-s.r); return d>=1&&d<=3&&arcHexesAll(s).some(([q,r])=>q===t.q&&r===t.r); }
+function arcHexesAll(s){ const h=[]; for(let d=1;d<=3;d++) for(let sd=-3;sd<=3;sd++){ const [q,r]=navToCoords(s.o,sd,d-1); h.push([s.q+q,s.r+r]); } return h; }
+// small top-down preview of a map's terrain (same seed as the game)
+function paintMaps(){
+  document.querySelectorAll("canvas[data-map]").forEach(c=>{
+    const x=c.getContext("2d"), R0=17, map=c.dataset.map, keep=[G.seed,G.cfg?G.cfg.map:"WASTE"];
+    setTerrain(G.seed,map); x.fillStyle="#0d0b14"; x.fillRect(0,0,c.width,c.height);
+    for(let q=-R0;q<=R0;q++) for(let r=-R0;r<=R0;r++){ if(hexDist(q,r)>R0) continue;
+      const px=Math.round(c.width/2+q*1.5*1.6), py=Math.round(c.height/2+(q/2+r)*1.75*1.6), t=terrain(q,r);
+      x.fillStyle=t===0?((q+r)&1?"#c4a470":"#b89660"):t===4?"#7a5a40":t===2?"#8a7060":t===5?"#e0c48a":t===1?"#4a5060":"#8a4a2a"; x.fillRect(px-1,py-1,3,3); }
+    for(const [q,r,col] of [[0,5,P_COLORS[0]],[0,-5,P_COLORS[1]]]){ x.fillStyle=col; x.fillRect(Math.round(c.width/2+q*2.4)-2,Math.round(c.height/2+r*2.8)-2,4,4); }
+    setTerrain(keep[0],keep[1]);
+  });
+}
+function setupBody(pi){
+  const m=UI.pickMap||"WASTE", md=UI.pickMode||"DUEL";
+  return `<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER 1: CHOOSE THE BATTLEFIELD<span class="sub">Pick a map and a game mode. Then choose your ship. Player 2 will pick the weather.</span></div>
+    <div class="classes facs">${Object.entries(MAPS).map(([k,mp])=>`<button class="cls ${m===k?"picked":""}" data-ui="selmap" data-v="${k}" id="sel-map-${k}" aria-pressed="${m===k}">
+      <canvas class="mapimg" width="110" height="110" data-map="${k}" aria-hidden="true"></canvas><span class="nm">${mp.name.toUpperCase()}</span><span>${esc(mp.text)}</span></button>`).join("")}</div>
+    <div class="classes">${[["DUEL","Duel","Last ship flying wins."],["RELIC","Relic Race","Capture the flag: grab the relic in the middle and bring it to your own exit. The carrier gets −1 engine. Or sink the other ship."]].map(([k,n,t])=>`<button class="cls ${md===k?"picked":""}" data-ui="selmode" data-v="${k}" id="sel-mode-${k}" aria-pressed="${md===k}"><span class="nm">${n.toUpperCase()}</span><span>${t}</span></button>`).join("")}</div>
+    <div class="btnrow"><button class="go" data-m="SET:${m}:${md}" id="m-confirm-setup">Confirm: ${MAPS[m].name}, ${md==="RELIC"?"Relic Race":"Duel"} ▸</button></div>`;
+}
+function weatherBody(pi){
+  const st=UI.pickStorm||"CALM";
+  return `<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER 2: CHOOSE THE WEATHER<span class="sub">Player 1 chose ${MAPS[G.cfg.map].name}, ${G.cfg.mode==="RELIC"?"Relic Race":"Duel"}. You decide whether a storm rises. Then choose your ship.</span></div>
+    <div class="classes">${[["CALM","Calm","No wind."],["STORM","Storm","The wind turns every two rounds. Into the wind DC +2, with the wind DC −1 and drag; shots without a lock −2. Haulers ignore drag but turn worse."]].map(([k,n,t])=>`<button class="cls ${st===k?"picked":""}" data-ui="selstorm" data-v="${k}" id="sel-storm-${k}" aria-pressed="${st===k}"><span class="nm">${n.toUpperCase()}</span><span>${t}</span></button>`).join("")}</div>
+    <div class="btnrow"><button class="go" data-m="WX:${st}" id="m-confirm-weather">Confirm: ${st==="STORM"?"storm":"calm"} ▸</button></div>`;
 }
 const facChip=f=>f?`<span class="fchip" style="--fc:${FACTIONS[f].color}">${FACTIONS[f].name.toUpperCase()}</span>`:"";
 function renderDraft(){
   const pi=actor(G), s=G.ships[pi], mine=myTurn();
   const undo=canUndo()?`<button data-ui="undo" id="btn-undo">Undo last pick</button>`:"";
   let body;
-  if(!mine) body=waitingPanel();
+  if(mine&&!G.cfg) body=setupBody(pi);
+  else if(mine&&pi===1&&G.cfg.storm===null) body=weatherBody(pi);
+  else if(!mine) body=MODE.mode==="ai"?`<div class="prompt">THE COMPUTER IS CHOOSING<span class="sub">${esc(UI.aiNote||"Rolling the dice…")}</span></div>`:waitingPanel();
   else if(!s.cls){
     const cl=UI.pickCls, fa=UI.pickFac;
     body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR SHIP<span class="sub">Pick a hull and the faction you sail under. You can change both until you confirm.</span></div>
-    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}">
-      <span class="clshead">${shipCanvas(k,s.pid,fa,"big")}<span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()} · ${c.size.toUpperCase()}</em></span></span>
+    <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""} ${fa&&!shipAllowed(k,fa)?"taken":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}" ${fa&&!shipAllowed(k,fa)?"disabled":""}>
+      ${sideCanvas(k,s.pid,fa)}<span class="clshead">${shipCanvas(k,s.pid,fa,"big")}<span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()} · ${c.size.toUpperCase()}</em></span></span>
       <span class="row"><span>HULL ${c.hull}</span><span>ENERGY ${c.energy}</span><span>PARTS ${c.parts}</span></span><span>${esc(c.text)}</span><span class="dim">${esc(c.lore)}</span></button>`).join("")}</div>
-    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull.</span></div>
-    <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}">
+    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull. Scrappers won't sail the Construct; Drifters won't sail the Hauler.</span></div>
+    <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""} ${cl&&!shipAllowed(cl,k)?"taken":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}" ${cl&&!shipAllowed(cl,k)?"disabled":""}>
       <span class="nm" style="color:${f.color}">${f.name.toUpperCase()}<em>${esc(f.long.toUpperCase())}</em></span><span>${esc(f.perk)}</span><span class="dim">“${esc(f.creed)}”</span>
       <span class="dim">Crew: ${CREW.filter(c=>c.f===k).map(c=>c.name).join(", ")}</span></button>`).join("")}</div>
-    <div class="btnrow">${cl&&fa?`<button class="go" data-m="C:${cl}:${fa}" id="m-confirm-ship">Confirm: ${CLASSES[cl].name} of the ${FACTIONS[fa].name} ▸</button>`:`<button class="go" disabled>Choose a ship and a faction</button>`}${undo}</div>`;
+    <div class="btnrow">${cl&&fa&&shipAllowed(cl,fa)?`<button class="go" data-m="C:${cl}:${fa}" id="m-confirm-ship">Confirm: ${CLASSES[cl].name} of the ${FACTIONS[fa].name} ▸</button>`:`<button class="go" disabled>Choose a ship and a faction</button>`}${undo}</div>`;
   } else {
-    const pk=UI.pickCrew&&G.draft.pool.includes(UI.pickCrew)?UI.pickCrew:null;
-    const kin=kindred(s);
-    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: RECRUIT A CREW MEMBER<span class="sub">Pick ${G.draft.idx+1} of ${G.draft.order.length}. You sail with the ${FACTIONS[s.fac].name}: their crew add +${KINDRED_HULL} hull each (now ${kin}).</span></div>
+    const slots=crewSlots(s), pk=(UI.pickCrew||[]).filter(k=>CREW_BY[k]).slice(0,slots);
+    const kin=pk.filter(k=>CREW_BY[k].f===s.fac).length;
+    body=`<div class="prompt" style="color:${P_COLORS[pi]}">PLAYER ${s.pid}: CHOOSE YOUR CREW<span class="sub">Pick ${slots} crew (${pk.length}/${slots} chosen), at most one captain, and only a captain of your own faction. Your ${CLASSES[s.cls].name} sails with the ${FACTIONS[s.fac].name}: each of their crew adds +${KINDRED_HULL} hull (now ${kin}). Both players may take the same people.</span></div>
     ${Object.entries(FACTIONS).map(([fk,f])=>`<div class="facgroup" style="--fc:${f.color}"><div class="fachead">${f.name.toUpperCase()} <span class="dim">· ${esc(f.long)}${fk===s.fac?" · YOUR FACTION":""}</span></div>
-      <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const taken=!G.draft.pool.includes(c.key);
-      return `<button class="card ${taken?"taken":""} ${pk===c.key?"picked":""}" style="--st:${ST_COLOR[c.st]}" data-ui="selcrew" data-v="${c.key}" id="sel-${c.key}" ${taken?"disabled":""} aria-pressed="${pk===c.key}">
-      ${faceCanvas(c.key)}<div class="nm">${c.name}<em>${c.role.toUpperCase()} · ${c.st}</em></div>
-      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
-    <div class="btnrow">${pk?`<button class="go" data-m="R:${pk}" id="m-confirm-crew">Recruit ${CREW_BY[pk].name} ▸</button>`:`<button class="go" disabled>Choose a crew member</button>`}<button data-ui="randpick" id="btn-rand">Random pick</button>${undo}</div>`;
+      <div class="cards">${CREW.filter(c=>c.f===fk).map(c=>{ const on=pk.includes(c.key), capt=isCapt(c.key)&&(c.f!==s.fac||pk.some(k=>k!==c.key&&isCapt(k))), full=!on&&(pk.length>=slots||capt);
+      return `<button class="card ${on?"picked":""} ${full?"taken":""}" style="--st:${ST_COLOR[c.st]}" data-ui="selcrew" data-v="${c.key}" id="sel-${c.key}" ${full?"disabled":""} aria-pressed="${on}">
+      ${faceCanvas(c.key)}<div class="nm">${on?"✓ ":""}${c.name}<em>${c.role.toUpperCase()} · ${c.st}${c.capt?" · CAPTAIN":""}</em></div>
+      <div class="full2"><span class="k">PASSIVE</span><span>${esc(c.passive)}</span><span class="k">ORDER · ${esc(c.order.toUpperCase())}${c.epic?` · <span style="color:var(--any)">EPIC: ${c.epic==="HIT"?"AFTER A HIT":"AFTER A STABLE DRIFT"}</span>`:""}</span><span>${esc(c.text)}</span></div></button>`; }).join("")}</div></div>`).join("")}
+    <div class="btnrow">${pk.length===slots?`<button class="go" data-m="CREW:${pk.join(",")}" id="m-confirm-crew">Sail with ${pk.map(k=>CREW_BY[k].name).join(", ")} ▸</button>`:`<button class="go" disabled>Choose ${slots-pk.length} more</button>`}<button data-ui="randpick" id="btn-rand">Fill randomly</button>${pk.length?`<button data-ui="clearcrew" id="btn-clear">Clear</button>`:""}${undo}</div>`;
   }
   app.innerHTML=header()+`<section class="full" style="border-color:${P_COLORS[pi]}">${storyHTML()}${body}
+    ${G.cfg?`<div class="picks"><div class="dim">${MAPS[G.cfg.map].name} · ${G.cfg.mode==="RELIC"?"Relic Race":"Duel"}${G.cfg.storm===null?"":G.cfg.storm?" · storm":" · calm"}</div></div>`:""}
     <div class="picks">${G.ships.map(sh=>`<div style="color:${P_COLORS[sh.pid-1]}">P${sh.pid}: ${sh.cls?CLASSES[sh.cls].name:"—"} ${facChip(sh.fac)} · ${sh.crew.map(c=>CREW_BY[c.key].name).join(", ")||"no crew yet"}</div>`).join("")}</div></section>`;
-  paintFaces(); paintShips();
+  paintFaces(); paintShips(); paintMaps();
 }
 function storyHTML(){
   const st=G.story.slice(0,3);
@@ -462,22 +591,26 @@ function storyHTML(){
 function paintStory(){ const el=document.getElementById("story"); if(el) el.outerHTML=storyHTML(); }
 function shipCard(s){
   const active=s===S(G)&&G.st!=="over", cap=energyCap(s), used=energyUsed(s), pct=s.hp/s.maxHp, c=CLASSES[s.cls];
-  const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jammed) flags.push(["JAMMED","red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
-  if(s.fury) flags.push(["SCRAP FURY",""]); if(s.chain) flags.push(["CHAIN SHOT",""]); if(s.tailwind) flags.push(["TAILWIND",""]); if(s.brace) flags.push(["BRACED",""]); if(s.storm) flags.push(["SANDSTORM −2","red"]);
+  const flags=[]; if(s.evasive) flags.push(["EVASIVE",""]); if(s.jamW) flags.push(["WEAPONS JAMMED −2","red"]); if(s.lostPhase) flags.push([`FIRE: NO ${s.lostPhase}`,"red"]); if(s.surge) flags.push([`SURGE +${s.surge}`,""]); if(s.autoBoost) flags.push(["AFTERBURN",""]);
+  if(active&&s.f.hit&&s.fac==="MACHINE") flags.push(["HIT: EPIC ORDERS READY",""]); if(active&&s.f.drift&&s.fac==="HEART") flags.push(["STABLE DRIFT: +1, EPIC ORDERS READY",""]); if(s.tailwind) flags.push(["TAILWIND",""]); if(s.brace) flags.push(["BRACED",""]); if(s.storm) flags.push(["SANDSTORM −2","red"]);
   if(active&&G.phase==="ATK"&&s.f.locked) flags.push(["LOCKED",""]); if(active&&s.f.debuff) flags.push([`AIM ${s.f.debuff}`,"red"]);
   if(pct<R.HP_FAIL&&s.hp>0) flags.push(["HULL CRITICAL −1","red"]);
+  if(s.relic) flags.push(["CARRIES THE RELIC · −1 ENGINE",""]); if(s.momentum) flags.push([`NATURAL 20: +${s.momentum}`,""]);
+  if(s.allHands) flags.push(["ALL HANDS",""]); if(s.ram) flags.push(["RAM!",""]);
+  const up=Object.entries(s.upg||{}).filter(([k,v])=>v).map(([k])=>k==="hull"?"+2 HULL":"+1 "+k.toUpperCase()); if(up.length) flags.push(["FORGED: "+up.join(", "),""]);
   const sysCell=([k,lab,dk])=>`<div class="stat"><span>${lab}</span>+${s.sys[k]}${s.dmg[dk]?` <span class="hurt" style="display:inline;font-family:var(--f-txt);font-size:18px">−${s.dmg[dk]}</span>`:""}</div>`;
   const canAct=active&&myTurn()&&!UI.busy, L=canAct?legal(G):[];
   const crew=s.crew.map((cm,i)=>{
     const d=CREW_BY[cm.key], block=orderBlock(G,s,cm), stt=cm.stun?["STUNNED","bad"]:cm.rest>0?(cm.used===G.turn?["ORDER GIVEN","dim"]:[`REST ${cm.rest}`,"dim"]):["READY","ok"];
-    const mineShip=active&&(MODE.mode==="local"||s.pid-1===MODE.seat), usable=L.includes("O:"+(i+1));
+    const mineShip=active&&(MODE.mode==="local"||s.pid-1===MODE.seat), forge=L.filter(m=>m.startsWith(`O:${i+1}:`)), usable=L.includes("O:"+(i+1))||forge.length>0;
     return `<div class="cm ${cm.stun?"stun":""} ${usable?"usable":""}" style="--st:${ST_COLOR[d.st]}">${faceCanvas(cm.key)}
-      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}:</b> ${esc(d.text)}</div>
-      ${mineShip&&!usable&&block&&!UI.busy?`<div class="why">${esc(block)}</div>`:""}</div>
-      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${usable?"":"disabled"} title="${esc(block||"Give order")}">${usable?"Give order":"Order"}</button>`:""}</div></div>`;
+      <div><div class="nm">${d.name} <em>${d.st}</em></div><div class="tx">${esc(d.passive)}<br><b>${esc(d.order)}${d.epic?" (epic)":""}:</b> ${esc(d.text)}</div>
+      ${mineShip&&!usable&&block&&!UI.busy?`<div class="why">${esc(block)}</div>`:""}
+      ${forge.length?`<div class="btnrow forge">${forge.map(m=>{ const k=m.split(":")[2]; return `<button data-m="${m}" id="m-forge-${k}" title="Spend 1 part">${k==="HULL"?"+2 HULL":"+1 "+k}</button>`; }).join("")}</div>`:""}</div>
+      <div><div class="stt ${stt[1]}">${stt[0]}</div>${active&&(MODE.mode==="local"||s.pid-1===MODE.seat)&&!forge.length?`<button data-m="O:${i+1}" id="m-O-${s.pid}-${i+1}" ${usable?"":"disabled"} title="${esc(block||"Give order")}">${usable?"Give order":"Order"}</button>`:""}</div></div>`;
   }).join("");
   return `<section class="ship ${active?"active":""} ${s.hp<=0?"dead":""}" style="--c:${P_COLORS[s.pid-1]}">
-    <h3><span class="shiphead">${shipCanvas(s.cls,s.pid,s.fac)}P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode==="online"&&MODE.seat===s.pid-1?" (YOU)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
+    <h3><span class="shiphead">${shipCanvas(s.cls,s.pid,s.fac)}P${s.pid} · ${c?c.name.toUpperCase():""}${MODE.mode!=="local"&&MODE.seat===s.pid-1?" (YOU)":""}${MODE.mode==="ai"&&s.pid-1===AI_SEAT?" (COMPUTER)":""}</span><span>${s.hp}/${s.maxHp}</span></h3>
     <div class="flags">${facChip(s.fac)}<span class="flag" style="background:transparent;color:var(--dim)">${s.fac?esc(FACTIONS[s.fac].perk):""}${kindred(s)?` · KINDRED ${kindred(s)}`:""}</span></div>
     <div class="bar"><i class="${pct<HP_LOW?"lo":""}" style="width:${pct*100}%"></i></div>
     <div class="stats"><div class="stat"><span>ENERGY</span>${used}/${cap}</div><div class="stat"><span>AMMO</span>${s.ammo}</div><div class="stat"><span>PARTS</span>${s.parts}</div><div class="stat"><span>HEAD</span>${DIR_NAMES[s.o]}</div>
@@ -493,7 +626,7 @@ function diceInner(){
   else {
     const m=(r.mods||[]).map(x=>` ${x[0]>0?"+":"−"}${Math.abs(x[0])} <span class="dim">${x[1]}</span>`).join("");
     const res=r.dmg?`<span class="bad">${r.total} damage</span>`:r.heal?`<span class="ok">+${r.total} hull</span>`:`${r.total} vs ${r.vs} → <span class="${r.ok?"ok":"bad"}">${r.ok?"SUCCESS":"FAIL"}</span>`;
-    body=`<b>P${r.pid} ${r.label}</b><br>${r.die}${m} = ${res}`;
+    body=`<b>P${r.pid} ${r.label}</b>${r.nat===20?' <span class="ok">NATURAL 20!</span>':r.nat===1?' <span class="bad">NATURAL 1!</span>':""}<br>${r.die}${m} = ${res}`;
   }
   return `<div class="die ${r.sides!==20?"d6":""}">${r.auto?"✓":r.die}</div><div class="formula">${body}</div>`;
 }
@@ -505,13 +638,14 @@ function fixNavSide(){
   for(let sp=1;sp<=maxSpeed(s);sp++) for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
 }
 function actionsHTML(){
+  if(aiTurn()) return `<div class="prompt">COMPUTER'S TURN<span class="sub">${esc(UI.aiNote)} It follows its rule card: see “How the computer plays” below.</span></div>`;
   const s=S(G), L=myTurn()&&!UI.busy?legal(G):[], endLbl=G.qi+1<G.queue.length?"End phase ▸":"End turn ▸";
   const end=()=>btn("END",endLbl,"go",L);
   let p="",sub="",rows=[];
   switch(G.st){
     case "cmd": {
       const n=slotsAllowed(G);
-      p="PLAN YOUR TURN"; sub=`Pick the order of ${n} phases.${s.jammed?" Your comms are jammed.":""} Chosen: ${G.queue.join(" → ")||"none"}`;
+      p="PLAN YOUR TURN"; sub=`Pick the order of ${n} phases.${s.lostPhase?` Fire in the engines: no ${s.lostPhase} this turn.`:""} Chosen: ${G.queue.join(" → ")||"none"}`;
       rows.push(`<div class="btnrow">${["NAV","ATK","ENG"].map(x=>btn("Q:"+x,x,x.toLowerCase(),L)).join("")}${btn("Q-","Undo","",L)}</div>`); break; }
     case "nav_pick": {
       fixNavSide();
@@ -529,13 +663,13 @@ function actionsHTML(){
     case "nav_heading": {
       const h=previewHeading(), t=other(G,s), ai=t.hp>0?arcInfo({...s,o:h},t):null, can=L.length>0;
       p="NAVIGATION · CHOOSE HEADING";
-      sub=`Pick a direction or tap the map, check the preview, then confirm. Facing ${DIR_NAMES[h]}${h===s.o?" (unchanged)":""}: ${ai?`P${t.pid} would be in your firing arc at range ${ai.range}.`:`P${t.pid} would be outside your firing arc.`}`;
+      sub=`Pick a direction or tap the map, check the preview, then confirm. Facing ${DIR_NAMES[h]}${h===s.o?" (unchanged)":""}: ${ai?`P${t.pid} would be in your firing arc at range ${ai.range}.`:rockBlocks({...s,o:h},t)?`Rock would block your shot at P${t.pid}.`:`P${t.pid} would be outside your firing arc.`}`;
       rows.push(`<div class="btnrow"><span class="lab">FACE</span>${DIR_NAMES.map((d,i)=>`<button data-ui="heading" data-v="${i}" id="ui-heading-${d}" class="${h===i?"sel":""}" ${can?"":"disabled"} aria-pressed="${h===i}"><span class="arr" aria-hidden="true">${ARROWS[i]}</span> ${d}</button>`).join("")}</div>`);
       rows.push(`<div class="btnrow">${btn("H:"+DIR_NAMES[h],`Confirm heading ${DIR_NAMES[h]} ▸`,"go",L)}</div>`);
       break; }
     case "done": p="PHASE COMPLETE"; rows.push(`<div class="btnrow">${end()}</div>`); break;
     case "atk_acquire": { const t=other(G,s), ai=arcInfo(s,t);
-      p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:`No ship in your arc (front, range 1–3). You can still reload.`;
+      p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:rockBlocks(s,t)?`Rock blocks your shot at P${t.pid}. You can still reload.`:`No ship in your arc (front, range 1–3). You can still reload.`;
       rows.push(`<div class="btnrow">${btn("TGT",`Target P${t.pid}`,"atk",L)}${btn("RLD","Reload","",L)}${end()}</div>`); break; }
     case "atk_menu": { const t=tgt(G), ai=arcInfo(s,t);
       p=`COMBAT · P${t.pid} AT RANGE ${ai?ai.range:"—"}`;
@@ -551,8 +685,8 @@ function actionsHTML(){
       rows.push(`<div class="btnrow">${btn("REP",`Repair · ${s.parts} parts`,"eng",L)}${end()}</div>`); break; }
   }
   if(UI.busy) sub="…";
-  const orders=L.filter(m=>m.startsWith("O:")).map(m=>{ const c=s.crew[+m.slice(2)-1], d=CREW_BY[c.key];
-    return `<button class="ord" data-m="${m}" id="c-${m.replace(":","-")}" title="${esc(d.text)}">${d.name}: ${esc(d.order)}</button>`; });
+  const orders=L.filter(m=>m.startsWith("O:")).map(m=>{ const p=m.split(":"), c=s.crew[+p[1]-1], d=CREW_BY[c.key];
+    return `<button class="ord" data-m="${m}" id="c-${m.replace(/:/g,"-")}" title="${esc(d.text)}">${d.name}: ${esc(d.order)}${p[2]?` ${p[2]==="HULL"?"+2 HULL":"+1 "+p[2]}`:""}</button>`; });
   if(orders.length) rows.push(`<div class="btnrow"><span class="lab">CREW ORDERS</span>${orders.join("")}</div>`);
   return `<div class="prompt">${p}${sub?`<span class="sub">${esc(sub)}</span>`:""}</div>${rows.join("")}`;
 }
@@ -570,32 +704,50 @@ function renderGame(){
       ${MODE.mode==="online"&&UI.share?`<p class="dim">Send the final move so your friend sees the end:</p><textarea id="share-code" class="code" readonly>${esc(UI.shareText)}</textarea><button class="go" data-ui="copy" id="btn-copy">Copy move</button><span class="msg" id="copy-msg"></span>`:""}
       <button data-ui="newgame" id="btn-new">New game</button></div></div>`;
   } else if(MODE.mode==="online"&&!myTurn()&&!UI.busy){
-    overlay=`<div class="overlay"><div class="box wide" style="--c:${P_COLORS[actor(G)]}">${waitingPanel()}</div></div>`;
+    overlay="";                                    // map stays visible while you wait; the panel is below it
   } else if(MODE.mode==="local"&&UI.handoff&&!UI.busy){
     overlay=`<div class="overlay"><div class="box" style="--c:${P_COLORS[s.pid-1]}"><h2>PLAYER ${s.pid}<br>TAKE THE HELM</h2>
-      <p class="dim">${s.jammed?"Your comms are jammed: plan only 2 phases.":"Plan NAV, ATK and ENG in any order."}</p><button class="go" data-ui="begin" id="btn-begin">Begin turn</button></div></div>`;
+      <p class="dim">${s.lostPhase?`Fire in the engines: no ${s.lostPhase} this turn.`:"Plan NAV, ATK and ENG in any order."}</p><button class="go" data-ui="begin" id="btn-begin">Begin turn</button></div></div>`;
   }
   if(!cv||!cv.isConnected){
     app.innerHTML=`<div id="hdr"></div><div class="main"><div class="col">
       <div class="screen"><canvas id="map" width="${W}" height="${H}" aria-label="Battle map"></canvas><div class="hud" id="hud"></div><div id="ovl"></div></div>
-      <div id="storywrap"></div>
-      <div class="console" id="console"></div><div class="log" id="log" aria-live="polite"></div>
+      <div class="console" id="console"></div>
+      <div id="storywrap"></div><div class="log" id="log" aria-live="polite"></div>
       <details class="help" id="record-box"><summary>Game record</summary><div class="record" id="record"></div></details>
+      <details class="help"><summary>How the computer plays</summary><ul>
+      <li>As Player 2 it picks the weather first: d6 1–4 calm, 5–6 storm.</li>
+      <li>Setup: faction d6 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters. Ship d6 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct, 5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff). Crew: a fixed list for its faction.</li>
+      <li>Each turn it rolls two d6. Intent: engage on 2+ while its hull is at least half, on 4+ when below half; otherwise it escapes. Style: 1–3 easy (always the lowest DC), 4–6 risky (always the highest DC).</li>
+      <li>Engage: NAV → ATK → ENG, flying to a hex 1–3 from you and turning to face you. Escape: ENG → NAV → ATK, flying as far away as it can and turning away.</li>
+      <li>It never turns its bow straight into rock: if rock lies right ahead, it takes the nearest open direction. Boxed in, it pivots toward the side with fewer rocks and keeps turning that way. It lands where it hurts least: sand before dunes, dunes before scree.</li>
+      <li>Relic Race: while the relic is free it flies for it; carrying it, it flies for its exit.</li>
+      <li>It gives a crew order as soon as it is useful: KAEL's Double Tap after the first shot, RHO's Battle Stations for a second shot, IVO's Surge only if a roll is still coming, TASSA's All Hands only to call up someone resting, KESTREL's Ram! only when it can reach you (and then it rams), ANA at 3+ missing hull, DOV's Brace when you are close, HESK forges weapons first.</li>
+      <li>It targets you when you are in its arc, reloads when empty, locks on, then fires as often as it may. Critical aim d6: 1–3 weapons, 4–5 speed, 6 crew.</li>
+      <li>Engineering: below half hull it repairs while it has parts, then powers up WPN, BST, DFT (escaping: ENGINE, BST, DFT).</li>
+      <li>Its dice come from the game seed, so the same game always plays out the same way. You can run it with real dice using these rules.</li></ul></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
+      <li>Hauler: room for 4 crew. Dreadnought: twin guns, every shot rolls to hit twice, each hit does half damage. Skiff: hard to hit (+1 AC). One captain per crew, of your own faction.</li>
+      <li>Natural 20: +3 to your next roll this turn. Natural 1: the roll fails and a mishap follows (d6): 1–2 turned around, 3–4 engine stall (a boost also overshoots 2×), 5 disaster on deck, 6 lucky second chance.</li>
+      <li><b>Rock</b> (grey slate, brown mesa) blocks: courses must not cross it, and a failed boost bounces back off the first rock it hits (crash, 3 damage). <b>Scree</b> (loose rubble) and <b>dunes</b> (light sand stripes) can be flown over, but ending a move on them deals 2 (scree) or 1 (dunes) damage.</li>
+      <li>Relic Race: end a move on the relic to take it (carrier −1 engine); bring it to your own exit to win.</li>
+      <li>Storm: the wind turns every two rounds. Into the wind DC +2; with the wind DC −1 and drag 1 hex; shots without a lock −2.</li>
       <li>Rolls: d20 + modifiers must meet the DC or AC.</li><li>Boost fail: you overshoot by 50%. Drift fail: you spin one step and cannot lock on this turn.</li>
-      <li>Rocks and rams deal 3 damage. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
+      <li>Rock blocks shots: no firing through it (scree and dunes don't block). The red arc shows only hexes you can see.</li>
+      <li>Rock crashes and rams deal 3 damage, landing on scree 2, on dunes 1. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
       <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
-      <li>After an order, a crew member sits out your next 2 turns (Nomads: 1). Stunned crew lose their passive until the end of their next turn.</li>
-      <li>Factions: Scrappers repair +1, Nomads rest less, Drifters +1 boost and drift. Each crew member of your faction adds +1 hull.</li></ul></details>
+      <li>After an order, a crew member sits out your next 2 turns (Drifters: 1). Stunned crew lose their passive until the end of their next turn.</li>
+      <li>Factions: Scrappers +1 damage, epic orders after a hit. Nomads +1 to all rolls after a stable drift, epic orders after a stable drift. Drifters +1 boost and drift, every order rests only 1 turn. Each crew member of your faction adds +1 hull.</li></ul></details>
       </div><div class="col" id="side"></div></div>`;
     initCanvas(document.getElementById("map"));
   }
   document.getElementById("hdr").innerHTML=header();
   document.getElementById("ovl").innerHTML=overlay;
   document.getElementById("storywrap").innerHTML=storyHTML();
-  document.getElementById("console").innerHTML=G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div><div class="dice" id="dicebox">${diceInner()}</div></div>`;
+  const waiting=MODE.mode==="online"&&!myTurn()&&!UI.busy&&G.st!=="over";
+  document.getElementById("console").innerHTML=waiting?waitingPanel():G.st==="over"?`<div class="prompt">GAME OVER</div>`:`<div class="split"><div style="flex:2 1 320px;display:flex;flex-direction:column;gap:10px;min-width:0">${actionsHTML()}</div><div class="dice" id="dicebox">${diceInner()}</div></div>`;
   document.getElementById("log").innerHTML=G.log.slice(0,40).map(l=>{
     const c=l.c==="ok"?"var(--good)":l.c==="bad"?"var(--bad)":l.c==="crew"?"var(--any)":l.c==="p1"?P_COLORS[0]:l.c==="p2"?P_COLORS[1]:"var(--ink)";
     return `<div style="color:${c}">${esc(l.t)}</div>`; }).join("");
@@ -611,8 +763,9 @@ app.addEventListener("click",async e=>{
   const a=b.dataset.ui, v=b.dataset.v;
   switch(a){
     case "local": G=newGame(1+Math.floor(Math.random()*2e9)); MODE={mode:"local",seat:0}; UI.screen="game"; UI.share=null; UI.handoff=false; save(); break;
+    case "ai": G=newGame(1+Math.floor(Math.random()*2e9)); MODE={mode:"ai",seat:0}; UI.screen="game"; UI.share=null; UI.handoff=false; save(); break;
     case "online": G=newGame(1+Math.floor(Math.random()*2e9)); MODE={mode:"online",seat:0}; UI.screen="game"; UI.share=null; UI.msg=""; save(); break;
-    case "continue": { const sv=loadSave(); if(!sv||!restore(sv)){ UI.joinMsg="The saved game could not be loaded."; } break; }
+    case "continue": { const sv=loadSave(); if(!sv||!restore(sv)){ UI.joinMsg="The saved game could not be loaded."; } else if(aiTurn()){ render(); runAI(); return; } break; }
     case "join": { const t=document.getElementById("join-code").value; await importCode(t); return; }
     case "reply": { const t=document.getElementById("reply-code").value; await importCode(t); return; }
     case "copy": {
@@ -620,14 +773,20 @@ app.addEventListener("click",async e=>{
       try{ await navigator.clipboard.writeText(UI.shareText); msg.textContent="Copied."; }
       catch(err){ ta.focus(); ta.select(); msg.textContent="Press Ctrl+C (or ⌘C) to copy."; }
       return; }
-    case "randpick": { const ls=legal(G).filter(m=>m.startsWith("R:")); UI.pickCrew=ls[Math.floor(Math.random()*ls.length)].slice(2); break; }
+    case "randpick": { const s=G.ships[actor(G)], pk=[...(UI.pickCrew||[])], rest=CREW.map(c=>c.key).filter(k=>!pk.includes(k)).sort(()=>Math.random()-.5);
+      for(const k of rest){ if(pk.length>=crewSlots(s)) break; if(isCapt(k)&&(CREW_BY[k].f!==s.fac||pk.some(isCapt))) continue; pk.push(k); }
+      UI.pickCrew=pk; break; }
+    case "clearcrew": UI.pickCrew=[]; break;
     case "begin": UI.handoff=false; break;
     case "speed": UI.speed=+v; fixNavSide(); break;
     case "side": UI.side=+v; break;
     case "heading": UI.heading=+v; break;
     case "selcls": UI.pickCls=v; break;
+    case "selmap": UI.pickMap=v; break;
+    case "selmode": UI.pickMode=v; break;
+    case "selstorm": UI.pickStorm=v; break;
     case "selfac": UI.pickFac=v; break;
-    case "selcrew": UI.pickCrew=v; break;
+    case "selcrew": { const pk=[...(UI.pickCrew||[])], i=pk.indexOf(v); if(i>=0) pk.splice(i,1); else pk.push(v); UI.pickCrew=pk; break; }
     case "undo": undoLast(); break;
     case "newgame": G=null; UI.screen="title"; UI.share=null; try{ localStorage.removeItem(SAVE_KEY); }catch(err){} break;
   }
@@ -640,5 +799,6 @@ function start(data){
   const sv=(data&&data.save)||null;
   if(sv) restore(sv);
   render(); requestAnimationFrame(frame);
+  if(aiTurn()) runAI();
 }
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});

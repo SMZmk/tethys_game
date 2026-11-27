@@ -78,7 +78,11 @@ const BOT=`window.botMove=function(){
       const text = await cur.evaluate(() => UI.shareText); assert.ok(text.includes("TETHYS"), "share text has a code");
       if (first) { await nxt.fill("#join-code", text); await nxt.click("#btn-join"); first = false; }
       else { await nxt.fill("#reply-code", text); await nxt.click("#btn-reply"); }
-      await nxt.waitForFunction(() => !UI.busy && (myTurn() || G.st === "over"), null, { timeout: 60000 });
+      await nxt.waitForFunction(() => G && !UI.busy && (myTurn() || G.st === "over"), null, { timeout: 60000 });
+      if (handoffs === 3) {                                                    // the waiting player still sees the map
+        const view = await cur.evaluate(() => ({ st: G.st, map: !!document.getElementById("map"), ovl: (document.getElementById("ovl") || {}).innerHTML || "", panel: !!document.getElementById("reply-code") }));
+        if (view.st !== "draft") { assert.ok(view.map && view.ovl === "" && view.panel, "map visible while waiting"); console.log("ok   online: map stays visible while waiting"); }
+      }
       assert.strictEqual(await cur.evaluate(() => stateHash(G)), await nxt.evaluate(() => stateHash(G)), "both screens agree after hand-off " + handoffs);
       handoffs++;
       if (handoffs === 10) await shot(nxt, "online-turn");
@@ -98,7 +102,31 @@ const BOT=`window.botMove=function(){
     console.log("ok   codes: garbage, old and invalid codes are refused with a message");
   }
 
-  // ---- 4. phone ----
+  // ---- 4. versus the computer ----
+  {
+    const p = await mk();
+    await p.click("#btn-ai");
+    await p.click("#sel-map-CANYON"); await p.click("#sel-mode-RELIC"); await p.click("#m-confirm-setup");
+    assert.deepStrictEqual(await p.evaluate(() => [G.cfg.map, G.cfg.mode]), ["CANYON", "RELIC"]);
+    await p.click("#sel-HAULER"); await p.click("#sel-HEART"); await p.click("#m-confirm-ship");
+    for (const k of ["CAPTAIN", "GUNNER", "MEDIC"]) await p.click("#sel-" + k);
+    assert.ok(!(await p.$("#m-confirm-crew")), "Hauler needs 4 crew before confirming");
+    await p.click("#sel-BULWARK"); await p.click("#m-confirm-crew");
+    await p.waitForFunction(() => G.st !== "draft" && !aiRunning, null, { timeout: 20000 });
+    assert.strictEqual(await p.evaluate(() => G.ships[1].crew.length > 0), true, "computer picked a crew");
+    for (let n = 0; n < 600; n++) {
+      const st = await p.evaluate(() => ({ over: G.st === "over", mine: myTurn(), wait: UI.busy || aiRunning }));
+      if (st.over) break;
+      if (!st.mine || st.wait) { await p.waitForTimeout(40); continue; }
+      await p.evaluate(async () => { await act(aiMove(G)); });
+    }
+    assert.strictEqual(await p.evaluate(() => G.st), "over", "game against the computer finishes");
+    assert.ok(await p.evaluate(() => G.log.some(l => /Computer rolls: intent d6/.test(l.t))), "computer's dice are shown");
+    console.log("ok   versus computer: full game, computer rolls shown");
+    await p.context().close();
+  }
+
+  // ---- 5. phone ----
   {
     const m = await mk({ width: 390, height: 844 });
     await m.click("#btn-local");
