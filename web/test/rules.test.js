@@ -579,11 +579,39 @@ test("skiff: an old-world wreck gives the Skiff 2 parts", () => {
 });
 
 // ---------- fight length ----------
-test("fight length: every ship goes down to 2-3 average hits", () => {
+// ---------- ship handling ----------
+test("ships: the Hauler flies 2 hexes further on straights, turns at most 2 steps (+1 DC each), −1 AC", () => {
+  const G = face(drafted({ c1: "HAULER", f1: "HEART" })); const s = sh(G, 0), k = { ...s, cls: "SKIFF" };
+  const h1 = L.navOption(s, 1, 0), k1 = L.navOption({ ...s, cls: "DREAD" }, 1, 0);
+  assert.strictEqual(L.hexDist(h1.q - s.q, h1.r - s.r), 3); assert.strictEqual(L.hexDist(k1.q - s.q, k1.r - s.r), 1);
+  assert.strictEqual(h1.dc, k1.dc);                                                  // the extra 2 hexes are free
+  assert.ok(!L.allNavOptions(s).some(o => Math.abs(o.side) > 2));
+  const h2 = L.navOption(s, 3, 2), d2 = L.navOption({ ...s, cls: "DREAD" }, 3, 2);
+  assert.ok(h2 && d2); assert.strictEqual(h2.dc, d2.dc + 2);
+  assert.strictEqual(L.CLASSES.HAULER.ac, -1); assert.strictEqual(L.CLASSES.HAULER.hull, 22);
+});
+test("ships: the Construct hovers: wide turns cost no DC, it may slide sideways and turn up to 4 steps", () => {
+  const G = face(drafted({ c1: "RELIC", f1: "HEART" })); const s = sh(G, 0), d = { ...s, cls: "DREAD" };
+  const c = L.navOption(s, 1, 1), n = L.navOption(d, 1, 1);
+  assert.ok(c && n); assert.strictEqual(c.dc, n.dc - 1);                              // 60° turn over 1 hex: no extra DC
+  assert.ok(L.navOption(s, 1, 2) && !L.navOption(d, 1, 2));                           // 120° slide over 1 hex
+  assert.ok(L.allNavOptions(s).some(o => Math.abs(o.side) === 4) && !L.allNavOptions(d).some(o => Math.abs(o.side) === 4));
+});
+test("ships: firing arcs: Construct all round at range 1-2, Dreadnought broadsides, others front ±3", () => {
+  const G = face(drafted()); const s = sh(G, 0);                                     // facing N
+  const behind2 = [0, 2], side3 = [3, -1];                                             // straight behind at range 2; abeam at range 3
+  for (const [cls, b2, s3] of [["SKIFF", false, false], ["RELIC", true, false], ["DREAD", false, true], ["HAULER", false, false]]) {
+    const x = { ...s, cls };
+    assert.strictEqual(L.inArc(x, ...behind2), b2, `${cls} behind at range 2`);
+    assert.strictEqual(L.inArc(x, ...side3), s3, `${cls} abeam at range 3`);
+  }
+  assert.ok(L.arcHexes({ ...s, cls: "DREAD" }).length > L.arcHexes(s).length);
+});
+test("fight length: every ship goes down to 2-3 average hits (the Hauler, a tank, to 4)", () => {
   const avgHit = 3.5 + L.R.DMG_BONUS, maxHit = 6 + L.R.DMG_BONUS + 1;   // d6 + 4 (+1 Dreadnought)
   for (const [k, c] of Object.entries(L.CLASSES)) {
-    const toughest = c.hull + 3;                                          // three kindred crew
-    assert.ok(toughest / avgHit <= 3, `${k}: ${toughest} hull needs ${(toughest / avgHit).toFixed(1)} average hits`);
+    const toughest = c.hull + (c.crew || 3), most = k === "HAULER" ? 4 : 3;   // all crew kindred
+    assert.ok(toughest / avgHit <= most, `${k}: ${toughest} hull needs ${(toughest / avgHit).toFixed(1)} average hits`);
     assert.ok(c.hull > maxHit, `${k}: one max hit (${maxHit}) must not kill a fresh ship`);
   }
 });

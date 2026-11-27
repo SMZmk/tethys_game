@@ -521,8 +521,7 @@ function undoLast(){
 const isCapt=k=>!!CREW_BY[k].capt;
 // in the front arc (range 1-3) but rock in between?
 const rockBlocks=(s,t)=>!!t&&t.hp>0&&inFrontArc(s,t)&&!lineOfSight(s.q,s.r,t.q,t.r);
-function inFrontArc(s,t){ const d=hexDist(t.q-s.q,t.r-s.r); return d>=1&&d<=3&&arcHexesAll(s).some(([q,r])=>q===t.q&&r===t.r); }
-function arcHexesAll(s){ const h=[]; for(let d=1;d<=3;d++) for(let sd=-3;sd<=3;sd++){ const [q,r]=navToCoords(s.o,sd,d-1); h.push([s.q+q,s.r+r]); } return h; }
+function inFrontArc(s,t){ const d=hexDist(t.q-s.q,t.r-s.r); return d>=1&&d<=3&&inArc(s,t.q-s.q,t.r-s.r); }
 // small top-down preview of a map's terrain (same seed as the game)
 function paintMaps(){
   document.querySelectorAll("canvas[data-map]").forEach(c=>{
@@ -634,8 +633,9 @@ function paintDice(){ const d=document.getElementById("dicebox"); if(d) d.innerH
 function btn(m,label,cls="",L){ return `<button class="${cls}" data-m="${m}" id="m-${m.replace(/[^A-Za-z0-9+-]/g,"-")}" ${L.includes(m)?"":"disabled"}>${label}</button>`; }
 function fixNavSide(){
   const s=S(G); if(navOption(s,UI.speed,UI.side)) return;
-  for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,UI.speed,d)){ UI.side=d; return; }
-  for(let sp=1;sp<=maxSpeed(s);sp++) for(const d of [0,1,-1,2,-2,3,-3]) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
+  const order=sides(s).slice().sort((a,b)=>Math.abs(a)-Math.abs(b)||b-a);
+  for(const d of order) if(navOption(s,UI.speed,d)){ UI.side=d; return; }
+  for(let sp=1;sp<=maxSpeed(s);sp++) for(const d of order) if(navOption(s,sp,d)){ UI.speed=sp; UI.side=d; return; }
 }
 function actionsHTML(){
   if(aiTurn()) return `<div class="prompt">COMPUTER'S TURN<span class="sub">${esc(UI.aiNote)} It follows its rule card: see “How the computer plays” below.</span></div>`;
@@ -652,8 +652,8 @@ function actionsHTML(){
       const o=navOption(s,UI.speed,UI.side), ee=effEngine(s);
       p="NAVIGATION · SET COURSE"; sub=`Choose speed and turn, or tap a lit hex.${ee?` Engine +${ee} adds ${ee*R.ENG_DIST_BONUS} hexes and raises the DC.`:" Power the ENGINE in ENG to fly further."}`;
       const can=L.length>0;
-      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${Array.from({length:maxSpeed(s)},(_,i)=>i+1).map(v=>`<button data-ui="speed" data-v="${v}" id="ui-speed-${v}" class="${UI.speed===v?"sel":""}" ${can&&[-3,-2,-1,0,1,2,3].some(d=>navOption(s,v,d))?"":"disabled"}>${v}</button>`).join("")}</div>`);
-      rows.push(`<div class="btnrow"><span class="lab">TURN</span>${[-3,-2,-1,0,1,2,3].map(v=>`<button data-ui="side" data-v="${v}" id="ui-side-${v}" class="${UI.side===v?"sel":""}" ${can&&navOption(s,UI.speed,v)?"":"disabled"}>${v>0?"+":""}${v}</button>`).join("")}</div>`);
+      rows.push(`<div class="btnrow"><span class="lab">SPEED</span>${Array.from({length:maxSpeed(s)},(_,i)=>i+1).map(v=>`<button data-ui="speed" data-v="${v}" id="ui-speed-${v}" class="${UI.speed===v?"sel":""}" ${can&&sides(s).some(d=>navOption(s,v,d))?"":"disabled"}>${v}</button>`).join("")}</div>`);
+      rows.push(`<div class="btnrow"><span class="lab">TURN</span>${sides(s).map(v=>`<button data-ui="side" data-v="${v}" id="ui-side-${v}" class="${UI.side===v?"sel":""}" ${can&&navOption(s,UI.speed,v)?"":"disabled"}>${v>0?"+":""}${v}</button>`).join("")}</div>`);
       const bm=o?`B:${o.speed}:${o.side>0?"+":""}${o.side}`:"B:none";
       rows.push(`<div class="btnrow">${btn(bm,o?(s.autoBoost?"Afterburn ▸":`Roll boost · DC ${o.dc}`):"No open course","nav",L)}${L.includes("PIVOT:L")?btn("PIVOT:L","Pivot left","",L)+btn("PIVOT:R","Pivot right","",L):""}${btn("END","Skip move","",L)}</div>`);
       if(L.includes("PIVOT:L")) sub="Rocks block every course. Pivot in place, or skip the move.";
@@ -669,7 +669,7 @@ function actionsHTML(){
       break; }
     case "done": p="PHASE COMPLETE"; rows.push(`<div class="btnrow">${end()}</div>`); break;
     case "atk_acquire": { const t=other(G,s), ai=arcInfo(s,t);
-      p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:rockBlocks(s,t)?`Rock blocks your shot at P${t.pid}. You can still reload.`:`No ship in your arc (front, range 1–3). You can still reload.`;
+      p="COMBAT · ACQUIRE TARGET"; sub=ai?`P${t.pid} is in your firing arc at range ${ai.range}.`:rockBlocks(s,t)?`Rock blocks your shot at P${t.pid}. You can still reload.`:`No ship in your firing arc (lit red, range 1–3). You can still reload.`;
       rows.push(`<div class="btnrow">${btn("TGT",`Target P${t.pid}`,"atk",L)}${btn("RLD","Reload","",L)}${end()}</div>`); break; }
     case "atk_menu": { const t=tgt(G), ai=arcInfo(s,t);
       p=`COMBAT · P${t.pid} AT RANGE ${ai?ai.range:"—"}`;
@@ -727,7 +727,7 @@ function renderGame(){
       <li>Engineering: below half hull it repairs while it has parts, then powers up WPN, BST, DFT (escaping: ENGINE, BST, DFT).</li>
       <li>Its dice come from the game seed, so the same game always plays out the same way. You can run it with real dice using these rules.</li></ul></details>
       <details class="help"><summary>Rules quick reference</summary><ul>
-      <li>Hauler: room for 4 crew. Dreadnought: twin guns, every shot rolls to hit twice, each hit does half damage. Skiff: hard to hit (+1 AC). One captain per crew, of your own faction.</li>
+      <li>Skiff: hard to hit (+1 AC), speed 4. Hauler: 22 hull, 4 crew, straights fly 2 hexes further, turns at most 2 steps (+1 DC each), −1 AC. Dreadnought: broadside arc along both sides; twin guns, every shot rolls to hit twice, each hit does half damage. Construct: hovers (slides sideways, wide turns cost no DC), fires all round at range 1–2, only 13 hull. One captain per crew, of your own faction.</li>
       <li>Natural 20: +3 to your next roll this turn. Natural 1: the roll fails and a mishap follows (d6): 1–2 turned around, 3–4 engine stall (a boost also overshoots 2×), 5 disaster on deck, 6 lucky second chance.</li>
       <li><b>Rock</b> (grey slate, brown mesa) blocks: courses must not cross it, and a failed boost bounces back off the first rock it hits (crash, 3 damage). <b>Scree</b> (loose rubble) and <b>dunes</b> (light sand stripes) can be flown over, but ending a move on them deals 2 (scree) or 1 (dunes) damage.</li>
       <li>Relic Race: end a move on the relic to take it (carrier −1 engine); bring it to your own exit to win.</li>

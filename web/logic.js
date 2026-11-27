@@ -164,15 +164,20 @@ const isObstacle=(q,r)=>{ const t=terrain(q,r); return t===1||t===3; };
 const isScree=(q,r)=>terrain(q,r)===2;
 const isDune=(q,r)=>terrain(q,r)===5;
 const landDmg=(s,t)=>t===2?(has(s,"ECO")?1:R.SCREE_DMG):t===5?R.DUNE_DMG:0;   // damage for ending a move here
-function angleDifficulty(dir,tq,tr,sq,sr){
+// How sharp a course is for its length. The Construct hovers: wide turns cost nothing, and it may slide
+// sideways and slightly back (deviation up to 2).
+function angleDifficulty(dir,tq,tr,sq,sr,c){
   if(isObstacle(sq+tq,sr+tr)) return [0,false];
   const [side,speed]=relInfo(tq,tr,dir);
   if(side===null) return [0,true];
   const d=speed+1; if(d===0) return [0,true];
-  const dev=Math.abs(side)/d;
-  if(dev<0.5) return [0,true]; if(dev<=1) return [R.DC_MOD_EASY,true]; if(dev<=1.5) return [R.DC_MOD_HARD,true];
+  const dev=Math.abs(side)/d, hover=c&&c.hover;
+  if(dev<0.5) return [0,true]; if(dev<=1) return [hover?0:R.DC_MOD_EASY,true]; if(dev<=1.5) return [hover?0:R.DC_MOD_HARD,true];
+  if(hover&&dev<=2) return [0,true];
   return [0,false];
 }
+const maxSide=s=>cls(s).maxSide||3;
+const sides=s=>{ const n=maxSide(s), o=[]; for(let d=-n;d<=n;d++) o.push(d); return o; };
 
 // ---------------- FACTIONS, SHIPS & CREW ----------------
 // Every ship sails under a faction; every crew member belongs to one.
@@ -192,12 +197,12 @@ const shipAllowed=(cls,fac)=>!(FORBIDDEN[fac]||[]).includes(cls);
 const CLASSES = {
   SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:3,bst:1,dft:2,atk:0,dmg:0,rep:2,ac:1,speed:4,salvage:2,
     text:"Small, easy to fly, easy to patch. Only 13 hull, but hard to hit (+1 AC), speed up to 4, +1 boost, +2 drift, 3 parts, repairs +2, wrecks give 2 parts.",lore:"A regatta catamaran of the dune sea: two knife hulls that skim like skis, a tall wing sail, no armour."},
-  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:18,energy:2,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
-    text:"Mobile fortress. 18 hull and room for 4 crew, but only 2 energy and −1 to boost rolls.",lore:"A great junk with battened sails and two smokestacks, riding on a fluke at each side. It carries a whole camp on its back."},
-  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,twin:true,half:true,
-    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"A war junk on a single fluke: a ram at the bow, cannons along both rails and a stack that never stops smoking."},
-  RELIC:{name:"Construct",role:"Relic",size:"Small",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
-    text:"Old-world tech. 5 energy: power every system at once.",lore:"A small manta ray of old-world metal on one glowing fluke. Nobody knows who built it. It hums when the wind dies."},
+  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:22,energy:2,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,ac:-1,maxSide:2,straight:2,turnDC:1,
+    text:"Mobile fortress: 22 hull and room for 4 crew. Straight courses fly 2 hexes further at no cost, but it turns at most 2 steps (+1 DC per step), is a big target (−1 AC), has only 2 energy and −1 to boost rolls.",lore:"A great junk with battened sails and two smokestacks, riding on a fluke at each side. It carries a whole camp on its back."},
+  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:0,dmg:1,rep:0,twin:true,half:true,arc:"broadside",
+    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. Broadside cannons: a wide firing arc along both sides. One fewer part.",lore:"A war junk on a single fluke: a ram at the bow, cannons along both rails and a stack that never stops smoking."},
+  RELIC:{name:"Construct",role:"Relic",size:"Small",hull:13,energy:5,maxSide:4,hover:true,arc:"round",parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
+    text:"Old-world tech that hovers: it slides sideways (turns up to 4 steps, no extra DC for wide turns) and fires all round at range 1–2. 5 energy, but only 13 hull.",lore:"A small manta ray of old-world metal on one glowing fluke. Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
 const CREW = [
@@ -507,9 +512,10 @@ function beginPhase(G,i){
 function endPhase(G){ if(G.qi+1<G.queue.length) beginPhase(G,G.qi+1); else endTurn(G); }
 
 function navOption(s,speed,side){
-  const ee=effEngine(s), total=speed+ee*R.ENG_DIST_BONUS;
-  const [rq,rr]=navToCoords(s.o,side,total-1);
-  const [m,ok]=angleDifficulty(s.o,rq,rr,s.q,s.r);
+  if(Math.abs(side)>maxSide(s)) return null;
+  const c=cls(s), ee=effEngine(s), free=side===0?(c.straight||0):0, total=speed+ee*R.ENG_DIST_BONUS;   // Hauler: straights fly further
+  const [rq,rr]=navToCoords(s.o,side,total+free-1);
+  let [m,ok]=angleDifficulty(s.o,rq,rr,s.q,s.r,c); m+=Math.abs(side)*(c.turnDC||0);   // Hauler: +1 DC per turn step
   if(!ok||!pathClear(s.q,s.r,s.q+rq,s.r+rr)) return null;            // path rule: no flying through rock
   const mult=songOfWind(s)?1:1+ee*R.ENG_DC_MULT;                     // Song of the Wind: engine power costs no DC
   let dc=Math.trunc((R.DC_BASE+total+m)*mult)-(s.tailwind?4:0), wind=null;
@@ -520,16 +526,21 @@ function navOption(s,speed,side){
   }
   return {speed,side,q:s.q+rq,r:s.r+rr,dc,wind};
 }
-function allNavOptions(s){ const o=[]; for(let sp=1;sp<=maxSpeed(s);sp++) for(let sd=-3;sd<=3;sd++){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
+function allNavOptions(s){ const o=[]; for(let sp=1;sp<=maxSpeed(s);sp++) for(const sd of sides(s)){ const x=navOption(s,sp,sd); if(x) o.push(x);} return o; }
+// Firing arcs (range 1–3): normally 3 steps either side of the bow (all round at range 1, about 210° at
+// range 2, 140° at range 3). Dreadnought broadsides: 2 steps per range (about 270° at range 2, 260° at 3).
+// Construct: all round at range 1–2, the normal front arc at range 3.
+function arcWidth(s,range){ const a=cls(s).arc; return a==="broadside"?Math.max(3,2*range):a==="round"&&range<=2?99:3; }
+const inArc=(s,dq,dr)=>{ const [side,sp]=relInfo(dq,dr,s.o); return side!==null&&sp>=0&&sp<=2&&Math.abs(side)<=arcWidth(s,sp+1); };
 function arcInfo(s,t){
   if(!t||t.hp<=0) return null;
   const [side,sp]=relInfo(t.q-s.q,t.r-s.r,s.o);
-  if(side===null||sp<0||sp>2||Math.abs(side)>3) return null;
+  if(side===null||sp<0||sp>2||Math.abs(side)>arcWidth(s,sp+1)) return null;
   if(!lineOfSight(s.q,s.r,t.q,t.r)) return null;                       // rock blocks the shot
   return {range:sp+1,side};
 }
-function arcHexes(s){ const h=[]; for(let d=1;d<=3;d++) for(let sd=-3;sd<=3;sd++){ const [q,r]=navToCoords(s.o,sd,d-1), x=s.q+q, y=s.r+r;
-  if(!isObstacle(x,y)&&lineOfSight(s.q,s.r,x,y)) h.push([x,y]); } return h; }
+function arcHexes(s){ const h=[]; for(let d=1;d<=3;d++) for(const [q,r] of ring(d)){ const x=s.q+q, y=s.r+r;
+  if(inArc(s,q,r)&&!isObstacle(x,y)&&lineOfSight(s.q,s.r,x,y)) h.push([x,y]); } return h; }
 
 function damage(G,s,n){
   s.hp=Math.max(0,s.hp-n); ev(G,{t:"hit",pid:s.pid,n});
@@ -999,4 +1010,4 @@ function plies(seed,moves){
 function plyText(p){ return p.moves.join(" ").replace(/Q:(\w+) Q:(\w+)(?: Q:(\w+))?/,(m,a,b,c)=>"Q:"+[a,b,c].filter(Boolean).join(",")); }
 function stateHash(G){ return hashStr(JSON.stringify({s:G.ships,a:G.active,st:G.st,rng:G.rng,w:G.winner})); }
 
-if(typeof module!=="undefined") module.exports={MAPS,EXITS,windNow,pathClear,hexLine,forgeChoices,setTerrain,songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,lineOfSight,isScree,isDune,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};
+if(typeof module!=="undefined") module.exports={MAPS,EXITS,windNow,pathClear,hexLine,forgeChoices,setTerrain,songOfWind,shipAllowed,FORBIDDEN,aiMove,aiPlan,aiSetup,isLegal,crewSlots,maxShots,defaultCrewMove,maxSpeed,FACTIONS,CREW_BY,kindred,rnd,S,navOption,arcInfo,arcHexes,energyCap,slotsAllowed,computeTerrain,lineOfSight,inArc,sides,isScree,isDune,R,DIR_NAMES,TERRAIN_NAMES,setPull,allNavOptions,newGame,apply,legal,actor,replay,plies,plyText,stateHash,terrain,setTerrainSeed,hexDist,CLASSES,CREW,isObstacle};

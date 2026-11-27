@@ -38,7 +38,9 @@ before you move). Then you play them in that order.
 - Courses can't cross rock. When rock blocks every course you may pivot in place.
 
 **ATK: shoot.**
-- You can target a ship in your **front arc, range 1–3**, with no rock in between.
+- You can target a ship in your **firing arc, range 1–3**, with no rock in between. The arc is lit red on the map:
+  normally all round at range 1 and narrowing ahead at range 2–3; the Dreadnought's reaches along both sides,
+  the Construct's goes all round at range 1–2.
 - **Lock on** (needs a stable drift this turn): d20 vs DC 8. A lock gives +4 to hit and cripples a system of your
   choice (−1 to its rolls) or stuns a crew member if the shot hits.
 - **Fire:** d20 vs armour class 10 (range 2: 12, range 3: 14). Damage is d6 + 4 + weapon power.
@@ -57,8 +59,8 @@ Some orders are **epic**: Scrappers' epics need a hit this turn, Nomads' a stabl
 1–2 turned around, 3–4 engine stall (a boost overshoots 2×), 5 disaster on deck (1 damage, a crew member down,
 a part lost), 6 lucky second chance.
 
-Fights are meant to be short: hulls are 13–18 (+1 per kindred crew), a hit does about 9, so a ship goes down
-after 2–3 hits once the guns are in range.
+Fights are meant to be short: hulls are 13–22 (+1 per kindred crew), a hit does about 9, so a ship goes down
+after 2–3 hits once the guns are in range (the Hauler takes 3–4).
 
 ## Factions
 
@@ -75,10 +77,10 @@ Nomads count heads after every hit, Drifters hum through their mouth-amps and tr
 
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
-| Skiff | small regatta catamaran with a wing sail | 13 | 3 | 3 | hard to hit (+1 AC), speed up to 4, +1 boost, +2 drift, repairs +2, wrecks give 2 parts |
-| Hauler | huge Chinese junk, two smokestacks, a fluke at each side | 18 | 2 | 2 | room for 4 crew, −1 boost rolls |
-| Dreadnought | war junk with ram, cannons and a smokestack | 17 | 3 | 1 | twin guns: each shot rolls to hit twice, each hit does half damage (+1 before halving); +1 attack |
-| Construct | small old-world manta ray | 15 | 5 | 2 | 5 energy: power everything at once |
+| Skiff | small regatta catamaran with a wing sail | 13 | 3 | 3 | **the runner**: hard to hit (+1 AC), speed up to 4, +1 boost, +2 drift, repairs +2, wrecks give 2 parts |
+| Hauler | huge Chinese junk, two smokestacks, a fluke at each side | 22 | 2 | 2 | **the tank**: straight courses fly 2 hexes further at no cost; turns at most 2 steps, +1 DC per step; big target (−1 AC); room for 4 crew; −1 boost rolls |
+| Dreadnought | war junk with ram, cannons and a smokestack | 17 | 3 | 1 | **the gun platform**: broadside arc (wide along both sides); twin guns: each shot rolls to hit twice, each hit does half damage (+1 before halving) |
+| Construct | small old-world manta ray | 13 | 5 | 2 | **the glass cannon**: hovers (slides sideways, turns up to 4 steps, no extra DC for wide turns); fires all round at range 1–2; 5 energy |
 
 ## Crew
 
@@ -191,7 +193,7 @@ See `ROADMAP.md` for the design notes behind each change and what is planned nex
 - `web/page.html` (styles), `web/logic.js` (rules; no DOM, runs in Node too), `web/ui.js` (screen and online codes).
 - `web/build.sh` builds `web/index.html` (the standalone page) and `web/tethys.body.html`.
 - The root `index.html` redirects to `web/`, so the GitHub Pages address opens the game.
-- `node web/test/rules.test.js`: 95 rules tests (setup, maps, terrain, line of sight, Relic Race, storms,
+- `node web/test/rules.test.js`: 98 rules tests (setup, maps, terrain, line of sight, Relic Race, storms,
   natural 20s and 1s, every crew order, factions, ship classes, the computer's rule card, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two
   browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online,
