@@ -91,10 +91,10 @@ Computer against computer, the factions win 44–56% against each other (before 
 - **Four ships, four play styles** (movement and firing arcs per ship):
   - Skiff, the runner: unchanged (speed 4, +1 AC).
   - Hauler, the tank: 22 hull, −1 AC; straight courses fly 2 hexes further for free; turns at most 2 steps, +1 DC each.
-  - Dreadnought, the gun platform: broadside arc (2 steps per range either side, about 270°); lost its +1 attack.
-  - Construct, the glass cannon: 13 hull; hovers (slides sideways, turns up to 4 steps, wide turns cost no DC);
+  - Dreadnought, the gun platform: broadside arc (2 steps per range either side, about 270°); keeps twin guns and +1 attack.
+  - Construct, the glass cannon: 12 hull; hovers (slides sideways, turns up to 4 steps, wide turns cost no DC);
     fires all round at range 1–2; keeps 5 energy.
-  2,000 random-build games: Skiff 48%, Hauler 50%, Dreadnought 52%, Construct 50%; factions 49–51%.
+  Numbers as designed, not tuned to simulations.
 
 Balance after this round (bot games, random builds, 1,500 per setting): ships 44–55%, factions 47–54%.
 Captains: SELA is the strongest (about 55–63%); TASSA and HESK are slightly below average (about 44–50%).

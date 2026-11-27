@@ -199,10 +199,10 @@ const CLASSES = {
     text:"Small, easy to fly, easy to patch. Only 13 hull, but hard to hit (+1 AC), speed up to 4, +1 boost, +2 drift, 3 parts, repairs +2, wrecks give 2 parts.",lore:"A regatta catamaran of the dune sea: two knife hulls that skim like skis, a tall wing sail, no armour."},
   HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:22,energy:2,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,ac:-1,maxSide:2,straight:2,turnDC:1,
     text:"Mobile fortress: 22 hull and room for 4 crew. Straight courses fly 2 hexes further at no cost, but it turns at most 2 steps (+1 DC per step), is a big target (−1 AC), has only 2 energy and −1 to boost rolls.",lore:"A great junk with battened sails and two smokestacks, riding on a fluke at each side. It carries a whole camp on its back."},
-  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:0,dmg:1,rep:0,twin:true,half:true,arc:"broadside",
-    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. Broadside cannons: a wide firing arc along both sides. One fewer part.",lore:"A war junk on a single fluke: a ram at the bow, cannons along both rails and a stack that never stops smoking."},
-  RELIC:{name:"Construct",role:"Relic",size:"Small",hull:13,energy:5,maxSide:4,hover:true,arc:"round",parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
-    text:"Old-world tech that hovers: it slides sideways (turns up to 4 steps, no extra DC for wide turns) and fires all round at range 1–2. 5 energy, but only 13 hull.",lore:"A small manta ray of old-world metal on one glowing fluke. Nobody knows who built it. It hums when the wind dies."},
+  DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,twin:true,half:true,arc:"broadside",
+    text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. Broadside cannons: a wide firing arc along both sides. +1 attack, one fewer part.",lore:"A war junk on a single fluke: a ram at the bow, cannons along both rails and a stack that never stops smoking."},
+  RELIC:{name:"Construct",role:"Relic",size:"Small",hull:12,energy:5,maxSide:4,hover:true,arc:"round",parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
+    text:"Old-world tech that hovers: it slides sideways (turns up to 4 steps, no extra DC for wide turns) and fires all round at range 1–2. 5 energy, but only 12 hull.",lore:"A small manta ray of old-world metal on one glowing fluke. Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
 const CREW = [

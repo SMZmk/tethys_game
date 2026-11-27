@@ -59,7 +59,7 @@ Some orders are **epic**: Scrappers' epics need a hit this turn, Nomads' a stabl
 1–2 turned around, 3–4 engine stall (a boost overshoots 2×), 5 disaster on deck (1 damage, a crew member down,
 a part lost), 6 lucky second chance.
 
-Fights are meant to be short: hulls are 13–22 (+1 per kindred crew), a hit does about 9, so a ship goes down
+Fights are meant to be short: hulls are 12–22 (+1 per kindred crew), a hit does about 9, so a ship goes down
 after 2–3 hits once the guns are in range (the Hauler takes 3–4).
 
 ## Factions
@@ -79,8 +79,8 @@ Nomads count heads after every hit, Drifters hum through their mouth-amps and tr
 |---|---|---|---|---|---|
 | Skiff | small regatta catamaran with a wing sail | 13 | 3 | 3 | **the runner**: hard to hit (+1 AC), speed up to 4, +1 boost, +2 drift, repairs +2, wrecks give 2 parts |
 | Hauler | huge Chinese junk, two smokestacks, a fluke at each side | 22 | 2 | 2 | **the tank**: straight courses fly 2 hexes further at no cost; turns at most 2 steps, +1 DC per step; big target (−1 AC); room for 4 crew; −1 boost rolls |
-| Dreadnought | war junk with ram, cannons and a smokestack | 17 | 3 | 1 | **the gun platform**: broadside arc (wide along both sides); twin guns: each shot rolls to hit twice, each hit does half damage (+1 before halving) |
-| Construct | small old-world manta ray | 13 | 5 | 2 | **the glass cannon**: hovers (slides sideways, turns up to 4 steps, no extra DC for wide turns); fires all round at range 1–2; 5 energy |
+| Dreadnought | war junk with ram, cannons and a smokestack | 17 | 3 | 1 | **the gun platform**: broadside arc (wide along both sides); twin guns: each shot rolls to hit twice, each hit does half damage (+1 before halving); +1 attack |
+| Construct | small old-world manta ray | 12 | 5 | 2 | **the glass cannon**: hovers (slides sideways, turns up to 4 steps, no extra DC for wide turns); fires all round at range 1–2; 5 energy |
 
 ## Crew
 
