@@ -45,7 +45,7 @@ before you move). Then you play them in that order.
 - One shot per turn, then reload (the ATK phase allows a reload).
 
 **ENG: power and repair.**
-- Spend your energy (3; Hauler 2, Construct 5) on ENGINE (longer courses, max 2), BOOST, DRIFT or WEAPONS.
+- Spend your energy (3; Hauler 2, Construct 5) on ENGINE (longer courses, max 2), BOOST, DRIFT or WEAPONS (max 3 each).
 - Spend a spare part to repair d4 hull.
 - Below 40% hull your energy drops to 1; below 20% it drops to 0 and all your rolls get −1.
 
@@ -78,7 +78,7 @@ Nomads count heads after every hit, Drifters hum through their mouth-amps and tr
 | Skiff | small regatta catamaran with a wing sail | 13 | 3 | 3 | hard to hit (+1 AC), speed up to 4, +1 boost, +2 drift, repairs +2, wrecks give 2 parts |
 | Hauler | huge Chinese junk, two smokestacks, a fluke at each side | 18 | 2 | 2 | room for 4 crew, −1 boost rolls |
 | Dreadnought | war junk with ram, cannons and a smokestack | 17 | 3 | 1 | twin guns: each shot rolls to hit twice, each hit does half damage (+1 before halving); +1 attack |
-| Construct | small old-world manta ray | 15 | 5 | 2 | 5 energy: power everything at once |
+| Construct | small old-world manta ray | 17 | 5 | 2 | 5 energy: power several systems at once; hard to hit (+1 AC) |
 
 ## Crew
 
@@ -191,7 +191,7 @@ See `ROADMAP.md` for the design notes behind each change and what is planned nex
 - `web/page.html` (styles), `web/logic.js` (rules; no DOM, runs in Node too), `web/ui.js` (screen and online codes).
 - `web/build.sh` builds `web/index.html` (the standalone page) and `web/tethys.body.html`.
 - The root `index.html` redirects to `web/`, so the GitHub Pages address opens the game.
-- `node web/test/rules.test.js`: 95 rules tests (setup, maps, terrain, line of sight, Relic Race, storms,
+- `node web/test/rules.test.js`: 96 rules tests (setup, maps, terrain, line of sight, Relic Race, storms,
   natural 20s and 1s, every crew order, factions, ship classes, the computer's rule card, replay). No dependencies.
 - `node web/test/browser.e2e.js`: browser tests with Playwright: heading preview, a full online game between two
   browser profiles, bad codes, a full game against the computer, the map staying visible while you wait online,

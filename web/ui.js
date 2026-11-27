@@ -736,7 +736,7 @@ function renderGame(){
       <li>Rock blocks shots: no firing through it (scree and dunes don't block). The red arc shows only hexes you can see.</li>
       <li>Rock crashes and rams deal 3 damage, landing on scree 2, on dunes 1. Old-world wrecks give +1 spare part the first time a ship lands on them.</li>
       <li>The open flats are in the middle. Rock gets denser further out, and canyons lead back in.</li>
-      <li>Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
+      <li>Energy: at most 2 in the engine and 3 in any other system. Under 40% hull your energy cap drops to 1; under 20% it drops to 0 and all rolls get −1.</li>
       <li>Hit damage: d6 + 4 + WPN. A locked shot also cripples a system (−1 to its rolls) or stuns a crew member.</li>
       <li>After an order, a crew member sits out your next 2 turns (Drifters: 1). Stunned crew lose their passive until the end of their next turn.</li>
       <li>Factions: Scrappers +1 damage, epic orders after a hit. Nomads +1 to all rolls after a stable drift, epic orders after a stable drift. Drifters +1 boost and drift, every order rests only 1 turn. Each crew member of your faction adds +1 hull.</li></ul></details>

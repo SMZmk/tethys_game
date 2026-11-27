@@ -393,6 +393,13 @@ test("faction: Nomads get +1 to all rolls after a stable drift", () => {
   stableDrift(G); L.apply(G, "END"); L.apply(G, "TGT"); forceVal(G, 20, 10); L.apply(G, "FIRE");
   assert.ok(G.roll.mods.some(m => m[1] === "Nomads" && m[0] === 1));
 });
+test("energy: at most 2 in the engine and 3 in any other system (Construct spreads its 5)", () => {
+  const G = face(drafted({ c1: "RELIC", f1: "HEART", crew1: ["GUNNER", "MECHANIC", "QM"] })); const s = sh(G, 0);
+  plan(G, "ENG", "NAV", "ATK");
+  for (let i = 0; i < 3; i++) L.apply(G, "+WPN"); assert.ok(!L.legal(G).includes("+WPN"));
+  L.apply(G, "+ENG"); L.apply(G, "+ENG"); assert.ok(!L.legal(G).includes("+ENG"));
+  assert.strictEqual(s.sys.wpn, 3); assert.strictEqual(L.CLASSES.RELIC.ac, 1); assert.strictEqual(L.CLASSES.RELIC.hull, 17);
+});
 test("faction: Scrappers won't sail the Construct, Drifters won't sail the Dreadnought", () => {
   const G = fresh(3);
   assert.ok(!L.legal(G).includes("C:RELIC:MACHINE")); assert.ok(!L.legal(G).includes("C:DREAD:WIND")); assert.ok(L.legal(G).includes("C:HAULER:WIND"));

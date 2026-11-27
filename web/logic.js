@@ -196,8 +196,8 @@ const CLASSES = {
     text:"Mobile fortress. 18 hull and room for 4 crew, but only 2 energy and −1 to boost rolls.",lore:"A great junk with battened sails and two smokestacks, riding on a fluke at each side. It carries a whole camp on its back."},
   DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,twin:true,half:true,
     text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"A war junk on a single fluke: a ram at the bow, cannons along both rails and a stack that never stops smoking."},
-  RELIC:{name:"Construct",role:"Relic",size:"Small",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
-    text:"Old-world tech. 5 energy: power every system at once.",lore:"A small manta ray of old-world metal on one glowing fluke. Nobody knows who built it. It hums when the wind dies."},
+  RELIC:{name:"Construct",role:"Relic",size:"Small",ac:1,hull:17,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
+    text:"Old-world tech. 5 energy: power several systems at once. Small and hard to hit (+1 AC).",lore:"A small manta ray of old-world metal on one glowing fluke. Nobody knows who built it. It hums when the wind dies."},
 };
 // f = faction, st = station (phase where the order works)
 const CREW = [
@@ -627,7 +627,7 @@ function legal(G){
     case "eng": {
       const cap=energyCap(s), used=energyUsed(s);
       for(const [k,lab] of SYS){ const K=Object.keys(SYS_KEYS).find(x=>SYS_KEYS[x]===k);
-        if(used<cap&&!(k==="eng"&&s.sys.eng>=2)) L.push("+"+K);
+        if(used<cap&&s.sys[k]<(k==="eng"?2:3)) L.push("+"+K);          // max per system: engine 2, others 3
         if(s.sys[k]>0) L.push("-"+K); }
       if(s.parts>0&&s.hp<s.maxHp) L.push("REP");
       L.push("END"); break; }
