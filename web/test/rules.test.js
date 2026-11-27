@@ -214,7 +214,7 @@ test("nav: pivot is offered only when rocks block every course", () => {
   L.apply(G, "PIVOT:R"); assert.strictEqual(s.o, (o + 1) % 6); assert.strictEqual(G.st, "done");
 });
 test("nav: a wreck gives +1 spare part, only once", () => {
-  const G = face(drafted({ c1: "DREAD" })); plan(G, "NAV", "ATK", "ENG");
+  const G = face(drafted({ c1: "DREAD", f1: "HEART" })); plan(G, "NAV", "ATK", "ENG");
   L.setTerrainSeed(G.seed);
   const s = sh(G, 0); let spot = null;
   for (let q = -9; q <= 9 && !spot; q++) for (let r = -9; r <= 9 && !spot; r++) if (L.terrain(q, r) === 4) spot = [q, r];
@@ -393,9 +393,9 @@ test("faction: Nomads get +1 to all rolls after a stable drift", () => {
   stableDrift(G); L.apply(G, "END"); L.apply(G, "TGT"); forceVal(G, 20, 10); L.apply(G, "FIRE");
   assert.ok(G.roll.mods.some(m => m[1] === "Nomads" && m[0] === 1));
 });
-test("faction: Scrappers won't sail the Construct, Drifters won't sail the Hauler", () => {
+test("faction: Scrappers won't sail the Construct, Drifters won't sail the Dreadnought", () => {
   const G = fresh(3);
-  assert.ok(!L.legal(G).includes("C:RELIC:MACHINE")); assert.ok(!L.legal(G).includes("C:HAULER:WIND"));
+  assert.ok(!L.legal(G).includes("C:RELIC:MACHINE")); assert.ok(!L.legal(G).includes("C:DREAD:WIND")); assert.ok(L.legal(G).includes("C:HAULER:WIND"));
   assert.ok(L.legal(G).includes("C:RELIC:HEART")); assert.ok(L.legal(G).includes("C:HAULER:HEART"));
   assert.throws(() => L.apply(G, "C:RELIC:MACHINE"), /Illegal/);
 });
@@ -472,7 +472,7 @@ test("crew: SELA Song of the Wind (passive epic) below half hull: engine adds no
   assert.ok(G.roll.mods.some(m => m[1] === "Song of the Wind" && m[0] === 2));
 });
 test("dreadnought: one shot rolls to hit twice, each hit half damage (+1 before halving)", () => {
-  const G = toAttack({ c1: "DREAD", crew1: ["SPOTTER", "ACE", "TECH"] }), t = sh(G, 1), s = sh(G, 0);
+  const G = toAttack({ c1: "DREAD", f1: "HEART", crew1: ["SPOTTER", "ACE", "TECH"] }), t = sh(G, 1), s = sh(G, 0);
   assert.strictEqual(s.ammo, 1);
   L.apply(G, "TGT"); const hp = t.hp;
   force(G, 20, v => v >= 19); L.apply(G, "FIRE");
@@ -485,7 +485,7 @@ test("dreadnought: two attack rolls make a clean miss rarer", () => {
   let missOne = 0, missTwin = 0;
   for (let seed = 1; seed <= 300; seed++) {
     for (const c of ["SKIFF", "DREAD"]) {
-      const G = toAttack({ c1: c, seed }); G.rng = (seed * 2654435761) >>> 0;   // fresh dice per game
+      const G = toAttack({ c1: c, f1: "HEART", seed }); G.rng = (seed * 2654435761) >>> 0;   // fresh dice per game
       L.apply(G, "TGT"); L.apply(G, "FIRE");
       if (G.st !== "atk_dmg") { if (c === "DREAD") missTwin++; else missOne++; }
     }
@@ -769,7 +769,7 @@ test("storm: shots without a lock get −2", () => {
 // ---------- skiff ----------
 test("skiff: small target (+1 AC), easy to fly (+2 drift), easy to patch (3 parts)", () => {
   const c = L.CLASSES.SKIFF; assert.strictEqual(c.ac, 1); assert.strictEqual(c.dft, 2); assert.strictEqual(c.parts, 3);
-  const G = face(drafted({ c1: "DREAD", c2: "SKIFF", crew1: ["SPOTTER", "ACE", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
+  const G = face(drafted({ c1: "DREAD", f1: "HEART", c2: "SKIFF", crew1: ["SPOTTER", "ACE", "TECH"] })); plan(G, "NAV", "ATK", "ENG");
   stableDrift(G); L.apply(G, "END"); L.apply(G, "TGT"); forceVal(G, 20, 10); L.apply(G, "FIRE");
   assert.ok(/AC 11/.test(G.roll.vs), G.roll.vs);                             // AC 10 + range 1 (+0) + small (+1)
 });

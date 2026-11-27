@@ -186,14 +186,14 @@ const FACTIONS = {
     perk:"+1 to boost and drift rolls. Every order rests only 1 turn",creed:"Born to fly and fight. Owned by no one, lost never."},
 };
 const KINDRED_HULL=1;
-// Hulls a faction will not sail: Scrappers distrust the old-world relic, Drifters scorn the slow fortress.
-const FORBIDDEN={MACHINE:["RELIC"],WIND:["HAULER"]};
+// Hulls a faction will not sail: Scrappers distrust the old-world relic, Drifters scorn the war junk.
+const FORBIDDEN={MACHINE:["RELIC"],WIND:["DREAD"]};
 const shipAllowed=(cls,fac)=>!(FORBIDDEN[fac]||[]).includes(cls);
 const CLASSES = {
   SKIFF:{name:"Skiff",role:"Runner",size:"Small",hull:13,energy:3,parts:3,bst:1,dft:2,atk:0,dmg:0,rep:2,ac:1,speed:4,salvage:2,
     text:"Small, easy to fly, easy to patch. Only 13 hull, but hard to hit (+1 AC), speed up to 4, +1 boost, +2 drift, 3 parts, repairs +2, wrecks give 2 parts.",lore:"A regatta catamaran of the dune sea: two knife hulls that skim like skis, a tall wing sail, no armour."},
-  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:14,energy:3,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
-    text:"Mobile fortress. Room for 4 crew, −1 to boost rolls.",lore:"A great junk with battened sails and two smokestacks, riding on a fluke at each side. It carries a whole camp on its back."},
+  HAULER:{name:"Hauler",role:"Fortress",size:"Huge",hull:18,energy:2,parts:2,bst:-1,dft:0,atk:0,dmg:0,rep:0,crew:4,
+    text:"Mobile fortress. 18 hull and room for 4 crew, but only 2 energy and −1 to boost rolls.",lore:"A great junk with battened sails and two smokestacks, riding on a fluke at each side. It carries a whole camp on its back."},
   DREAD:{name:"Dreadnought",role:"Ripper",size:"Large",hull:17,energy:3,parts:1,bst:0,dft:0,atk:1,dmg:1,rep:0,twin:true,half:true,
     text:"Twin guns: every shot rolls to hit twice, each hit does half damage (+1 before halving). Steadier damage, fewer clean misses. +1 attack, one fewer part.",lore:"A war junk on a single fluke: a ram at the bow, cannons along both rails and a stack that never stops smoking."},
   RELIC:{name:"Construct",role:"Relic",size:"Small",hull:15,energy:5,parts:2,bst:0,dft:0,atk:0,dmg:0,rep:0,
@@ -860,7 +860,7 @@ function useOrder(G,i,arg){
 //  SETUP   Faction d6: 1–2 Scrappers, 3–4 Nomads, 5–6 Drifters.
 //          Ship d6: 1 Skiff, 2 Hauler, 3 Dreadnought, 4 Construct,
 //                   5–6 its faction's ship (Scrappers Dreadnought, Nomads Hauler, Drifters Skiff).
-//                   A ship its faction won't sail (Scrappers: Construct, Drifters: Hauler) becomes its faction's ship.
+//                   A ship its faction won't sail (Scrappers: Construct, Drifters: Dreadnought) becomes its faction's ship.
 //          Crew: its faction's list (AI_CREW below), captain first; a Hauler takes 4.
 //          As Player 2 it picks the weather first: d6 1–4 calm, 5–6 storm.
 //  EACH TURN roll two d6:

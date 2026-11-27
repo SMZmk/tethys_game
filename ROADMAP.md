@@ -10,7 +10,7 @@ Design notes for the browser game (`web/`). "Done" items are in the game; the re
 | Perk | +1 damage on hits | After a stable drift: +1 to all rolls that turn | +1 to boost and drift rolls |
 | Epic orders | Only in a turn where you **hit** the enemy | Only in a turn with a **stable drift** | None: every order can be used after **one turn** of rest |
 | Normal rest | 2 turns | 2 turns | 1 turn |
-| Won't sail | Construct (relic) | — | Hauler (fortress) |
+| Won't sail | Construct (relic) | — | Dreadnought (war junk) |
 
 Epic orders (no lock-on needed for the Scrapper ones):
 - Scrappers: **VOSS, Knock Them Down!** (after a hit, stun a random enemy crew member) and **GRIT, Chain Shot**
@@ -84,6 +84,9 @@ Computer against computer, the factions win 44–56% against each other (before 
 
 - **Layout**: the command panel sits right under the map (the chronicle moved below it). On desktop the map
   shrinks to fit the screen height so map and commands are visible together, and the crew column scrolls on its own.
+
+- **Hauler**: hull 18 (was 14) and 2 energy (was 3). Drifters now sail the Hauler but not the Dreadnought.
+  1,500 random-build games: Hauler 49% (was 48%), Drifters on a Hauler 50%, factions 49–51%.
 
 Balance after this round (bot games, random builds, 1,500 per setting): ships 44–55%, factions 47–54%.
 Captains: SELA is the strongest (about 55–63%); TASSA and HESK are slightly below average (about 44–50%).

@@ -563,7 +563,7 @@ function renderDraft(){
     <div class="classes">${Object.entries(CLASSES).map(([k,c])=>`<button class="cls ${cl===k?"picked":""} ${fa&&!shipAllowed(k,fa)?"taken":""}" data-ui="selcls" data-v="${k}" id="sel-${k}" aria-pressed="${cl===k}" ${fa&&!shipAllowed(k,fa)?"disabled":""}>
       ${sideCanvas(k,s.pid,fa)}<span class="clshead">${shipCanvas(k,s.pid,fa,"big")}<span class="nm">${c.name.toUpperCase()}<em>${c.role.toUpperCase()} · ${c.size.toUpperCase()}</em></span></span>
       <span class="row"><span>HULL ${c.hull}</span><span>ENERGY ${c.energy}</span><span>PARTS ${c.parts}</span></span><span>${esc(c.text)}</span><span class="dim">${esc(c.lore)}</span></button>`).join("")}</div>
-    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull. Scrappers won't sail the Construct; Drifters won't sail the Hauler.</span></div>
+    <div class="prompt">FACTION<span class="sub">Each crew member of your faction adds +${KINDRED_HULL} hull. Scrappers won't sail the Construct; Drifters won't sail the Dreadnought.</span></div>
     <div class="classes facs">${Object.entries(FACTIONS).map(([k,f])=>`<button class="cls fac ${fa===k?"picked":""} ${cl&&!shipAllowed(cl,k)?"taken":""}" style="--fc:${f.color}" data-ui="selfac" data-v="${k}" id="sel-${k}" aria-pressed="${fa===k}" ${cl&&!shipAllowed(cl,k)?"disabled":""}>
       <span class="nm" style="color:${f.color}">${f.name.toUpperCase()}<em>${esc(f.long.toUpperCase())}</em></span><span>${esc(f.perk)}</span><span class="dim">“${esc(f.creed)}”</span>
       <span class="dim">Crew: ${CREW.filter(c=>c.f===k).map(c=>c.name).join(", ")}</span></button>`).join("")}</div>

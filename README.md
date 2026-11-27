@@ -45,7 +45,7 @@ before you move). Then you play them in that order.
 - One shot per turn, then reload (the ATK phase allows a reload).
 
 **ENG: power and repair.**
-- Spend your energy (3, the Construct 5) on ENGINE (longer courses, max 2), BOOST, DRIFT or WEAPONS.
+- Spend your energy (3; Hauler 2, Construct 5) on ENGINE (longer courses, max 2), BOOST, DRIFT or WEAPONS.
 - Spend a spare part to repair d4 hull.
 - Below 40% hull your energy drops to 1; below 20% it drops to 0 and all your rolls get −1.
 
@@ -57,7 +57,7 @@ Some orders are **epic**: Scrappers' epics need a hit this turn, Nomads' a stabl
 1–2 turned around, 3–4 engine stall (a boost overshoots 2×), 5 disaster on deck (1 damage, a crew member down,
 a part lost), 6 lucky second chance.
 
-Fights are meant to be short: hulls are 13–17 (+1 per kindred crew), a hit does about 9, so a ship goes down
+Fights are meant to be short: hulls are 13–18 (+1 per kindred crew), a hit does about 9, so a ship goes down
 after 2–3 hits once the guns are in range.
 
 ## Factions
@@ -66,7 +66,7 @@ after 2–3 hits once the guns are in range.
 |---|---|---|---|
 | Scrappers (Machine) | aggressive, ruthless; the ship is a living body | +1 damage on hits | epic orders only after a hit; won't sail the Construct |
 | Nomads (Heart) | best when wind, crew and ship work as one | after a stable drift, +1 to all rolls | epic orders only after a stable drift |
-| Drifters (Wind) | born to fly and fight | +1 to boost and drift rolls | every order rests only 1 turn; won't sail the Hauler |
+| Drifters (Wind) | born to fly and fight | +1 to boost and drift rolls | every order rests only 1 turn; won't sail the Dreadnought |
 
 The chronicle above the log tells the battle in each faction's voice: Scrappers grieve for their engine,
 Nomads count heads after every hit, Drifters hum through their mouth-amps and trust the wind.
@@ -76,7 +76,7 @@ Nomads count heads after every hit, Drifters hum through their mouth-amps and tr
 | Ship | Look | Hull | Energy | Parts | Trait |
 |---|---|---|---|---|---|
 | Skiff | small regatta catamaran with a wing sail | 13 | 3 | 3 | hard to hit (+1 AC), speed up to 4, +1 boost, +2 drift, repairs +2, wrecks give 2 parts |
-| Hauler | huge Chinese junk, two smokestacks, a fluke at each side | 14 | 3 | 2 | room for 4 crew, −1 boost rolls |
+| Hauler | huge Chinese junk, two smokestacks, a fluke at each side | 18 | 2 | 2 | room for 4 crew, −1 boost rolls |
 | Dreadnought | war junk with ram, cannons and a smokestack | 17 | 3 | 1 | twin guns: each shot rolls to hit twice, each hit does half damage (+1 before halving); +1 attack |
 | Construct | small old-world manta ray | 15 | 5 | 2 | 5 energy: power everything at once |
 
