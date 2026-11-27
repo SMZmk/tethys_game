@@ -88,10 +88,6 @@ Computer against computer, the factions win 44–56% against each other (before 
 - **Hauler**: hull 18 (was 14) and 2 energy (was 3). Drifters now sail the Hauler but not the Dreadnought.
   1,500 random-build games: Hauler 49% (was 48%), Drifters on a Hauler 50%, factions 49–51%.
 
-- **Construct**: nothing capped weapon power, so it put all 5 energy into weapons (+5 to hit, up to 15 damage a
-  hit) and barely moved. Now every system holds at most 3 energy (engine 2, as before); the Construct gets hull 17
-  (was 15) and, as a small ship, +1 AC. 2,000 random-build games: ships 49–51%, factions 50%, crew 46–57%.
-
 Balance after this round (bot games, random builds, 1,500 per setting): ships 44–55%, factions 47–54%.
 Captains: SELA is the strongest (about 55–63%); TASSA and HESK are slightly below average (about 44–50%).
 Simple buffs for TASSA and HESK were tested and made no measurable difference, so the agreed designs were kept.
